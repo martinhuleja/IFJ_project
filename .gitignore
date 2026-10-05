@@ -1,0 +1,53 @@
+# === C Build Artifacts and Binaries
+*.o
+*.obj
+*.a
+*.exe
+*.dylib
+*.dll
+*.exe
+
+# Debug
+*.dSYM/
+*.su
+*.idb
+*.pdb
+core
+vgcore.*
+
+# Binaries
+translator
+
+# === LaTeX ===
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
+
+# Bibliography and indexes
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.idx
+*.ilg
+*.ind
+*.nlo
+*.nls
+
+# Other LaTeX tmp files
+*.nav
+*.snm
+*.vrb
+*.lot
+*.lof
+
+# Final PDF
+*.pdf
+
+# === other ===
+.DS_Store
