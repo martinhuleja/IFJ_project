@@ -1,12 +1,8 @@
 #include "symtable.h"
 #include <stdlib.h> //malloc
+#include <stdbool.h>
 
-typedef struct Sdata
-{
-    char type;
-    int position;
-    bool changeable;
-}data;
+
 
 typedef struct Sitem
 {
@@ -21,7 +17,6 @@ typedef struct Stable
     int table_size;
 
 }table;
-
 
 void symtable(void)
 {
