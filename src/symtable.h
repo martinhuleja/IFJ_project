@@ -19,7 +19,6 @@ table *insert_item(table *table, char* key,data data);
 data get_data(table *table, char* key);
 table *delete_item(table *table, char* key);
 bool search_table(table *table,char* key);
-void symtable(void);
 #endif
 
 
