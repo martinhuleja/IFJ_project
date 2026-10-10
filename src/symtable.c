@@ -23,23 +23,49 @@ typedef struct Stable
 
 table *init_table()
 {
-    table *hash_tab = malloc(sizeof(table));
-    if (hash_tab == NULL)
+    table *table = malloc(sizeof(table));
+    if (table == NULL)
     {
         fprintf(stderr,"99");
         return NULL;
     }   
-    hash_tab->items = malloc(sizeof(item));
-    if (hash_tab->items == NULL)
+    table->items = malloc(sizeof(item));
+    if (table->items == NULL)
     {
-        free(hash_tab);
+        free(table);
         fprintf(stderr,"99");
         return NULL;
     }
-    hash_tab->items[0].taken = false;
-    hash_tab->table_capacity =1;
-    hash_tab->table_size =0;
+    table->items[0].taken = false;
+    table->table_capacity =1;
+    table->table_size =0;
 
 
-    return hash_tab;
+    return table;
+}
+table *insert_item(table *table, char* key,data data)
+{   
+    item *temp;
+    if(table->table_capacity <= table->table_size)
+    {
+        temp = realloc(table->items, sizeof(item)*(table->table_capacity)*2);
+        if(temp == NULL)
+        {
+            free(table->items);
+            free(table);
+            fprintf(stderr,"99");
+            return NULL;
+        } 
+        else
+        {
+            table->items = temp;
+            table->table_capacity  *= 2;
+        }
+    }
+
+    table->table_size++;
+    table->items[table->table_size-1].taken = true;
+    table->items[table->table_size].key = key;
+    table->items[table->table_size].data =data;
+    return table;
 }
