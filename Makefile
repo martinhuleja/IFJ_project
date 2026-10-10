@@ -8,7 +8,7 @@
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic
 TARGET = translator
-SRC = src/translator.c
+SRC = src/translator.c src/symtable.c
 
 # Clang-format configuration
 FORMAT = clang-format
