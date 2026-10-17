@@ -47,45 +47,26 @@ table *init_table()
 }
 table *insert_item(table *hash_tab, char* key,data data)
 {   
-    item *temp;
     //realloc if table is full 
     if(hash_tab->table_capacity <= hash_tab->table_size)
     {
-        temp = realloc(hash_tab->items, sizeof(item)*(hash_tab->table_capacity)*2);
-        if(temp == NULL)
-        {
-            free(hash_tab->items);
-            free(hash_tab);
-            fprintf(stderr,"99");
+        if(resize_table(hash_tab) == NULL)
             return NULL;
-        } 
-        else
-        {
-
-            hash_tab->items = temp;
-            int old_cap;
-            int new_cap;
-            old_cap = hash_tab->table_capacity;
-            new_cap = hash_tab->table_capacity *2 ;
-            hash_tab->table_capacity  = new_cap;
-            for(int i = old_cap; i< new_cap;i++)
-            {
-                hash_tab->items[i].taken = false;
-            }
-        }
     }
 
     // hashing and normalizing position
-    int position = BKDRhash(strlen(key),key);
+    unsigned position = BKDRhash(strlen(key),key);
     position = position % hash_tab->table_capacity;
 
+    //linear probing
     while( hash_tab->items[position].taken == true )
     {
-        //linear probing 
         position++;
         if (position >= hash_tab->table_capacity)
             position = position % hash_tab->table_capacity;
     }
+    
+    //allocating
     hash_tab->items[position].taken = true;
     hash_tab->items[position].key = key;
     hash_tab->items[position].data =data;
@@ -103,4 +84,54 @@ unsigned int BKDRhash(int length, char* key)
         hash = (hash*seed) + (*key);
     }
     return hash;
+}
+
+table *resize_table(table *hash_tab)
+{   
+    item *new_tab;
+    new_tab = malloc(sizeof(item)*(hash_tab->table_capacity)*2);
+    if(new_tab == NULL)
+    {
+        free(hash_tab->items);
+        free(hash_tab);
+        fprintf(stderr,"99");
+        return NULL;
+    } 
+    else
+    {
+
+        //rehash from old table -> new table
+        int old_cap = hash_tab->table_capacity;
+        int new_cap = hash_tab->table_capacity *2 ;
+        unsigned new_pos = 0;
+        for(int i =0;i<new_cap;i++)
+        {
+            new_tab[i].taken = false;
+        }
+        for(int i = 0; i<old_cap;i++)
+        {
+            if(hash_tab->items[i].taken == true)
+            {
+                new_pos = BKDRhash(strlen(hash_tab->items[i].key),hash_tab->items[i].key);
+                new_pos = new_pos % new_cap;
+
+                while( new_tab[new_pos].taken == true )
+                {
+                    new_pos++;
+                    if (new_pos >= new_cap)
+                        new_pos = new_pos % new_cap;
+                }
+                new_tab[new_pos].taken = true;
+                new_tab[new_pos].key = hash_tab->items[i].key;
+                new_tab[new_pos].data= hash_tab->items[i].data;
+            }
+        }
+
+        // move to new table & init new table
+        free(hash_tab->items);
+        hash_tab->items = new_tab;
+        hash_tab->table_capacity  = new_cap;
+    }
+    return hash_tab;
+
 }
