@@ -135,3 +135,33 @@ table *resize_table(table *hash_tab)
     return hash_tab;
 
 }
+
+bool search_table(table *hash_tab, char* key)
+{
+    int capacity = hash_tab->table_capacity;
+    int i = 0;
+    unsigned position = BKDRhash(strlen(key),key);
+    position = position % capacity;
+
+    //checking adjusted for linear probing
+    if (hash_tab->items[position].taken == false )
+        return false;
+    else
+    {
+        while( hash_tab->items[position].taken == true && i < capacity) 
+        {
+            if(strcmp(hash_tab->items[position].key,key) == 0)
+            {
+                return true;
+            }
+            else
+            {
+                position++;
+                i++;
+                if (position >= capacity)
+                    position = position % capacity;
+            }
+        }
+    }
+    return false;
+}

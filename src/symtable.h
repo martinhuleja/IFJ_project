@@ -21,6 +21,7 @@ table *delete_item(table *table, char* key);
 bool search_table(table *table,char* key);
 unsigned int BKDRhash(int length, char* key);
 table *resize_table(table *hash_tab);
+bool search_table(table *hash_tab, char* key);
 #endif
 
 
