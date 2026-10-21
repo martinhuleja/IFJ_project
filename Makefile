@@ -39,3 +39,23 @@ format:
 clean:
 	rm -f $(TARGET)
 
+# === DOCUMENTATION ===
+
+SRC_DOC=dokumentace
+SRC_DOC_PATH=doc/$(SRC_DOC)
+
+doc: $(SRC_DOC_PATH).pdf
+
+$(SRC_DOC_PATH).pdf: $(SRC_DOC_PATH).tex
+	latex $(SRC_DOC_PATH).tex
+	latex $(SRC_DOC_PATH).tex
+	dvips -t a4 $(SRC_DOC).dvi
+	ps2pdf -sPAPERSIZE=a4 $(SRC_DOC).ps
+	mv $(SRC_DOC).* doc/
+
+clean-doc:
+	rm -f $(SRC_DOC_PATH).aux $(SRC_DOC_PATH).dvi $(SRC_DOC_PATH).log $(SRC_DOC_PATH).out $(SRC_DOC_PATH).ps
+
+# === CLEAN ===
+clean-all: clean clean-doc
+	rm -f $(SRC_DOC_PATH).pdf
