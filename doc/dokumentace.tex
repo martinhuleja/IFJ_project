@@ -10,13 +10,17 @@
 \usepackage[dvips, unicode, hidelinks, bookmarksopen]{hyperref}
 \usepackage{xltabular}
 \usepackage{pdflscape}
+\usepackage{graphicx}
+\usepackage{booktabs}
 
-% Command definition
+% Command definitions
 \newcommand{\tableheader} {
   \hline
   Číslo & $A \rightarrow \alpha$ & $Predict (A \rightarrow \alpha)$ \\
   \hline
 }
+
+\newcommand{\rot}[1]{\rotatebox{90}{#1}}
 
 
 \begin{document}
@@ -57,7 +61,7 @@ zikód) si komponenty předávají informace. Z diagramu a jeho textového popis
 vstupy, výstupy, význam komponent a jejich propojení;
 • diagram automatu, který specifikuje lexikální analyzátor (podle konvencí přednášených v IFJ;
 s případným slovním popisem odchylek od standardního modelu konečného automatu);
-• LL tabulku; a precedenční tabulku, podle kterých jste imple-
+• precedenční tabulku, podle kterých jste imple-
 mentovali syntaktický analyzátor;
 • stručný popis každého modulu (informačně obohacující věta na dvojici .c/.h);
 • bibliografické citace všech převzatých zdrojů (vč. kódu, algoritmů);
@@ -220,5 +224,68 @@ $G = (N, T, P, S)$
       & $\{$ EOL, Semicolon $\}$ \\ \hline
 
 \end{xltabular}
+
+% ====================
+% ===== LL table =====
+% ====================
+\begin{landscape}
+  \begin{table}[p]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+
+  \begin{tabular}{l *{33}{c}}
+  \toprule
+
+  % === HEADER ===
+  \textbf{Neterminál} & \rot{Identifier} & \rot{IntLiteral} & \rot{DoubleLiteral} &
+  \rot{StringLiteral} & \rot{UnitLiteral} & \rot{TypeInt} & \rot{TypeDouble} &
+  \rot{TypeString} & \rot{TypeUnit} & \rot{Val} & \rot{Var} & \rot{If} & \rot{Then} &
+  \rot{Else} & \rot{While} & \rot{Do} & \rot{Return} & \rot{AtMain} & \rot{Def} &
+  \rot{IFJ26Id} & \rot{Import} & \rot{Assign} & \rot{LParen} & \rot{RParen} &
+  \rot{Colon} & \rot{Comma} & \rot{Semicolon} & \rot{Dot} & \rot{Star} &
+  \rot{Indent} & \rot{Dedent} & \rot{EOL} & \rot{EOF} \\
+  \midrule
+  % === TABLE CONTENT ===
+  Program & & & & & & & & & & & & & & & & & & & & & 1 & & & & & & & & & & & & \\
+  Prologue & & & & & & & & & & & & & & & & & & & & & 2 & & & & & & & & & & & & \\
+  FunctionList & & & & & & & & & & & & & & & & & & 3 & 3 & & & & & & & & & & & & & & \\
+  FunctionListRest & & & & & & & & & & & & & & & & & & 4 & 4 & & & & & & & & & & & & & & 5 \\
+  FunctionDef & & & & & & & & & & & & & & & & & & 6 & 6 & & & & & & & & & & & & & & \\
+  MainOpt & & & & & & & & & & & & & & & & & & 7 & 8 & & & & & & & & & & & & & & \\
+  ParamGroup & & & & & & & & & & & & & & & & & & & & & & & 9 & & & & & & & & & & \\
+  ParamListOpt & 10 & & & & & & & & & & & & & & & & & & & & & & & 11 & & & & & & & & & \\
+  ParamList & 12 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  ParamListRest & & & & & & & & & & & & & & & & & & & & & & & & 14 & & 13 & & & & & & & \\
+  Param & 15 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  TypeOpt & & & & & & & & & & & & & & & & & & & & & & 17 & & & 16 & & & & & & & & \\
+  Type & & & & & & 18 & 19 & 20 & 21 & & & & & & & & & & & & & & & & & & & & & & & & \\
+  FunctionBody & 22 & 22 & 22 & 22 & 22 & & & & & & & & & & & & & & & & & & 22 & & & & & & & 25 & & & \\
+  Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 26 & & & \\
+  StatementList & 27 & 27 & 27 & 27 & 27 & & & & & 27 & 27 & 27 & & & 27 & & 27 & & & & & & 27 & & & & & & & & & & \\
+  StatementListRest & 28 & 28 & 28 & 28 & 28 & & & & & 28 & 28 & 28 & & & 28 & & 28 & & & & & & 28 & & & & & & & & 29 & & \\
+  Statement & 36 & 37 & 37 & 37 & 37 & & & & & 32 & 32 & 33 & & & 34 & & 35 & & & & & & 37 & & & & & & & & & & \\
+  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 31 & & & & & 30 & \\
+  VarDef & & & & & & & & & & 46 & 46 & & & & & & & & & & & & & & & & & & & & & & \\
+  VarKind & & & & & & & & & & 47 & 48 & & & & & & & & & & & & & & & & & & & & & & \\
+  IfStatement & & & & & & & & & & & & 49 & & & & & & & & & & & & & & & & & & & & & \\
+  WhileStatement & & & & & & & & & & & & & & & 50 & & & & & & & & & & & & & & & & & & \\
+  ReturnStatement & & & & & & & & & & & & & & & & & 51 & & & & & & & & & & & & & & & & \\
+  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 58 & & & & & & & & & & \\
+  ArgList & 61 & 61 & 61 & 61 & 61 & & & & & & & & & & & & & & & & & & 61 & & & & & & & & & & \\
+  ArgListOpt & 59 & 59 & 59 & 59 & 59 & & & & & & & & & & & & & & & & & & 59 & 60 & & & & & & & & & \\
+  ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 63 & & 62 & & & & & & & \\
+  Expr & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  ExprOrCall & 54 & 55 & 55 & 55 & 55 & & & & & & & & & & & & & & & & & & 55 & & & & & & & & & & \\
+  ReturnExprOpt & 52 & 52 & 52 & 52 & 52 & & & & & & & & & & & & & & & & & & 52 & & & & 53 & & & & & 53 & \\
+  CallOpt & & & & & & & & & & & & & & & & & & & & & & & 56 & & & & 57 & & & & & 57 & 57 \\
+  EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 23 & 24 \\
+  StatementAfterId & & & & & & & & & & & & & & & & & & & & & & 38 & 39 & & & & 40 & & & & & 40 & \\
+  ExprNonId & & 41 & 42 & 43 & 44 & & & & & & & & & & & & & & & & & & 45 & & & & & & & & & & \\
+  ExprTail & & & & & & & & & & & & & & & & & & & & & & & & & & & 64 & & & & & 64 & \\
+  \bottomrule
+  \end{tabular}
+  \end{table}
+\end{landscape}
 
 \end{document}
