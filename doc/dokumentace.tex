@@ -290,4 +290,53 @@ Neterminál Expr je vyhodnocován samostatnou precedenční syntaktickou analýz
   \end{table}
 \end{landscape}
 
+\section{Precedenční syntaktická analýza výrazů}
+
+Pro vyhodnocování výrazů byla v souladu se zadáním využita precedenční syntaktická analýza.
+
+\subsection{Operátorová gramatika výrazů}
+
+Gramatika zpracovávající výrazy je definována jako
+$G_{\textnormal{expr}} = (\{E\}, T_{\textnormal{prec}}, P_{\textnormal{prec}}, E)$,
+kde $T_{\textnormal{prec}} = \{ i, -_{\textnormal{un}}, *, /, +, -_{\textnormal{bi}},
+<, <=, >, >=, ==, !=, (, ), \$ \}$
+
+\begin{itemize}
+    \item $i$ značí identifikátory a literály typů \texttt{Int}, \texttt{Double}, \texttt{String}, \texttt{Unit},
+    \item $-_{\textnormal{un}}$ značí unární operátor minus, $-_{\textnormal{bi}}$ binární odčítání,
+    \item $\$$ značí ukončovač výrazu (\texttt{EOL}, \texttt{EOF}, \texttt{then}, \texttt{do}, \dots).
+\end{itemize}
+
+\noindent Množina pravidel $P_{\textnormal{prec}}$ zahrnuje: \quad $E \rightarrow i, \qquad E \rightarrow (E),
+\qquad E \rightarrow -E, \qquad E \rightarrow E * E, \qquad E \rightarrow E / E, \qquad E \rightarrow E + E,
+\qquad E \rightarrow E - E, \qquad E \rightarrow E \ rel \ E$, kde $rel \in \{ <, <=, >, >=, ==, != \}.$
+
+\subsection{Precedenční tabulka}
+Hierarchie operátorů vychází ze specifikace jazyka IFJ26.
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabular}{l *{9}{|c}}
+
+  \toprule
+  \textbf{Vrchol / Vstup}
+  & $i$ & $-_{\textnormal{un}}$ & $*$, $/$ & $+$, $-_{\textnormal{bi}}$
+  & $<, <=, >, >=$ & $==, !=$ & $($ & $)$ & $\$$ \\
+
+  \midrule
+
+  $i$                        &     &     & $>$ & $>$ & $>$ & $>$ &     & $>$ & $>$ \\
+  $-_{\textnormal{un}}$      & $<$ & $<$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
+  $*$, $/$                   & $<$ & $<$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
+  $+$, $-_{\textnormal{bi}}$ & $<$ & $<$ & $<$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
+  $<, <=, >, >=$             & $<$ & $<$ & $<$ & $<$ &     & $>$ & $<$ & $>$ & $>$ \\
+  $==, !=$                   & $<$ & $<$ & $<$ & $<$ & $<$ &     & $<$ & $>$ & $>$ \\
+  $($                        & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $=$ &     \\
+  $)$                        &     &     & $>$ & $>$ & $>$ & $>$ &     & $>$ & $>$ \\
+  $\$$                       & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ &     &     \\
+
+  \bottomrule
+  \end{tabular}
+\end{table}
+
 \end{document}
