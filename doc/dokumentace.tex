@@ -69,7 +69,9 @@ mentovali syntaktický analyzátor;
 
 \section{LL gramatika}
 
-$G = (N, T, P, S)$
+Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu. \\
+
+\noindent $G = (N, T, P, S)$
 
 \begin{itemize}
   \item $N = \{$ Program, Prologue, FunctionList, FunctionListRest, FunctionDef, MainOpt,
@@ -230,6 +232,9 @@ Neterminál Expr je vyhodnocován samostatnou precedenční syntaktickou analýz
 % ====================
 % ===== LL table =====
 % ====================
+
+\subsection{LL tabulka}
+
 \begin{landscape}
   \begin{table}[p]
   \centering
