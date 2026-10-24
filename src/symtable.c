@@ -120,8 +120,7 @@ table *resize_table(table *hash_tab)
     new_tab = malloc(sizeof(item)*(hash_tab->table_capacity)*2);
     if(new_tab == NULL)
     {
-        free(hash_tab->items);
-        free(hash_tab);
+        free_table(hash_tab);
         fprintf(stderr,"99");
         return NULL;
     } 
@@ -254,4 +253,14 @@ table *delete_item(table *hash_tab, char* key)
         }
     }
     return hash_tab;
+}
+
+void free_table(table* hash_tab)
+{
+    if(hash_tab != NULL)
+    {
+        if(hash_tab->items != NULL)
+            free(hash_tab->items);
+            free(hash_tab);
+    }        
 }

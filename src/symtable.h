@@ -20,6 +20,7 @@ data get_data(table *table, char* key);
 table *delete_item(table *table, char* key);
 bool search_table(table *table,char* key);
 unsigned int BKDRhash(int length, char* key);
+void free_table(table *table);
 #endif
 
 
