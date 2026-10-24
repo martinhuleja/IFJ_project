@@ -5,7 +5,7 @@
 #include <string.h> //strlen
 
 
-
+// [DELETED ITEM] cannot be used as a key 
 
 typedef struct Sitem
 {
@@ -72,7 +72,7 @@ table *insert_item(table *hash_tab, char* key,data data)
     //linear probing if duplicit item
     if(key_in_use == false)
     {
-        while( hash_tab->items[position].taken == true)
+        while( hash_tab->items[position].taken == true && strcmp(hash_tab->items[position].key,"[DELETED ITEM]") != 0 )
         {
             position++;
             if (position >= hash_tab->table_capacity)
@@ -138,7 +138,7 @@ table *resize_table(table *hash_tab)
         }
         for(size_t i = 0; i<old_cap;i++)
         {
-            if(hash_tab->items[i].taken == true)
+            if(hash_tab->items[i].taken == true && strcmp(hash_tab->items[i].key,"[DELETED ITEM]") != 0)
             {
                 new_pos = BKDRhash(strlen(hash_tab->items[i].key),hash_tab->items[i].key);
                 new_pos = new_pos % new_cap;
@@ -195,20 +195,63 @@ bool search_table(table *hash_tab, char* key)
 }
 data *get_data(table* hash_tab,char* key)
 {
-    if(search_table(hash_tab,key) == false)
+
+    size_t capacity = hash_tab->table_capacity;
+    size_t i = 0;
+    size_t position = BKDRhash(strlen(key),key);
+    position = position % capacity;
+
+    //checking adjusted for linear probing
+    if (hash_tab->items[position].taken == false )
         return NULL;
     else
     {
-        for(size_t i = 0; i<hash_tab->table_capacity;i++)
+        while( hash_tab->items[position].taken == true && i < capacity) 
         {
-            if(hash_tab->items[i].taken ==true)
+            if(strcmp(hash_tab->items[position].key,key) == 0)
             {
-                if (strcmp(hash_tab->items[i].key,key) ==0)
-                {
-                    return &(hash_tab->items[i].data);
-                }
+                return &(hash_tab->items[position].data);
             }
-        }  
+            else
+            {
+                position++;
+                i++;
+                if (position >= capacity)
+                    position = position % capacity;
+            }
+        }
     }
     return NULL;
+}
+table *delete_item(table *hash_tab, char* key)
+{
+
+    size_t capacity = hash_tab->table_capacity;
+    size_t i = 0;
+    size_t position = BKDRhash(strlen(key),key);
+    position = position % capacity;
+
+    //checking adjusted for linear probing
+    if (hash_tab->items[position].taken == false )
+        return hash_tab;
+    else
+    {
+        while( hash_tab->items[position].taken == true && i < capacity) 
+        {
+            if(strcmp(hash_tab->items[position].key,key) == 0)
+            {
+                hash_tab->items[position].key= "[DELETED ITEM]";
+                hash_tab->table_size--;
+                return hash_tab;
+            }
+            else
+            {
+                position++;
+                i++;
+                if (position >= capacity)
+                    position = position % capacity;
+            }
+        }
+    }
+    return hash_tab;
 }
