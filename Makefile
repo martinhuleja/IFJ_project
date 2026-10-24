@@ -14,7 +14,7 @@ SRC = src/translator.c src/symtable.c
 FORMAT = clang-format
 FORMAT_FLAGS = --dry-run -Werror
 
-.PHONY: all build check build-check format clean
+.PHONY: all build check build-check format clean doc clean-doc clean-all
 
 all: build
 
