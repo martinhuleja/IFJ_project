@@ -18,10 +18,11 @@ typedef struct Stable
 {
     //pointer to an array, so that Stable doesnt have to be dynamic
     item* items;
-    int table_capacity;
-    int table_size;
+    size_t table_capacity;
+    size_t table_size;
 
 }table;
+table *resize_table(table *hash_tab);
 
 table *init_table()
 {
@@ -47,31 +48,58 @@ table *init_table()
 }
 table *insert_item(table *hash_tab, char* key,data data)
 {   
+
+
+    // checking if key already in use 
+    bool key_in_use = false;
+    if(search_table(hash_tab,key) == true)
+    {
+        key_in_use = true;
+    }
+
     //realloc if table is full 
-    if(hash_tab->table_capacity <= hash_tab->table_size)
+    if(hash_tab->table_capacity <= hash_tab->table_size && key_in_use == false)
     {
         if(resize_table(hash_tab) == NULL)
             return NULL;
     }
 
+
     // hashing and normalizing position
     unsigned position = BKDRhash(strlen(key),key);
     position = position % hash_tab->table_capacity;
 
-    //linear probing
-    while( hash_tab->items[position].taken == true )
+    //linear probing if duplicit item
+    if(key_in_use == false)
     {
-        position++;
-        if (position >= hash_tab->table_capacity)
-            position = position % hash_tab->table_capacity;
+        while( hash_tab->items[position].taken == true)
+        {
+            position++;
+            if (position >= hash_tab->table_capacity)
+                position = position % hash_tab->table_capacity;
+        }
     }
+    else
+    {
+        while(strcmp(hash_tab->items[position].key,key) !=0)
+        {
+
+            position++;
+            if (position >= hash_tab->table_capacity)
+                position = position % hash_tab->table_capacity;  
+        }
+    }
+    //linear probing if original item
     
     //allocating
     hash_tab->items[position].taken = true;
-    hash_tab->items[position].key = key;
     hash_tab->items[position].data =data;
-    hash_tab->table_size++;
+    if(key_in_use == false)
+    {
+        hash_tab->table_size++;
+        hash_tab->items[position].key = key;
 
+    }
     return hash_tab;
 }
 //BKDR HASH FUNCTION
@@ -101,14 +129,14 @@ table *resize_table(table *hash_tab)
     {
 
         //rehash from old table -> new table
-        int old_cap = hash_tab->table_capacity;
-        int new_cap = hash_tab->table_capacity *2 ;
-        unsigned new_pos = 0;
-        for(int i =0;i<new_cap;i++)
+        size_t old_cap = hash_tab->table_capacity;
+        size_t new_cap = hash_tab->table_capacity *2 ;
+        size_t new_pos = 0;
+        for(size_t i =0;i<new_cap;i++)
         {
             new_tab[i].taken = false;
         }
-        for(int i = 0; i<old_cap;i++)
+        for(size_t i = 0; i<old_cap;i++)
         {
             if(hash_tab->items[i].taken == true)
             {
@@ -138,9 +166,9 @@ table *resize_table(table *hash_tab)
 
 bool search_table(table *hash_tab, char* key)
 {
-    int capacity = hash_tab->table_capacity;
-    int i = 0;
-    unsigned position = BKDRhash(strlen(key),key);
+    size_t capacity = hash_tab->table_capacity;
+    size_t i = 0;
+    size_t position = BKDRhash(strlen(key),key);
     position = position % capacity;
 
     //checking adjusted for linear probing
@@ -164,4 +192,23 @@ bool search_table(table *hash_tab, char* key)
         }
     }
     return false;
+}
+data *get_data(table* hash_tab,char* key)
+{
+    if(search_table(hash_tab,key) == false)
+        return NULL;
+    else
+    {
+        for(size_t i = 0; i<hash_tab->table_capacity;i++)
+        {
+            if(hash_tab->items[i].taken ==true)
+            {
+                if (strcmp(hash_tab->items[i].key,key) ==0)
+                {
+                    return &(hash_tab->items[i].data);
+                }
+            }
+        }  
+    }
+    return NULL;
 }
