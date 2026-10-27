@@ -1,31 +1,56 @@
-//TODO: doplnit osobné čísla a zvýrazniť Martina
+% IFJ + IAL projekt 2026/2027
+% dokumentace.tex
+% Richard Komora (xkomorr00)
+% Martin Huleja (xhulejm00)
+
+\documentclass[a4paper, 11pt]{article}
+\usepackage[left=2cm, text={17cm, 24cm}, top=3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[dvips, unicode, hidelinks, bookmarksopen]{hyperref}
+\usepackage{xltabular}
+\usepackage{pdflscape}
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+% Command definitions
+\newcommand{\tableheader} {
+  \hline
+  Číslo & $A \rightarrow \alpha$ & $Predict (A \rightarrow \alpha)$ \\
+  \hline
+}
+
+\newcommand{\rot}[1]{\rotatebox{90}{#1}}
+
+
+\begin{document}
 
 Členovia tímu:
-Martin Huleja xhulejm00:282792
-Adam Havier xhaviea00:000000
+\textbf{Martin Huleja xhulejm00:282792}
+Adam Havier xhaviea00:281928
 Richard Komora xkomorr00:281910
-Enzo Štětina xstetie00:000000
+Enzo Štětina xstetie00:282488
 
 Varianta: TRP-izp
 
 Rozdelenie bodov:
 282792:xhulejm00:25
-000000:xhaviea00:25
+281928:xhaviea00:25
 281910:xkomorr00:25
-000000:xstetie00:25
+282488:xstetie00:25
 
 //TODO: identifikátory implementovaných rozšíření,
 
-GitHub Repozitár: https://github.com/martinhuleja/IFJ_project
+GitHub Repozitár: \href{https://github.com/martinhuleja/IFJ\_project}{https://github.com/martinhuleja/IFJ\_project}
 
 //TODO: priebežne dopĺňať
 Rozdelenie práce:
-Martin Huleja - Parser  
+Martin Huleja - Parser
 Adam Havier - Generátor IFJcode26
 Richard Komora - Tabuľka symbolov + sémantika
 Enzo Štětina - Lexer + automatické spúštanie testov
 
-//TODO: 
+//TODO:
 stručný popis způsobu spolupráce, kultury code review a schvalování PR (max. jednotky vět
 či odrážek); stručný popis využitých forem testování (max. jednotky vět či odrážek); zvolený
 styl formátování kódu;
@@ -36,8 +61,287 @@ zikód) si komponenty předávají informace. Z diagramu a jeho textového popis
 vstupy, výstupy, význam komponent a jejich propojení;
 • diagram automatu, který specifikuje lexikální analyzátor (podle konvencí přednášených v IFJ;
 s případným slovním popisem odchylek od standardního modelu konečného automatu);
-• LL gramatiku a z ní vycházející LL tabulku; a precedenční tabulku, podle kterých jste imple-
+• precedenční tabulku, podle kterých jste imple-
 mentovali syntaktický analyzátor;
 • stručný popis každého modulu (informačně obohacující věta na dvojici .c/.h);
 • bibliografické citace všech převzatých zdrojů (vč. kódu, algoritmů);
 • popis využití prostředků AI (viz sekci 4).
+
+\section{LL gramatika}
+
+Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu. \\
+
+\noindent $G = (N, T, P, S)$
+
+\begin{itemize}
+  \item $N = \{$ Program, Prologue, FunctionList, FunctionListRest, FunctionDef, MainOpt,
+          ParamGroup, ParamListOpt, ParamList, ParamListRest, Param, TypeOpt, Type,
+          FunctionBody, Block, StatementList, StatementListRest, Statement, StatementEnd,
+          VarDef, VarKind, IfStatement, WhileStatement, ReturnStatement, ArgGroup, ArgList,
+          ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, CallOpt, EOLOrEOF,
+          StatementAfterId, ExprNonId, ExprTail $\}$
+  \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, TypeInt,
+          TypeDouble, TypeString, TypeUnit, Val, Var, If, Then, Else, While, Do, Return,
+          AtMain, Def, IFJ26Id, Import, Assign, LParen, RParen, Colon, Comma, Semicolon,
+          Dot, Star, Indent, Dedent, EOL, EOF  $\}$
+  \item $S = program$
+\end{itemize}
+
+\subsection{Přepisovací pravidla}
+
+\begin{xltabular}{\textwidth}{|l|X|p{0.3\textwidth}|}
+  \tableheader
+  \endfirsthead
+
+  \tableheader
+  \endhead
+
+  1   & Program $\rightarrow$ Prologue FunctionList EOF
+      & $\{$ Import $\}$ \\ \hline
+  2   & Prologue $\rightarrow$ Import IFJ26Id Dot Star EOL
+      & $\{$ Import $\}$ \\ \hline
+  3   & FunctionList $\rightarrow$ FunctionDef FunctionListRest
+      & $\{$ AtMain, Def $\}$ \\ \hline
+  4   & FunctionListRest $\rightarrow$ FunctionDef FunctionListRest
+      & $\{$ AtMain, Def $\}$ \\ \hline
+  5   & FunctionListRest $\rightarrow \varepsilon$
+      & $\{$ EOF $\}$ \\ \hline
+  6   & FunctionDef $\rightarrow$ MainOpt Def Identifier ParamGroups TypeOpt Assign FunctionBody
+      & $\{$ AtMain, Def $\}$ \\ \hline
+  7   & MainOpt $\rightarrow$ AtMain
+      & $\{$ AtMain $\}$ \\ \hline
+  8   & MainOpt $\rightarrow \varepsilon$
+      & $\{$ Def $\}$ \\ \hline
+  9   & ParamGroup $\rightarrow$ LParen ParamListOpt RParen
+      & $\{$ LParen $\}$ \\ \hline
+  10  & ParamListOpt $\rightarrow$ ParamList
+      & $\{$ Identifier $\}$ \\ \hline
+  11  & ParamListOpt $\rightarrow \varepsilon$
+      & $\{$ RParen $\}$ \\ \hline
+  12  & ParamList $\rightarrow$ Param ParamListRest
+      & $\{$ Identifier $\}$ \\ \hline
+  13  & ParamListRest $\rightarrow$ Comma Param ParamListRest
+      & $\{$ Comma $\}$ \\ \hline
+  14  & ParamListRest $\rightarrow \varepsilon$
+      & $\{$ RParen $\}$ \\ \hline
+  15  & Param $\rightarrow$ Identifier Colon Type
+      & $\{$ Identifier $\}$ \\ \hline
+  16  & TypeOpt $\rightarrow$ Colon Type
+      & $\{$ Colon $\}$ \\ \hline
+  17  & TypeOpt $\rightarrow \varepsilon$
+      & $\{$ Assign $\}$ \\ \hline
+  18  & Type $\rightarrow$ TypeInt
+      & $\{$ TypeInt $\}$ \\ \hline
+  19  & Type $\rightarrow$ TypeDouble
+      & $\{$ TypeDouble $\}$ \\ \hline
+  20  & Type $\rightarrow$ TypeString
+      & $\{$ TypeString $\}$ \\ \hline
+  21  & Type $\rightarrow$ TypeUnit
+      & $\{$ TypeUnit $\}$ \\ \hline
+  22  & FunctionBody $\rightarrow$ ExprOrCall EOLOrEOF
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  23  & EOLOrEOF $\rightarrow$ EOL
+      & $\{$ EOL $\}$ \\ \hline
+  24  & EOLOrEOF $\rightarrow$ EOF
+      & $\{$ EOF $\}$ \\ \hline
+  25  & FunctionBody $\rightarrow$ Block
+      & $\{$ Indent $\}$ \\ \hline
+  26  & Block $\rightarrow$ Indent StatementList Dedent
+      & $\{$ Indent $\}$ \\ \hline
+  27  & StatementList $\rightarrow$ Statement StatementEnd StatementListRest
+      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  28  & StatementListRest $\rightarrow$ Statement StatementEnd StatementListRest
+      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  29  & StatementListRest $\rightarrow \varepsilon$
+      & $\{$ Dedent $\}$ \\ \hline
+  30  & StatementEnd $\rightarrow$ EOL
+      & $\{$ EOL $\}$ \\ \hline
+  31  & StatementEnd $\rightarrow$ Semicolon
+      & $\{$ Semicolon $\}$ \\ \hline
+  32  & Statement $\rightarrow$ VarDef
+      & $\{$ Val, Var $\}$ \\ \hline
+  33  & Statement $\rightarrow$ IfStatement
+      & $\{$ If $\}$ \\ \hline
+  34  & Statement $\rightarrow$ WhileStatement
+      & $\{$ While $\}$ \\ \hline
+  35  & Statement $\rightarrow$ ReturnStatement
+      & $\{$ Return $\}$ \\ \hline
+  36  & Statement $\rightarrow$ Identifier StatementAfterId
+      & $\{$ Identifier $\}$ \\ \hline
+  37  & Statement $\rightarrow$ ExprNonId
+      & $\{$ IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  38  & StatementAfterId $\rightarrow$ Assign ExprOrCall
+      & $\{$ Assign $\}$ \\ \hline
+  39  & StatementAfterId $\rightarrow$ ArgGroup
+      & $\{$ LParen $\}$ \\ \hline
+  40  & StatementAfterId $\rightarrow$ ExprTail
+      & $\{$ EOL, Semicolon $\}$ \\ \hline
+  41  & ExprNonId $\rightarrow$ IntLiteral ExprTail
+      & $\{$ IntLiteral $\}$ \\ \hline
+  42  & ExprNonId $\rightarrow$ DoubleLiteral ExprTail
+      & $\{$ DoubleLiteral $\}$ \\ \hline
+  43  & ExprNonId $\rightarrow$ StringLiteral ExprTail
+      & $\{$ StringLiteral $\}$ \\ \hline
+  44  & ExprNonId $\rightarrow$ UnitLiteral ExprTail
+      & $\{$ UnitLiteral $\}$ \\ \hline
+  45  & ExprNonId $\rightarrow$ LParen Expr RParen ExprTail
+      & $\{$ LParen $\}$ \\ \hline
+  46  & VarDef $\rightarrow$ VarKind Identifier TypeOpt Assign ExprOrCall
+      & $\{$ Val, Var $\}$ \\ \hline
+  47  & VarKind $\rightarrow$ Val
+      & $\{$ Val $\}$ \\ \hline
+  48  & VarKind $\rightarrow$ Var
+      & $\{$ Var $\}$ \\ \hline
+  49  & IfStatement $\rightarrow$ If Expr Then EOL Block EOL Else EOL Block
+      & $\{$ If $\}$ \\ \hline
+  50  & WhileStatement $\rightarrow$ While Expr Do EOL Block
+      & $\{$ While $\}$ \\ \hline
+  51  & ReturnStatement $\rightarrow$ Return ReturnExprOpt
+      & $\{$ Return $\}$ \\ \hline
+  52  & ReturnExprOpt $\rightarrow$ ExprOrCall
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  53  & ReturnExprOpt $\rightarrow \varepsilon$
+      & $\{$ EOL, Semicolon $\}$ \\ \hline
+  54  & ExprOrCall $\rightarrow$ Identifier CallOpt
+      & $\{$ Identifier $\}$ \\ \hline
+  55  & ExprOrCall $\rightarrow$ Expr
+      & $\{$ IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  56  & CallOpt $\rightarrow$ ArgGroup
+      & $\{$ LParen $\}$ \\ \hline
+  57  & CallOpt $\rightarrow \varepsilon$
+      & $\{$ EOL, EOF, Semicolon $\}$ \\ \hline
+  58  & ArgGroup $\rightarrow$ LParen ArgListOpt RParen
+      & $\{$ LParen $\}$ \\ \hline
+  59  & ArgListOpt $\rightarrow$ ArgList
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  60  & ArgListOpt $\rightarrow \varepsilon$
+      & $\{$ RParen $\}$ \\ \hline
+  61  & ArgList $\rightarrow$ Expr ArgListRest
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  62  & ArgListRest $\rightarrow$ Comma Expr ArgListRest
+      & $\{$ Comma $\}$ \\ \hline
+  63  & ArgListRest $\rightarrow \varepsilon$
+      & $\{$ RParen $\}$ \\ \hline
+  64  & ExprTail $\rightarrow \varepsilon$
+      & $\{$ EOL, Semicolon $\}$ \\ \hline
+
+\end{xltabular}
+
+Neterminál Expr je vyhodnocován samostatnou precedenční syntaktickou analýzou zdola nahoru podle precedenční tabulky.
+
+% ====================
+% ===== LL table =====
+% ====================
+
+\subsection{LL tabulka}
+
+\begin{landscape}
+  \begin{table}[p]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+
+  \begin{tabular}{l *{33}{c}}
+  \toprule
+
+  % === HEADER ===
+  \textbf{Neterminál} & \rot{Identifier} & \rot{IntLiteral} & \rot{DoubleLiteral} &
+  \rot{StringLiteral} & \rot{UnitLiteral} & \rot{TypeInt} & \rot{TypeDouble} &
+  \rot{TypeString} & \rot{TypeUnit} & \rot{Val} & \rot{Var} & \rot{If} & \rot{Then} &
+  \rot{Else} & \rot{While} & \rot{Do} & \rot{Return} & \rot{AtMain} & \rot{Def} &
+  \rot{IFJ26Id} & \rot{Import} & \rot{Assign} & \rot{LParen} & \rot{RParen} &
+  \rot{Colon} & \rot{Comma} & \rot{Semicolon} & \rot{Dot} & \rot{Star} &
+  \rot{Indent} & \rot{Dedent} & \rot{EOL} & \rot{EOF} \\
+  \midrule
+  % === TABLE CONTENT ===
+  Program & & & & & & & & & & & & & & & & & & & & & 1 & & & & & & & & & & & & \\
+  Prologue & & & & & & & & & & & & & & & & & & & & & 2 & & & & & & & & & & & & \\
+  FunctionList & & & & & & & & & & & & & & & & & & 3 & 3 & & & & & & & & & & & & & & \\
+  FunctionListRest & & & & & & & & & & & & & & & & & & 4 & 4 & & & & & & & & & & & & & & 5 \\
+  FunctionDef & & & & & & & & & & & & & & & & & & 6 & 6 & & & & & & & & & & & & & & \\
+  MainOpt & & & & & & & & & & & & & & & & & & 7 & 8 & & & & & & & & & & & & & & \\
+  ParamGroup & & & & & & & & & & & & & & & & & & & & & & & 9 & & & & & & & & & & \\
+  ParamListOpt & 10 & & & & & & & & & & & & & & & & & & & & & & & 11 & & & & & & & & & \\
+  ParamList & 12 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  ParamListRest & & & & & & & & & & & & & & & & & & & & & & & & 14 & & 13 & & & & & & & \\
+  Param & 15 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  TypeOpt & & & & & & & & & & & & & & & & & & & & & & 17 & & & 16 & & & & & & & & \\
+  Type & & & & & & 18 & 19 & 20 & 21 & & & & & & & & & & & & & & & & & & & & & & & & \\
+  FunctionBody & 22 & 22 & 22 & 22 & 22 & & & & & & & & & & & & & & & & & & 22 & & & & & & & 25 & & & \\
+  Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 26 & & & \\
+  StatementList & 27 & 27 & 27 & 27 & 27 & & & & & 27 & 27 & 27 & & & 27 & & 27 & & & & & & 27 & & & & & & & & & & \\
+  StatementListRest & 28 & 28 & 28 & 28 & 28 & & & & & 28 & 28 & 28 & & & 28 & & 28 & & & & & & 28 & & & & & & & & 29 & & \\
+  Statement & 36 & 37 & 37 & 37 & 37 & & & & & 32 & 32 & 33 & & & 34 & & 35 & & & & & & 37 & & & & & & & & & & \\
+  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 31 & & & & & 30 & \\
+  VarDef & & & & & & & & & & 46 & 46 & & & & & & & & & & & & & & & & & & & & & & \\
+  VarKind & & & & & & & & & & 47 & 48 & & & & & & & & & & & & & & & & & & & & & & \\
+  IfStatement & & & & & & & & & & & & 49 & & & & & & & & & & & & & & & & & & & & & \\
+  WhileStatement & & & & & & & & & & & & & & & 50 & & & & & & & & & & & & & & & & & & \\
+  ReturnStatement & & & & & & & & & & & & & & & & & 51 & & & & & & & & & & & & & & & & \\
+  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 58 & & & & & & & & & & \\
+  ArgList & 61 & 61 & 61 & 61 & 61 & & & & & & & & & & & & & & & & & & 61 & & & & & & & & & & \\
+  ArgListOpt & 59 & 59 & 59 & 59 & 59 & & & & & & & & & & & & & & & & & & 59 & 60 & & & & & & & & & \\
+  ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 63 & & 62 & & & & & & & \\
+  Expr & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  ExprOrCall & 54 & 55 & 55 & 55 & 55 & & & & & & & & & & & & & & & & & & 55 & & & & & & & & & & \\
+  ReturnExprOpt & 52 & 52 & 52 & 52 & 52 & & & & & & & & & & & & & & & & & & 52 & & & & 53 & & & & & 53 & \\
+  CallOpt & & & & & & & & & & & & & & & & & & & & & & & 56 & & & & 57 & & & & & 57 & 57 \\
+  EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 23 & 24 \\
+  StatementAfterId & & & & & & & & & & & & & & & & & & & & & & 38 & 39 & & & & 40 & & & & & 40 & \\
+  ExprNonId & & 41 & 42 & 43 & 44 & & & & & & & & & & & & & & & & & & 45 & & & & & & & & & & \\
+  ExprTail & & & & & & & & & & & & & & & & & & & & & & & & & & & 64 & & & & & 64 & \\
+  \bottomrule
+  \end{tabular}
+  \end{table}
+\end{landscape}
+
+\section{Precedenční syntaktická analýza výrazů}
+
+Pro vyhodnocování výrazů byla v souladu se zadáním využita precedenční syntaktická analýza.
+
+\subsection{Operátorová gramatika výrazů}
+
+Gramatika zpracovávající výrazy je definována jako
+$G_{\textnormal{expr}} = (\{E\}, T_{\textnormal{prec}}, P_{\textnormal{prec}}, E)$,
+kde $T_{\textnormal{prec}} = \{ i, -_{\textnormal{un}}, *, /, +, -_{\textnormal{bi}},
+<, <=, >, >=, ==, !=, (, ), \$ \}$
+
+\begin{itemize}
+    \item $i$ značí identifikátory a literály typů \texttt{Int}, \texttt{Double}, \texttt{String}, \texttt{Unit},
+    \item $-_{\textnormal{un}}$ značí unární operátor minus, $-_{\textnormal{bi}}$ binární odčítání,
+    \item $\$$ značí ukončovač výrazu (\texttt{EOL}, \texttt{EOF}, \texttt{then}, \texttt{do}, \dots).
+\end{itemize}
+
+\noindent Množina pravidel $P_{\textnormal{prec}}$ zahrnuje: \quad $E \rightarrow i, \qquad E \rightarrow (E),
+\qquad E \rightarrow -E, \qquad E \rightarrow E * E, \qquad E \rightarrow E / E, \qquad E \rightarrow E + E,
+\qquad E \rightarrow E - E, \qquad E \rightarrow E \ rel \ E$, kde $rel \in \{ <, <=, >, >=, ==, != \}.$
+
+\subsection{Precedenční tabulka}
+Hierarchie operátorů vychází ze specifikace jazyka IFJ26.
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabular}{l *{9}{|c}}
+
+  \toprule
+  \textbf{Vrchol / Vstup}
+  & $i$ & $-_{\textnormal{un}}$ & $*$, $/$ & $+$, $-_{\textnormal{bi}}$
+  & $<, <=, >, >=$ & $==, !=$ & $($ & $)$ & $\$$ \\
+
+  \midrule
+
+  $i$                        &     &     & $>$ & $>$ & $>$ & $>$ &     & $>$ & $>$ \\
+  $-_{\textnormal{un}}$      & $<$ & $<$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
+  $*$, $/$                   & $<$ & $<$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
+  $+$, $-_{\textnormal{bi}}$ & $<$ & $<$ & $<$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
+  $<, <=, >, >=$             & $<$ & $<$ & $<$ & $<$ &     & $>$ & $<$ & $>$ & $>$ \\
+  $==, !=$                   & $<$ & $<$ & $<$ & $<$ & $<$ &     & $<$ & $>$ & $>$ \\
+  $($                        & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $=$ &     \\
+  $)$                        &     &     & $>$ & $>$ & $>$ & $>$ &     & $>$ & $>$ \\
+  $\$$                       & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ &     &     \\
+
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\end{document}

@@ -22,6 +22,8 @@ translator
 *.aux
 *.log
 *.out
+*.dvi
+*.ps
 *.toc
 *.fls
 *.fdb_latexmk
