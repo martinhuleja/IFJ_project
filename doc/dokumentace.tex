@@ -79,7 +79,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
           FunctionBody, Block, StatementList, StatementListRest, Statement, StatementEnd,
           VarDef, VarKind, IfStatement, WhileStatement, ReturnStatement, ArgGroup, ArgList,
           ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, CallOpt, EOLOrEOF,
-          StatementAfterId, ExprNonId, ExprTail $\}$
+          StatementAfterId, ExprNonId, ExprTail, EOLOpt $\}$
   \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, TypeInt,
           TypeDouble, TypeString, TypeUnit, Val, Var, If, Then, Else, While, Do, Return,
           AtMain, Def, IFJ26Id, Import, Assign, LParen, RParen, Colon, Comma, Semicolon,
@@ -106,7 +106,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ AtMain, Def $\}$ \\ \hline
   5   & FunctionListRest $\rightarrow \varepsilon$
       & $\{$ EOF $\}$ \\ \hline
-  6   & FunctionDef $\rightarrow$ MainOpt Def Identifier ParamGroups TypeOpt Assign FunctionBody
+  6   & FunctionDef $\rightarrow$ MainOpt EOLOpt Def Identifier ParamGroup TypeOpt Assign FunctionBody
       & $\{$ AtMain, Def $\}$ \\ \hline
   7   & MainOpt $\rightarrow$ AtMain
       & $\{$ AtMain $\}$ \\ \hline
@@ -144,8 +144,8 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ EOL $\}$ \\ \hline
   24  & EOLOrEOF $\rightarrow$ EOF
       & $\{$ EOF $\}$ \\ \hline
-  25  & FunctionBody $\rightarrow$ Block
-      & $\{$ Indent $\}$ \\ \hline
+  25  & FunctionBody $\rightarrow$ EOL Block
+      & $\{$ EOL $\}$ \\ \hline
   26  & Block $\rightarrow$ Indent StatementList Dedent
       & $\{$ Indent $\}$ \\ \hline
   27  & StatementList $\rightarrow$ Statement StatementEnd StatementListRest
@@ -224,6 +224,10 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ RParen $\}$ \\ \hline
   64  & ExprTail $\rightarrow \varepsilon$
       & $\{$ EOL, Semicolon $\}$ \\ \hline
+  65  & EOLOpt $\rightarrow$ EOL
+      & $\{$ EOL $\}$ \\ \hline
+  66  & EOLOpt $\rightarrow \varepsilon$
+      & $\{$ Def $\}$ \\ \hline
 
 \end{xltabular}
 
@@ -290,6 +294,7 @@ Neterminál Expr je vyhodnocován samostatnou precedenční syntaktickou analýz
   StatementAfterId & & & & & & & & & & & & & & & & & & & & & & 38 & 39 & & & & 40 & & & & & 40 & \\
   ExprNonId & & 41 & 42 & 43 & 44 & & & & & & & & & & & & & & & & & & 45 & & & & & & & & & & \\
   ExprTail & & & & & & & & & & & & & & & & & & & & & & & & & & & 64 & & & & & 64 & \\
+  EOLOpt & & & & & & & & & & & & & & & & & & & 66 & & & & & & & & & & & & & 65 & \\
   \bottomrule
   \end{tabular}
   \end{table}
