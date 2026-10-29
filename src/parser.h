@@ -307,5 +307,12 @@ ErrorCode parse_arg_list_rest(Parser *parser);
  */
 ErrorCode parse_expr_tail(Parser *parser);
 
+/**
+ * @brief Parses EOLOpt according to 65th and 66th rule of LL grammar
+ * @param parser Ptr to struct parser
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode parse_eol_opt(Parser *parser);
+
 #endif // PARSER_H
 /* End of file parser.h */
