@@ -130,27 +130,128 @@ ErrorCode parse_prologue(Parser *parser) {
   return ERROR_OK;
 } // parse_prologue()
 
-ErrorCode parse_function_list(Parser *parser);
+ErrorCode parse_function_list(Parser *parser) {
+  RETURN_IF_ERROR(parse_function_def(parser));
+  RETURN_IF_ERROR(parse_function_list_rest(parser));
 
-ErrorCode parse_function_list_rest(Parser *parser);
+  return ERROR_OK;
+} // parse_function_list()
 
-ErrorCode parse_function_def(Parser *parser);
+ErrorCode parse_function_list_rest(Parser *parser) {
+  // FunctionListRest -> FunctionDef FunctionListRest
+  if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION) || tokens_matches(parser, TOKEN_DEF)) {
+    RETURN_IF_ERROR(parse_function_def(parser));
+    RETURN_IF_ERROR(parse_function_list_rest(parser));
+  } else { // FunctionListRest -> ε
+    RETURN_IF_ERROR(compare_tokens(parser, TOKEN_EOF));
+  }
 
-ErrorCode parse_main_opt(Parser *parser);
+  return ERROR_OK;
+} // parse_function_list_rest()
 
-ErrorCode parse_param_group(Parser *parser);
+ErrorCode parse_function_def(Parser *parser) {
+  if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
+    RETURN_IF_ERROR(parse_main_opt(parser));
+  }
+  RETURN_IF_ERROR(parse_eol_opt(parser));
+  RETURN_IF_ERROR(expect(parser, TOKEN_DEF));
+  RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(parse_param_group(parser));
+  RETURN_IF_ERROR(parse_type_opt(parser));
+  RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
+  RETURN_IF_ERROR(parse_function_body(parser));
 
-ErrorCode parse_param_list_opt(Parser *parser);
+  return ERROR_OK;
+} // parse_function_def()
 
-ErrorCode parse_param_list(Parser *parser);
+ErrorCode parse_main_opt(Parser *parser) {
+  // MainOpt -> AtMain
+  if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
+    RETURN_IF_ERROR(new_token(parser, TOKEN_MAIN_ANNOTATION));
+  } else { // MainOpt -> ε
+    RETURN_IF_ERROR(compare_tokens(parser, TOKEN_DEF));
+  }
 
-ErrorCode parse_param_list_rest(Parser *parser);
+  return ERROR_OK;
+} // parse_main_opt()
 
-ErrorCode parse_param(Parser *parser);
+ErrorCode parse_param_group(Parser *parser) {
+  RETURN_IF_ERROR(expect(parser, TOKEN_LPAREN));
+  RETURN_IF_ERROR(parse_param_list_opt(parser));
+  RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
 
-ErrorCode parse_type_opt(Parser *parser);
+  return ERROR_OK;
+} // parse_param_group()
 
-ErrorCode parse_type(Parser *parser);
+ErrorCode parse_param_list_opt(Parser *parser) {
+  // ParamListOpt -> ParamList
+  if (tokens_matches(parser, TOKEN_IDENTIFIER)) {
+    RETURN_IF_ERROR(parse_param_list(parser));
+  } else { // ParamListOpt -> ε
+    RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
+  }
+
+  return ERROR_OK;
+} // parse_param_list_opt()
+
+ErrorCode parse_param_list(Parser *parser) {
+  RETURN_IF_ERROR(parse_param(parser));
+  RETURN_IF_ERROR(parse_param_list_rest(parser));
+
+  return ERROR_OK;
+} // parse_param_list()
+
+ErrorCode parse_param_list_rest(Parser *parser) {
+  // ParamListRest -> Comma Param ParamListRest
+  if (tokens_matches(parser, TOKEN_COMMA)) {
+    RETURN_IF_ERROR(expect(parser, TOKEN_COMMA));
+    RETURN_IF_ERROR(parse_param(parser));
+    RETURN_IF_ERROR(parse_param_list_rest(parser));
+  } else { // ParamListRest -> ε
+    RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
+  }
+
+  return ERROR_OK;
+} // parse_param_list_rest()
+
+ErrorCode parse_param(Parser *parser) {
+  RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(expect(parser, TOKEN_COLON));
+  RETURN_IF_ERROR(parse_type(parser));
+
+  return ERROR_OK;
+} // parse_param()
+
+ErrorCode parse_type_opt(Parser *parser) {
+  // TypeOpt -> Colon Type
+  if (tokens_matches(parser, TOKEN_COLON)) {
+    RETURN_IF_ERROR(expect(parser, TOKEN_COLON));
+    RETURN_IF_ERROR(parse_type(parser));
+  } else { // TypeOpt -> ε
+    RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
+  }
+
+  return ERROR_OK;
+} // parse_type_opt()
+
+ErrorCode parse_type(Parser *parser) {
+  if (parser == NULL || parser->current_token == NULL) {
+    print_err(ERROR_INTERNAL, "current_token is empty.");
+    return ERROR_INTERNAL;
+  }
+
+  switch (parser->current_token->type) {
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_UNIT:
+      RETURN_IF_ERROR(new_token(parser, TOKEN_ASSIGN));
+      return ERROR_OK;
+    default:
+      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one.");
+      return ERROR_SYNTACTIC;
+  }
+} // parse_type()
 
 ErrorCode parse_function_body(Parser *parser);
 
@@ -195,5 +296,16 @@ ErrorCode parse_arg_list(Parser *parser);
 ErrorCode parse_arg_list_rest(Parser *parser);
 
 ErrorCode parse_expr_tail(Parser *parser);
+
+ErrorCode parse_eol_opt(Parser *parser) {
+  // EOLOpt -> EOL
+  if (tokens_matches(parser, TOKEN_NEWLINE)) {
+    RETURN_IF_ERROR(new_token(parser, TOKEN_NEWLINE));
+  } else { // EOLOpt -> ε
+    RETURN_IF_ERROR(compare_tokens(parser, TOKEN_DEF));
+  }
+
+  return ERROR_OK;
+} // parse_eol_opt()
 
 /* End of file parser.c */
