@@ -7,10 +7,15 @@
  */
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include "parser.h"
 #include "token.h"
 #include "error.h"
+
+/********************************************************************
+ ************************ SUPPORT FUNCTIONS *************************
+ *******************************************************************/
 
 /**
  * @brief Checks return value of given function
@@ -34,6 +39,7 @@ Parser *parser_init() {
   }
 
   parser->current_token = NULL;
+  parser->print_error_msg = true;
   return parser;
 } // parser_init()
 
@@ -51,12 +57,21 @@ ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
 
   // Compare current token type to the expected one
   if (parser->current_token->type != expected_type) {
-    print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one.");
+    if (parser->print_error_msg) {
+      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one.");
+    }
     return ERROR_SYNTACTIC;
   }
 
   return ERROR_OK;
 } // compare_tokens()
+
+bool tokens_matches(Parser *parser, TokenType expected_token) {
+  parser->print_error_msg = false;
+  bool return_value = (compare_tokens(parser, expected_token) == ERROR_OK);
+  parser->print_error_msg = true; // Reset print_error_msg value
+  return return_value;
+} // tokens_matches()
 
 ErrorCode new_token(Parser *parser, TokenType expected_type) {
   // If parser haven't expected EOF, get another token
@@ -77,6 +92,10 @@ ErrorCode expect(Parser *parser, TokenType expected_type) {
 
   return ERROR_OK;
 } // expect()
+
+/********************************************************************
+ ************** PARSING ACCORDING TO LL GRAMMAR RULES ***************
+ *******************************************************************/
 
 ErrorCode parse_program() {
   Parser *parser = parser_init();

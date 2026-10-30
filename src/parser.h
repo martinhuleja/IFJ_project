@@ -9,13 +9,18 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <stdbool.h>
 #include "error.h"
 #include "token.h"
 
-// Holds current token across all parser functions
 typedef struct {
-  Token *current_token;
+  Token *current_token; // Holds current token across all parser functions
+  bool print_error_msg; // Program prints an error message according to this value
 } Parser;
+
+/********************************************************************
+ ************************ SUPPORT FUNCTIONS *************************
+ *******************************************************************/
 
 /**
  * @brief Initialize struct parser
@@ -41,6 +46,19 @@ void parser_free(Parser *parser);
 ErrorCode compare_tokens(Parser *parser, TokenType expected_type);
 
 /**
+ * @brief Checks if current token match the expected one and returns bool
+ *
+ * Compares tokens using compare_tokens(). Doesn't print error msg.
+ * Used for comparing tokens, where failure doesn't mean an error.
+ * Returns bool, so the code would be easier to read.
+ *
+ * @param Ptr to struct parser
+ * @param expected_token Expected token according to LL grammar rules
+ * @return True, if tokens match, othervise false
+ */
+bool tokens_matches(Parser *parser, TokenType expected_token);
+
+/**
  * @brief If it's possible, gets next token from scanner
  *
  * Also checks if the action was succesfull.
@@ -62,6 +80,10 @@ ErrorCode new_token(Parser *parser, TokenType expected_type);
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode expect(Parser *parser, TokenType expected_type);
+
+/********************************************************************
+ ************** PARSING ACCORDING TO LL GRAMMAR RULES ***************
+ *******************************************************************/
 
 /**
  * @brief Parses Program according to 1st rule of LL grammar
