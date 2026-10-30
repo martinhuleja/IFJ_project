@@ -31,6 +31,17 @@
   } \
 } while(0)
 
+/**
+ * @brief Prints error msg and return with syntactic ErrorCode
+ * @param Ptr to struct parser
+ */
+#define RETURN_SYNTACTIC_ERROR(parser) do { \
+  if (parser->print_error_msg) { \
+    print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one."); \
+  } \
+  return ERROR_SYNTACTIC; \
+} while(0)
+
 Parser *parser_init() {
   Parser *parser = (Parser *)malloc(sizeof(Parser));
   if (parser == NULL) {
@@ -49,18 +60,21 @@ void parser_free(Parser *parser) {
   }
 } // parser_free()
 
-ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
+ErrorCode check_current_token(Parser *parser) {
   if (parser == NULL || parser->current_token == NULL) {
     print_err(ERROR_INTERNAL, "current_token is empty.");
     return ERROR_INTERNAL;
   }
 
+  return ERROR_OK;
+}
+
+ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
+  RETURN_IF_ERROR(check_current_token(parser));
+
   // Compare current token type to the expected one
   if (parser->current_token->type != expected_type) {
-    if (parser->print_error_msg) {
-      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one.");
-    }
-    return ERROR_SYNTACTIC;
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -118,8 +132,7 @@ ErrorCode parse_prologue(Parser *parser) {
   RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
   // Compare current token value with "ifj26"
   if (strcmp(parser->current_token->value, "ifj26") != 0) {
-    print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one.");
-    return ERROR_SYNTACTIC;
+    RETURN_SYNTACTIC_ERROR(parser);
   }
   RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
 
@@ -235,10 +248,7 @@ ErrorCode parse_type_opt(Parser *parser) {
 } // parse_type_opt()
 
 ErrorCode parse_type(Parser *parser) {
-  if (parser == NULL || parser->current_token == NULL) {
-    print_err(ERROR_INTERNAL, "current_token is empty.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
     case TOKEN_INT:
@@ -248,8 +258,7 @@ ErrorCode parse_type(Parser *parser) {
       RETURN_IF_ERROR(new_token(parser, TOKEN_ASSIGN));
       return ERROR_OK;
     default:
-      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one.");
-      return ERROR_SYNTACTIC;
+      RETURN_SYNTACTIC_ERROR(parser);
   }
 } // parse_type()
 

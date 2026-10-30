@@ -37,6 +37,14 @@ Parser *parser_init();
 void parser_free(Parser *parser);
 
 /**
+ * @brief Checks if struct parser or current token isn't NULL
+ *
+ * @param parser Ptr to struct parser
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode check_current_token(Parser *parser);
+
+/**
  * @brief Compares current token with the expected token
  *
  * @param parser Ptr to struct parser
