@@ -536,13 +536,66 @@ ErrorCode parse_call_opt(Parser *parser) {
   }
 } // parse_call_opt()
 
-ErrorCode parse_arg_group(Parser *parser);
+ErrorCode parse_arg_group(Parser *parser) {
+  RETURN_IF_ERROR(expect(parser, TOKEN_LPAREN));
+  RETURN_IF_ERROR(parse_arg_list_opt(parser));
+  RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
 
-ErrorCode parse_arg_list_opt(Parser *parser);
+  return ERROR_OK;
+} // parse_arg_group()
 
-ErrorCode parse_arg_list(Parser *parser);
+ErrorCode parse_arg_list_opt(Parser *parser) {
+  RETURN_IF_ERROR(check_current_token(parser));
 
-ErrorCode parse_arg_list_rest(Parser *parser);
+  switch (parser->current_token->type) {
+    case TOKEN_IDENTIFIER:
+    case TOKEN_INT_LITERAL:
+    case TOKEN_DOUBLE_LITERAL:
+    case TOKEN_STRING_LITERAL:
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(parse_arg_list(parser));
+      break;
+    case TOKEN_RPAREN:
+      break;
+    default:
+      RETURN_SYNTACTIC_ERROR(parser);
+  }
+
+  return ERROR_OK;
+} // parse_arg_list_opt()
+
+ErrorCode parse_arg_list(Parser *parser) {
+  RETURN_IF_ERROR(check_current_token(parser));
+
+  switch (parser->current_token->type) {
+    case TOKEN_IDENTIFIER:
+    case TOKEN_INT_LITERAL:
+    case TOKEN_DOUBLE_LITERAL:
+    case TOKEN_STRING_LITERAL:
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(parse_expr(parser));
+      RETURN_IF_ERROR(parse_arg_list_rest(parser));
+      break;
+    default:
+      RETURN_SYNTACTIC_ERROR(parser);
+  }
+
+  return ERROR_OK;
+} // parse_arg_list()
+
+ErrorCode parse_arg_list_rest(Parser *parser) {
+  if (tokens_matches(parser, TOKEN_COMMA)) {
+    RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
+    RETURN_IF_ERROR(parse_expr(parser));
+    RETURN_IF_ERROR(parse_arg_list_rest(parser));
+
+    return ERROR_OK;
+  } else if (tokens_matches(parser, TOKEN_RPAREN)) {
+    return ERROR_OK;
+  } else {
+    RETURN_SYNTACTIC_ERROR(parser);
+  }
+} // parse_arg_list_rest()
 
 ErrorCode parse_expr_tail(Parser *parser);
 
