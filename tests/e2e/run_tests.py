@@ -108,4 +108,17 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        exit_code = main()
+    except subprocess.TimeoutExpired as error:
+        print(f"FAIL: prekročený časový limit {error.timeout} s")
+        print(f"  Príkaz: {error.cmd}")
+        exit_code = 1
+    except OSError as error:
+        print(f"ERROR: chyba súboru alebo spustenia programu: {error}")
+        exit_code = 2
+    except (ValueError, KeyError, TypeError) as error:
+        print(f"ERROR: neplatná konfigurácia testu: {error}")
+        exit_code = 2
+
+    raise SystemExit(exit_code)
