@@ -15,6 +15,8 @@ typedef struct {
     IndentStack indent_stack;
     bool at_line_start;
     unsigned int leading_spaces;
+    unsigned int parenthesis_depth;
+    unsigned int comment_depth;
 } LexerState;
 
 void indent_stack_init(IndentStack *stack) {
