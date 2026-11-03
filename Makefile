@@ -14,7 +14,7 @@ SRC = src/translator.c src/symtable.c
 FORMAT = clang-format
 FORMAT_FLAGS = --dry-run -Werror
 
-.PHONY: all build check build-check format clean doc clean-doc clean-all
+.PHONY: all build check build-check format clean doc clean-doc clean-all test-symtable
 
 all: build
 
@@ -37,7 +37,15 @@ format:
 	$(FORMAT) -i $(SRC)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(SYMTABLE_TEST)
+
+# Builds and runs the symbol table unit tests
+SYMTABLE_TEST = tests/symtable_tests
+$(SYMTABLE_TEST): tests/symtable_tests.c src/symtable.c src/symtable.h
+	$(CC) $(CFLAGS) -Isrc tests/symtable_tests.c src/symtable.c -o $@
+
+test-symtable: $(SYMTABLE_TEST)
+	./$(SYMTABLE_TEST)
 
 # === DOCUMENTATION ===
 

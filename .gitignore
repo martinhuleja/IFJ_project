@@ -53,3 +53,4 @@ translator
 
 # === other ===
 .DS_Store
+/tests/symtable_tests
