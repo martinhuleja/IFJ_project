@@ -1,0 +1,11 @@
+.IFJcode26
+WRITE string@A\032B\035\092\010
+WRITE int@1234567890123
+WRITE string@\010
+WRITE float@0x1.4p+1
+WRITE string@\010
+WRITE bool@true
+WRITE string@\010
+WRITE bool@false
+WRITE string@\010
+EXIT int@0
