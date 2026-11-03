@@ -7,10 +7,10 @@
  */
 
 #include "error.h"
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
 
-void print_err(ErrorCode err_code, const char* fmt, ...) {
+void print_err(ErrorCode err_code, const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
