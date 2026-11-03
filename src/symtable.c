@@ -222,7 +222,7 @@ data *get_data(table* hash_tab,char* key)
     }
     return NULL;
 }
-table *delete_item(table *hash_tab, char* key)
+bool delete_item(table *hash_tab, char* key)
 {
 
     size_t capacity = hash_tab->table_capacity;
@@ -232,7 +232,7 @@ table *delete_item(table *hash_tab, char* key)
 
     //checking adjusted for linear probing
     if (hash_tab->items[position].taken == false )
-        return hash_tab;
+        return false;
     else
     {
         while( hash_tab->items[position].taken == true && i < capacity) 
@@ -241,7 +241,7 @@ table *delete_item(table *hash_tab, char* key)
             {
                 hash_tab->items[position].key= "[DELETED ITEM]";
                 hash_tab->table_size--;
-                return hash_tab;
+                return true;
             }
             else
             {
@@ -252,7 +252,7 @@ table *delete_item(table *hash_tab, char* key)
             }
         }
     }
-    return hash_tab;
+    return false;
 }
 
 void free_table(table* hash_tab)
@@ -260,7 +260,10 @@ void free_table(table* hash_tab)
     if(hash_tab != NULL)
     {
         if(hash_tab->items != NULL)
+        {
             free(hash_tab->items);
-            free(hash_tab);
+        }
+        free(hash_tab);
+
     }        
 }
