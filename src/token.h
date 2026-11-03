@@ -4,6 +4,8 @@
 typedef enum {
     TOKEN_EOF,
     TOKEN_NEWLINE,
+    TOKEN_INDENT,
+    TOKEN_DEDENT,
 
     TOKEN_IDENTIFIER,
     TOKEN_INT_LITERAL,
@@ -46,7 +48,7 @@ typedef enum {
     TOKEN_SEMICOLON,    /* ; */
     TOKEN_DOT,          /* . */
 
-    /* pre @main lebo je specialny lebo @ pouzivame ib v @main*/
+    /* pre @main lebo je specialny, @ pouzivame iba v @main a stringoch*/
     TOKEN_MAIN_ANNOTATION,
 } TokenType;
 
