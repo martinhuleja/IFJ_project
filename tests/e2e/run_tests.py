@@ -38,26 +38,10 @@ def run_compiler(compiler_path, source):
     )
 
 # AI-generated code (ChatGPT).
-# Prompt: Implement main for one IFJ26 E2E test. Accept a compiler path
-# as the sole command-line argument, load addition fixtures, check the
-# compiler exit code, skip interpretation for expected compilation errors,
-# otherwise interpret compiler stdout and compare exit code and output.
-# Return 0 for PASS, 1 for FAIL and 2 for missing configuration or tools.
-def main():
-    if len(sys.argv) != 2:
-        print("Použitie: python3 tests/e2e/run_tests.py CESTA_K_PREKLADACU")
-        return 2
-
-    compiler_path = Path(sys.argv[1]).resolve()
-    project_dir = Path(__file__).resolve().parents[2]
-    interpreter_path = project_dir / "ic26int"
-
-    if not compiler_path.is_file():
-        print(f"Prekladač neexistuje: {compiler_path}")
-        return 2
-
-    cases_dir = Path(__file__).resolve().parent / "cases"
-    source_path = cases_dir / "addition.scala"
+# Prompt: Extract the existing single-test logic into run_test, accepting
+# the source path, compiler path and interpreter path as arguments.
+# Preserve its exit-code and exact-output comparisons.
+def run_test(source_path, compiler_path, interpreter_path):
     config = json.loads(
         source_path.with_suffix(".json").read_text(encoding="utf-8")
     )
@@ -106,19 +90,66 @@ def main():
 
     return 1
 
+# AI-generated code (ChatGPT).
+# Prompt: Discover all .scala cases recursively in the cases directory.
+# Run each using run_test, catch timeouts and configuration or OS errors
+# per case, continue after failures, and print PASS/FAIL/ERROR counts.
+# Return 2 if any ERROR occurred, otherwise 1 for failures or 0 for success.
+# Treat an empty suite as an error.
+def main():
+    if len(sys.argv) != 2:
+        print("Použitie: python3 tests/e2e/run_tests.py CESTA_K_PREKLADACU")
+        return 2
+
+    compiler_path = Path(sys.argv[1]).resolve()
+    project_dir = Path(__file__).resolve().parents[2]
+    interpreter_path = project_dir / "ic26int"
+    cases_dir = Path(__file__).resolve().parent / "cases"
+
+    if not compiler_path.is_file():
+        print(f"Prekladač neexistuje: {compiler_path}")
+        return 2
+
+    source_paths = sorted(cases_dir.rglob("*.scala"))
+
+    if not source_paths:
+        print(f"ERROR: nenašli sa žiadne testy v {cases_dir}")
+        return 2
+
+    counts = [0, 0, 0]
+
+    for source_path in source_paths:
+        name = source_path.relative_to(cases_dir)
+        print(f"\nTest: {name}")
+
+        try:
+            result = run_test(
+                source_path, compiler_path, interpreter_path
+            )
+        except subprocess.TimeoutExpired as error:
+            print(f"FAIL {name}: prekročený limit {error.timeout} s")
+            print(f"  Príkaz: {error.cmd}")
+            result = 1
+        except OSError as error:
+            print(f"ERROR {name}: {error}")
+            result = 2
+        except (ValueError, KeyError, TypeError) as error:
+            print(f"ERROR {name}: neplatná konfigurácia: {error}")
+            result = 2
+
+        counts[result] += 1
+
+    print(
+        f"\nSpolu: {len(source_paths)}, "
+        f"PASS: {counts[0]}, FAIL: {counts[1]}, ERROR: {counts[2]}"
+    )
+
+    if counts[2] > 0:
+        return 2
+    if counts[1] > 0:
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    try:
-        exit_code = main()
-    except subprocess.TimeoutExpired as error:
-        print(f"FAIL: prekročený časový limit {error.timeout} s")
-        print(f"  Príkaz: {error.cmd}")
-        exit_code = 1
-    except OSError as error:
-        print(f"ERROR: chyba súboru alebo spustenia programu: {error}")
-        exit_code = 2
-    except (ValueError, KeyError, TypeError) as error:
-        print(f"ERROR: neplatná konfigurácia testu: {error}")
-        exit_code = 2
-
-    raise SystemExit(exit_code)
+    raise SystemExit(main())
