@@ -175,6 +175,14 @@ ErrorCode expect(Parser *parser, TokenType expected_type) {
   return ERROR_OK;
 } // expect()
 
+ErrorCode check_unit_literal(Parser *parser) {
+  RETURN_IF_ERROR(look_up_next_token(parser, TOKEN_RPAREN));
+  if (token_matches_next_token(parser, TOKEN_RPAREN)) { // UnitLiteral
+    RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
+  }
+  return ERROR_OK;
+} // check_unit_literal()
+
 /********************************************************************
  ************** PARSING ACCORDING TO LL GRAMMAR RULES ***************
  *******************************************************************/
@@ -337,11 +345,12 @@ ErrorCode parse_function_body(Parser *parser) {
 
   switch (parser->current_token->type) {
     // One line function definition
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
     case TOKEN_IDENTIFIER:
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-    case TOKEN_LPAREN:
       RETURN_IF_ERROR(parse_expr_or_call(parser));
       RETURN_IF_ERROR(parse_eol_or_eof(parser));
       break;
@@ -389,6 +398,8 @@ ErrorCode parse_statement_list_rest(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
     case TOKEN_VAL:
     case TOKEN_VAR:
     case TOKEN_IF:
@@ -398,7 +409,6 @@ ErrorCode parse_statement_list_rest(Parser *parser) {
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-    case TOKEN_LPAREN:
       RETURN_IF_ERROR(parse_statement(parser));
       RETURN_IF_ERROR(parse_statement_end(parser));
       RETURN_IF_ERROR(parse_statement_list_rest(parser));
@@ -442,10 +452,11 @@ ErrorCode parse_statement(Parser *parser) {
       RETURN_IF_ERROR(new_token(parser, TOKEN_ASSIGN));
       RETURN_IF_ERROR(parse_statement_after_id(parser));
       break;
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-    case TOKEN_LPAREN:
       RETURN_IF_ERROR(parse_expr_non_id(parser));
       break;
     default:
@@ -481,16 +492,17 @@ ErrorCode parse_expr_non_id(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(look_up_next_token(parser, TOKEN_RPAREN));
+      if (token_matches_next_token(parser, TOKEN_RPAREN)) { // UnitLiteral
+        RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
+      } else { // parser->next_token != TOKEN_RPAREN
+        RETURN_SYNTACTIC_ERROR(parser);
+      }
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
       RETURN_IF_ERROR(new_token(parser, TOKEN_NEWLINE));
-      RETURN_IF_ERROR(parse_expr_tail(parser));
-      break;
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
-      RETURN_IF_ERROR(parse_expr(parser));
-      RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
       RETURN_IF_ERROR(parse_expr_tail(parser));
       break;
     default:
@@ -554,11 +566,12 @@ ErrorCode parse_return_expr_opt(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
     case TOKEN_IDENTIFIER:
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-    case TOKEN_LPAREN:
       RETURN_IF_ERROR(parse_expr_or_call(parser));
       break;
     case TOKEN_NEWLINE:
@@ -579,10 +592,11 @@ ErrorCode parse_expr_or_call(Parser *parser) {
       RETURN_IF_ERROR(new_token(parser, TOKEN_LPAREN));
       RETURN_IF_ERROR(parse_call_opt(parser));
       break;
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-    case TOKEN_LPAREN:
       RETURN_IF_ERROR(parse_expr(parser));
       break;
     default:
@@ -616,11 +630,12 @@ ErrorCode parse_arg_list_opt(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
     case TOKEN_IDENTIFIER:
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-    case TOKEN_LPAREN:
       RETURN_IF_ERROR(parse_arg_list(parser));
       break;
     case TOKEN_RPAREN:
@@ -636,11 +651,12 @@ ErrorCode parse_arg_list(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
     case TOKEN_IDENTIFIER:
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-    case TOKEN_LPAREN:
       RETURN_IF_ERROR(parse_expr(parser));
       RETURN_IF_ERROR(parse_arg_list_rest(parser));
       break;

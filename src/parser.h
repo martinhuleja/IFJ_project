@@ -1,7 +1,7 @@
 /**
  * @file parser.h
  * @author Martin Huleja (xhulejm00)
- * @date 2026-10-28
+ * @date 2026-11-08
  *
  * @brief Header file for parser functions
  */
@@ -132,6 +132,17 @@ ErrorCode look_up_next_token(Parser *parser, TokenType expected_type);
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode expect(Parser *parser, TokenType expected_type);
+
+/**
+ * @brief Checks if current literal is UnitLiteral - represented as `()`.
+ *
+ * Uses look_up_next_token(). In case it is UnitLiteral, sets next token
+ * as current token using expect().
+ *
+ * @param parser Ptr to struct parser
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode check_unit_literal(Parser *parser);
 
 /********************************************************************
  ************** PARSING ACCORDING TO LL GRAMMAR RULES ***************
