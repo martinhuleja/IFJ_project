@@ -40,14 +40,14 @@ scope* pop_scope(scope *current_scope)
 }
 
 // checks if symbol exists through all scopes
-// returns NULL if function called wrong
+// returns NULL if called with invalid scope
 // returns NULL if function didnt find symbol
 // returns data
 data *lookup_symbol(scope *current_scope,char *key)
 {
     if (current_scope == NULL)
     {
-        //wrong call of function (99)
+        //called with invalid scope (99)
         return NULL;
     }
 
@@ -67,14 +67,14 @@ data *lookup_symbol(scope *current_scope,char *key)
 
 
 // checks if symbol already exists in scope, then enters it into hash_table
-// returns 99 if malloc error/wrong call of funciton
+// returns 99 if malloc error/called with invalid scope
 // returns 4 if symbol already exists within scope
 // returns 0
 int insert_symbol(scope *current_scope,char *key,data data)
 {
     if (current_scope == NULL)
     {
-        //wrong call of function, so returning 99 
+        //called with invalid scope, so returning 99 
         return 99;
     }
     if(search_table(current_scope->hash_tab,key) == true)
@@ -91,7 +91,53 @@ int insert_symbol(scope *current_scope,char *key,data data)
     return 0;
 }
 
+// checks wether value can be assigned to varriable
+// returns 3 if variable doesnt exist
+// returns 7 if val
+// returns 99 if called with invalid scope, or with function instaed of variable
+// returns 6 if type doesnt match
+// returns 0
+int check_assign_variable(scope *current_scope, char *key,TokenType right_side)
+{
 
+    if (current_scope == NULL)
+    {
+        //called with invalid scope, so returning 99 
+        return 99;
+    }
+    data *temp_data = lookup_symbol(current_scope,key);
+    if(temp_data == NULL)
+    {
+        //variable doesnt exist
+        return 3;
+    }
+    if(temp_data->kind == SYMBOL_FUNCTION)
+    {
+        // function is unchangeable 
+        return 7;
+    }
+    if(temp_data->changeable == false)
+    { 
+        // val is unchangeable
+        return 7;
+    }
+    return check_type(temp_data->type,right_side);
+
+}
+
+// function checks if right and left side have compatible types
+// doesnt check for invalid scopes/variables -> is only meant to be called as a helper function from other funcitons that already checked
+// returns 6 if uncompabite types
+// returns 0
+int check_type(TokenType left_side, TokenType right_side)
+{
+    if(left_side == right_side)
+        return 0;
+    if(left_side == TOKEN_DOUBLE && right_side == TOKEN_INT)
+        return 0;
+    else
+        return 6;
+}
 void free_scope(scope *current_scope)
 {
 
