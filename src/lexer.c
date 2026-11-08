@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "token.h"
 
 typedef struct IndentNode {
     unsigned int spaces;
@@ -18,6 +19,15 @@ typedef struct {
     unsigned int parenthesis_depth;
     unsigned int comment_depth;
 } LexerState;
+
+void token_free(Token *token) {
+    if (token == NULL) {
+        return;
+    }
+
+    free(token->value);
+    free(token);
+}
 
 void indent_stack_init(IndentStack *stack) {
     stack->top = NULL;

@@ -62,7 +62,6 @@ typedef struct {
 
 } Token;
 
-/* bude sa menit */
-/* na indentacii sa este pracuje */
+void token_free(Token *token);
 
 #endif
