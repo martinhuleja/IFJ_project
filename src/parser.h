@@ -15,6 +15,7 @@
 
 typedef struct {
   Token *current_token; // Holds current token across all parser functions
+  Token *next_token;    // Holds next token (used when look up a token after the current one is necessarily)
   bool print_error_msg; // Program prints an error message according to this value
 } Parser;
 
@@ -45,6 +46,14 @@ void parser_free(Parser *parser);
 ErrorCode check_current_token(Parser *parser);
 
 /**
+ * @brief Checks if struct parser or next token isn't NULL
+ *
+ * @param parser Ptr to struct parser
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode check_next_token(Parser *parser);
+
+/**
  * @brief Compares current token with the expected token
  *
  * @param parser Ptr to struct parser
@@ -52,6 +61,15 @@ ErrorCode check_current_token(Parser *parser);
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode compare_tokens(Parser *parser, TokenType expected_type);
+
+/**
+ * @brief Compares next token with the expected token
+ *
+ * @param parser Ptr to struct parser
+ * @param expected_type Expected token according to LL grammar rules
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type);
 
 /**
  * @brief Checks if current token match the expected one and returns bool
@@ -67,8 +85,23 @@ ErrorCode compare_tokens(Parser *parser, TokenType expected_type);
 bool tokens_matches(Parser *parser, TokenType expected_token);
 
 /**
+ * @brief Checks if next token match the expected one and returns bool
+ *
+ * Compares tokens using compare_tokens_next_token(). Doesn't print error msg.
+ * Used for comparing tokens, where failure doesn't mean an error.
+ * Returns bool, so the code would be easier to read.
+ *
+ * @param Ptr to struct parser
+ * @param expected_token Expected token according to LL grammar rules
+ * @return True, if tokens match, othervise false
+ */
+bool token_matches_next_token(Parser *parser, TokenType expected_token);
+
+/**
  * @brief If it's possible, gets next token from scanner
  *
+ * If look_up_next_token() was used, sets next token from struct parser as the current one
+ * and deallocates memory used for next token.
  * Also checks if the action was succesfull.
  *
  * @param parser Ptr to struct parser
@@ -76,6 +109,17 @@ bool tokens_matches(Parser *parser, TokenType expected_token);
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode new_token(Parser *parser, TokenType expected_type);
+
+/**
+ * @brief Looks up a token after the current one
+ *
+ * Works simillary as new_token(), but saves the given token as next token to struct parser.
+ *
+ * @param parser Ptr to struct parser
+ * @param expected_type Expected token according to LL grammar rules
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode look_up_next_token(Parser *parser, TokenType expected_type);
 
 /**
  * @brief Compares current token with the expected token and gets next one

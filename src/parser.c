@@ -52,6 +52,7 @@ Parser *parser_init() {
   }
 
   parser->current_token = NULL;
+  parser->next_token = NULL;
   parser->print_error_msg = true;
   return parser;
 } // parser_init()
@@ -62,6 +63,12 @@ void parser_free(Parser *parser) {
       free (parser->current_token->value);
       free (parser->current_token);
     }
+
+    if (parser->next_token != NULL) {
+      free (parser->next_token->value);
+      free (parser->next_token);
+    }
+
     free(parser);
   }
 } // parser_free()
@@ -73,7 +80,16 @@ ErrorCode check_current_token(Parser *parser) {
   }
 
   return ERROR_OK;
-}
+} // check_current_token()
+
+ErrorCode check_next_token(Parser *parser) {
+  if (parser == NULL || parser->next_token == NULL) {
+    print_err(ERROR_INTERNAL, "next_token is empty.");
+    return ERROR_INTERNAL;
+  }
+
+  return ERROR_OK;
+} // check_next_token()
 
 ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
   RETURN_IF_ERROR(check_current_token(parser));
@@ -86,6 +102,17 @@ ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
   return ERROR_OK;
 } // compare_tokens()
 
+ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type) {
+  RETURN_IF_ERROR(check_next_token(parser));
+
+  // Compare current token type to the expected one
+  if (parser->next_token->type != expected_type) {
+    RETURN_SYNTACTIC_ERROR(parser);
+  }
+
+  return ERROR_OK;
+} // compare_tokens_next_token()
+
 bool tokens_matches(Parser *parser, TokenType expected_token) {
   parser->print_error_msg = false;
   bool return_value = (compare_tokens(parser, expected_token) == ERROR_OK);
@@ -93,14 +120,26 @@ bool tokens_matches(Parser *parser, TokenType expected_token) {
   return return_value;
 } // tokens_matches()
 
+bool token_matches_next_token(Parser *parser, TokenType expected_token) {
+  parser->print_error_msg = false;
+  bool return_value = (compare_tokens_next_token(parser, expected_token) == ERROR_OK);
+  parser->print_error_msg = true; // Reset print_error_msg value
+  return return_value;
+} // token_matches_next_token()
+
 ErrorCode new_token(Parser *parser, TokenType expected_type) {
-  // If parser haven't expected EOF, get another token
-  if (expected_type != TOKEN_EOF) {
-    // Deallocate memory used for current token
-    if (parser != NULL && parser->current_token != NULL) {
-      free (parser->current_token->value);
-      free (parser->current_token);
-    }
+  // Deallocate memory used for current token
+  if (parser != NULL && parser->current_token != NULL) {
+    free (parser->current_token->value);
+    free (parser->current_token);
+  }
+
+  if (parser->next_token != NULL) {
+    parser->current_token = parser->next_token;
+    free (parser->next_token->value);
+    free (parser->next_token);
+    parser->next_token = NULL;
+  } else if (expected_type != TOKEN_EOF) { // If parser haven't expected EOF, get another token
     parser->current_token = get_next_token();
     if (parser->current_token == NULL) {
       print_err(ERROR_LEXICAL, "No more tokens to return.");
@@ -110,6 +149,24 @@ ErrorCode new_token(Parser *parser, TokenType expected_type) {
 
   return ERROR_OK;
 } // new_token()
+
+ErrorCode look_up_next_token(Parser *parser, TokenType expected_type) {
+  // If parser haven't expected EOF, get another token
+  if (expected_type != TOKEN_EOF) {
+    // Deallocate memory used for next token
+    if (parser != NULL && parser->next_token != NULL) {
+      free (parser->next_token->value);
+      free (parser->next_token);
+    }
+    parser->next_token = get_next_token();
+    if (parser->next_token == NULL) {
+      print_err(ERROR_LEXICAL, "No more tokens to return.");
+      return ERROR_LEXICAL;
+    }
+  }
+
+  return ERROR_OK;
+} // look_up_next_token;
 
 ErrorCode expect(Parser *parser, TokenType expected_type) {
   RETURN_IF_ERROR(compare_tokens(parser, expected_type));
