@@ -148,7 +148,7 @@ ErrorCode parse_prologue(Parser *parser) {
   RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_DOT));
-  RETURN_IF_ERROR(expect(parser, TOKEN_STAR));
+  RETURN_IF_ERROR(expect(parser, TOKEN_MULTIPLY));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
 
   return ERROR_OK;
