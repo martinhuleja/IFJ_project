@@ -57,6 +57,7 @@ typedef struct {
     TokenType type;
     char *value;
 
+    bool lf_before_rparen,
     unsigned int line;
     unsigned int column;
 
