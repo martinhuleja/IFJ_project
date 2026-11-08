@@ -1,9 +1,9 @@
 /**
  * @file   parser.c
  * @author Martin Huleja (xhulejm00)
- * @date   2026-10-28
+ * @date   2026-11-08
  *
- * @brief  Implementation of parser functions
+ * @brief  Implementation of parser functions as recursive descent
  */
 
 #include <stdlib.h>
@@ -27,6 +27,7 @@
 #define RETURN_IF_ERROR(foo) do { \
   ErrorCode error_code = (foo); \
   if (error_code != ERROR_OK) { \
+    parser_free(parser); \
     return error_code; \
   } \
 } while(0)
@@ -39,6 +40,7 @@
   if (parser->print_error_msg) { \
     print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one."); \
   } \
+  parser_free(parser); \
   return ERROR_SYNTACTIC; \
 } while(0)
 
@@ -56,6 +58,10 @@ Parser *parser_init() {
 
 void parser_free(Parser *parser) {
   if (parser != NULL) {
+    if (parser->current_token != NULL) {
+      free (parser->current_token->value);
+      free (parser->current_token);
+    }
     free(parser);
   }
 } // parser_free()
@@ -90,6 +96,11 @@ bool tokens_matches(Parser *parser, TokenType expected_token) {
 ErrorCode new_token(Parser *parser, TokenType expected_type) {
   // If parser haven't expected EOF, get another token
   if (expected_type != TOKEN_EOF) {
+    // Deallocate memory used for current token
+    if (parser != NULL && parser->current_token != NULL) {
+      free (parser->current_token->value);
+      free (parser->current_token);
+    }
     parser->current_token = get_next_token();
     if (parser->current_token == NULL) {
       print_err(ERROR_LEXICAL, "No more tokens to return.");
