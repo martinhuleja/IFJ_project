@@ -127,11 +127,14 @@ Token *get_next_token(void) {
 
     while (true) {
         c = getchar();
-
         switch (state) {
             case ST_START:
                 if (c == 'D') {
                     state = ST_D;
+                    break;
+                }
+                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
                     break;
                 }
                 break;
@@ -140,18 +143,62 @@ Token *get_next_token(void) {
                     state = ST_Do;
                     break;
                 }
+                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
                 break;
             case ST_Do:
                 if (c == 'u') {
                     state = ST_Dou;
                     break;
                 }
-
+                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
                 break;
             case ST_Dou:
+                if (c=='b') {
+                    state = ST_Doub;
+                    break;
+                }
+                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
                 break;
-
+            case ST_Doub:
+                if (c=='l') {
+                    state = ST_Doubl;
+                    break;
+                }
+                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_Doubl:
+                if (c=='e') {
+                    state = ST_Double;
+                    break;
+                }
+                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_Double:
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
             case ST_IDENTIFIER:
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
                 break;
             case ST_STRING:
                 break;
