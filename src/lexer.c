@@ -121,6 +121,13 @@ typedef enum {
     ST_STRING_TRIPLE_END
 } FSMState;
 
+static bool is_identifier_continue(int c) {
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+           (c >= '0' && c <= '9') ||
+           (c == '_');
+}
+
 Token *get_next_token(void) {
     FSMState state = ST_START;
     int c;
@@ -133,7 +140,7 @@ Token *get_next_token(void) {
                     state = ST_D;
                     break;
                 }
-                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                else if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
@@ -143,7 +150,7 @@ Token *get_next_token(void) {
                     state = ST_Do;
                     break;
                 }
-                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                else if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
@@ -153,7 +160,7 @@ Token *get_next_token(void) {
                     state = ST_Dou;
                     break;
                 }
-                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                else if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
@@ -163,7 +170,7 @@ Token *get_next_token(void) {
                     state = ST_Doub;
                     break;
                 }
-                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                else if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
@@ -173,7 +180,7 @@ Token *get_next_token(void) {
                     state = ST_Doubl;
                     break;
                 }
-                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                else if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
@@ -183,19 +190,19 @@ Token *get_next_token(void) {
                     state = ST_Double;
                     break;
                 }
-                else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                else if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
                 break;
             case ST_Double:
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
                 break;
             case ST_IDENTIFIER:
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c=='_')) {
+                if (is_identifier_continue(c)) {
                     state = ST_IDENTIFIER;
                     break;
                 }
