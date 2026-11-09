@@ -11,10 +11,10 @@
  * - is necessary for compiling the program.
  */
 
-#include "token.h"
+#include "parser-missing-declarations.h"
 #include "error.h"
 #include "parser.h"
-#include "parser-missing-declarations.h"
+#include "token.h"
 #include <stdlib.h>
 
 Token *get_next_token() {

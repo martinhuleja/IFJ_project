@@ -9,13 +9,13 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include <stdbool.h>
 #include "error.h"
 #include "token.h"
+#include <stdbool.h>
 
 typedef struct parser {
-  Token *current_token; // Holds current token across all parser functions
-  Token *next_token;    // Holds next token (used when look up a token after the current one is necessarily)
+  Token *current_token;            // Holds current token across all parser functions
+  Token *next_token;               // Holds next token (used when look up a token after the current one is necessarily)
   bool print_error_msg_and_return; // Prints an error message and returns according to this value
 } Parser;
 

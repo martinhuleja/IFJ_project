@@ -6,13 +6,13 @@
  * @brief  Implementation of parser functions as recursive descent
  */
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
 #include "parser.h"
-#include "token.h"
 #include "error.h"
 #include "parser-missing-declarations.h"
+#include "token.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
 /********************************************************************
  ************************ SUPPORT FUNCTIONS *************************
@@ -25,24 +25,26 @@
  *
  * @param foo function returning an ErrorCode value
  */
-#define RETURN_IF_ERROR(foo) do { \
-  ErrorCode error_code = (foo); \
-  if (error_code != ERROR_OK) { \
-    return error_code; \
-  } \
-} while(0)
+#define RETURN_IF_ERROR(foo)                                                                                           \
+  do {                                                                                                                 \
+    ErrorCode error_code = (foo);                                                                                      \
+    if (error_code != ERROR_OK) {                                                                                      \
+      return error_code;                                                                                               \
+    }                                                                                                                  \
+  } while (0)
 
 /**
  * @brief Prints error msg and return with syntactic ErrorCode
  * @param Ptr to struct parser
  */
-#define RETURN_SYNTACTIC_ERROR(parser) do { \
-  if (parser->print_error_msg_and_return) { \
-    print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one (%s, line %u, column %u).", \
-      parser->current_token->value, parser->current_token->line, parser->current_token->column); \
-  } \
-  return ERROR_SYNTACTIC; \
-} while(0)
+#define RETURN_SYNTACTIC_ERROR(parser)                                                                                 \
+  do {                                                                                                                 \
+    if (parser->print_error_msg_and_return) {                                                                          \
+      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one (%s, line %u, column %u).",             \
+                parser->current_token->value, parser->current_token->line, parser->current_token->column);             \
+    }                                                                                                                  \
+    return ERROR_SYNTACTIC;                                                                                            \
+  } while (0)
 
 Parser *parser_init() {
   Parser *parser = (Parser *)malloc(sizeof(Parser));
@@ -60,13 +62,13 @@ Parser *parser_init() {
 void parser_free(Parser *parser) {
   if (parser != NULL) {
     if (parser->current_token != NULL) {
-      free (parser->current_token->value);
-      free (parser->current_token);
+      free(parser->current_token->value);
+      free(parser->current_token);
     }
 
     if (parser->next_token != NULL) {
-      free (parser->next_token->value);
-      free (parser->next_token);
+      free(parser->next_token->value);
+      free(parser->next_token);
     }
 
     free(parser);
@@ -103,7 +105,7 @@ ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type) {
   if (parser->next_token->type != expected_type) {
     if (parser->print_error_msg_and_return) {
       print_err(ERROR_SYNTACTIC, "Expected token doesn't match the next one (%s, line %u, column %u).",
-        parser->next_token->value, parser->next_token->line, parser->next_token->column);
+                parser->next_token->value, parser->next_token->line, parser->next_token->column);
     }
     return ERROR_SYNTACTIC;
   }
@@ -141,8 +143,8 @@ ErrorCode new_token(Parser *parser) {
 
   // Deallocate memory used for current token
   if (parser->current_token != NULL) {
-    free (parser->current_token->value);
-    free (parser->current_token);
+    free(parser->current_token->value);
+    free(parser->current_token);
   }
 
   if (parser->next_token != NULL) {
@@ -350,14 +352,14 @@ ErrorCode parse_type(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_INT:
-    case TOKEN_DOUBLE:
-    case TOKEN_STRING:
-    case TOKEN_UNIT:
-      RETURN_IF_ERROR(new_token(parser));
-      return ERROR_OK;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_INT:
+  case TOKEN_DOUBLE:
+  case TOKEN_STRING:
+  case TOKEN_UNIT:
+    RETURN_IF_ERROR(new_token(parser));
+    return ERROR_OK;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 } // parse_type()
 
@@ -365,26 +367,26 @@ ErrorCode parse_function_body(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    // One line function definition
-    case TOKEN_IDENTIFIER:
-      // fall through
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_expr_or_call(parser));
-      RETURN_IF_ERROR(parse_eol_or_eof(parser));
-      break;
-    // Multi line function definition
-    case TOKEN_NEWLINE:
-      RETURN_IF_ERROR(new_token(parser));
-      RETURN_IF_ERROR(parse_block(parser));
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  // One line function definition
+  case TOKEN_IDENTIFIER:
+    // fall through
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_expr_or_call(parser));
+    RETURN_IF_ERROR(parse_eol_or_eof(parser));
+    break;
+  // Multi line function definition
+  case TOKEN_NEWLINE:
+    RETURN_IF_ERROR(new_token(parser));
+    RETURN_IF_ERROR(parse_block(parser));
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -422,33 +424,33 @@ ErrorCode parse_statement_list_rest(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_VAL:
-      // fall through
-    case TOKEN_VAR:
-      // fall through
-    case TOKEN_IF:
-      // fall through
-    case TOKEN_WHILE:
-      // fall through
-    case TOKEN_RETURN:
-      // fall through
-    case TOKEN_IDENTIFIER:
-      // fall through
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_statement(parser));
-      RETURN_IF_ERROR(parse_statement_end(parser));
-      RETURN_IF_ERROR(parse_statement_list_rest(parser));
-      break;
-    case TOKEN_DEDENT:
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_VAL:
+    // fall through
+  case TOKEN_VAR:
+    // fall through
+  case TOKEN_IF:
+    // fall through
+  case TOKEN_WHILE:
+    // fall through
+  case TOKEN_RETURN:
+    // fall through
+  case TOKEN_IDENTIFIER:
+    // fall through
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_statement(parser));
+    RETURN_IF_ERROR(parse_statement_end(parser));
+    RETURN_IF_ERROR(parse_statement_list_rest(parser));
+    break;
+  case TOKEN_DEDENT:
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -467,35 +469,35 @@ ErrorCode parse_statement(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_VAL:
-      // fall through
-    case TOKEN_VAR:
-      RETURN_IF_ERROR(parse_var_def(parser));
-      break;
-    case TOKEN_IF:
-      RETURN_IF_ERROR(parse_if_statement(parser));
-      break;
-    case TOKEN_WHILE:
-      RETURN_IF_ERROR(parse_while_statement(parser));
-      break;
-    case TOKEN_RETURN:
-      RETURN_IF_ERROR(parse_return_statement(parser));
-      break;
-    case TOKEN_IDENTIFIER:
-      RETURN_IF_ERROR(new_token(parser));
-      RETURN_IF_ERROR(parse_statement_after_id(parser));
-      break;
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_expr_non_id(parser));
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_VAL:
+    // fall through
+  case TOKEN_VAR:
+    RETURN_IF_ERROR(parse_var_def(parser));
+    break;
+  case TOKEN_IF:
+    RETURN_IF_ERROR(parse_if_statement(parser));
+    break;
+  case TOKEN_WHILE:
+    RETURN_IF_ERROR(parse_while_statement(parser));
+    break;
+  case TOKEN_RETURN:
+    RETURN_IF_ERROR(parse_return_statement(parser));
+    break;
+  case TOKEN_IDENTIFIER:
+    RETURN_IF_ERROR(new_token(parser));
+    RETURN_IF_ERROR(parse_statement_after_id(parser));
+    break;
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_expr_non_id(parser));
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -505,20 +507,20 @@ ErrorCode parse_statement_after_id(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_ASSIGN:
-      RETURN_IF_ERROR(new_token(parser));
-      RETURN_IF_ERROR(parse_expr_or_call(parser));
-      break;
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_arg_group(parser));
-      break;
-    case TOKEN_NEWLINE:
-      // fall through
-    case TOKEN_SEMICOLON:
-      RETURN_IF_ERROR(parse_expr_tail(parser));
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_ASSIGN:
+    RETURN_IF_ERROR(new_token(parser));
+    RETURN_IF_ERROR(parse_expr_or_call(parser));
+    break;
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_arg_group(parser));
+    break;
+  case TOKEN_NEWLINE:
+    // fall through
+  case TOKEN_SEMICOLON:
+    RETURN_IF_ERROR(parse_expr_tail(parser));
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -528,27 +530,27 @@ ErrorCode parse_expr_non_id(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(new_token(parser));
-      if (!tokens_matches(parser, TOKEN_RPAREN)) {
-        // ExprNonId -> LParen Expr RParen ExprTail
-        RETURN_IF_ERROR(parse_expr(parser));
-        RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
-        RETURN_IF_ERROR(parse_expr_tail(parser));
-        break;
-      }
-      // else UnitLiteral
-      // fall through
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      RETURN_IF_ERROR(new_token(parser));
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(new_token(parser));
+    if (!tokens_matches(parser, TOKEN_RPAREN)) {
+      // ExprNonId -> LParen Expr RParen ExprTail
+      RETURN_IF_ERROR(parse_expr(parser));
+      RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
       RETURN_IF_ERROR(parse_expr_tail(parser));
       break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+    }
+    // else UnitLiteral
+    // fall through
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    RETURN_IF_ERROR(new_token(parser));
+    RETURN_IF_ERROR(parse_expr_tail(parser));
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -608,23 +610,23 @@ ErrorCode parse_return_expr_opt(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_IDENTIFIER:
-      // fall through
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_expr_or_call(parser));
-      break;
-    case TOKEN_NEWLINE:
-      // fall through
-    case TOKEN_SEMICOLON:
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_IDENTIFIER:
+    // fall through
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_expr_or_call(parser));
+    break;
+  case TOKEN_NEWLINE:
+    // fall through
+  case TOKEN_SEMICOLON:
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -634,21 +636,21 @@ ErrorCode parse_expr_or_call(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_IDENTIFIER:
-      RETURN_IF_ERROR(new_token(parser));
-      RETURN_IF_ERROR(parse_call_opt(parser));
-      break;
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_expr(parser));
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_IDENTIFIER:
+    RETURN_IF_ERROR(new_token(parser));
+    RETURN_IF_ERROR(parse_call_opt(parser));
+    break;
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_expr(parser));
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -658,8 +660,8 @@ ErrorCode parse_call_opt(Parser *parser) {
   if (tokens_matches(parser, TOKEN_LPAREN)) {
     RETURN_IF_ERROR(parse_arg_group(parser));
     return ERROR_OK;
-  } else if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF)
-    || tokens_matches (parser, TOKEN_SEMICOLON)) {
+  } else if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF) ||
+             tokens_matches(parser, TOKEN_SEMICOLON)) {
     return ERROR_OK;
   } else {
     RETURN_SYNTACTIC_ERROR(parser);
@@ -678,21 +680,21 @@ ErrorCode parse_arg_list_opt(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_IDENTIFIER:
-      // fall through
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_arg_list(parser));
-      break;
-    case TOKEN_RPAREN:
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_IDENTIFIER:
+    // fall through
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_arg_list(parser));
+    break;
+  case TOKEN_RPAREN:
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -702,20 +704,20 @@ ErrorCode parse_arg_list(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_IDENTIFIER:
-      // fall through
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_expr(parser));
-      RETURN_IF_ERROR(parse_arg_list_rest(parser));
-      break;
-    default:
-      RETURN_SYNTACTIC_ERROR(parser);
+  case TOKEN_IDENTIFIER:
+    // fall through
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_expr(parser));
+    RETURN_IF_ERROR(parse_arg_list_rest(parser));
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;
@@ -738,25 +740,25 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-    case TOKEN_IDENTIFIER:
-      // fall through
-    case TOKEN_INT_LITERAL:
-      // fall through
-    case TOKEN_DOUBLE_LITERAL:
-      // fall through
-    case TOKEN_STRING_LITERAL:
-      // fall through
-    case TOKEN_LPAREN:
-      RETURN_IF_ERROR(parse_arg_list(parser));
-      break;
-    case TOKEN_RPAREN:
-      // ArgListRestTail -> ε {checkLF(RParen)}
-      if (!parser->current_token->lf_before_rparen) {
-        RETURN_SYNTACTIC_ERROR(parser);
-      }
-      break;
-    default:
+  case TOKEN_IDENTIFIER:
+    // fall through
+  case TOKEN_INT_LITERAL:
+    // fall through
+  case TOKEN_DOUBLE_LITERAL:
+    // fall through
+  case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_LPAREN:
+    RETURN_IF_ERROR(parse_arg_list(parser));
+    break;
+  case TOKEN_RPAREN:
+    // ArgListRestTail -> ε {checkLF(RParen)}
+    if (!parser->current_token->lf_before_rparen) {
       RETURN_SYNTACTIC_ERROR(parser);
+    }
+    break;
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
   }
 
   return ERROR_OK;

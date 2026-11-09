@@ -14,9 +14,9 @@
 #ifndef PARSER_MISSING_DECLARATIONS_H
 #define PARSER_MISSING_DECLARATIONS_H
 
-#include "token.h"
 #include "error.h"
 #include "parser.h"
+#include "token.h"
 
 // Parser gets next token from scanner using this function
 Token *get_next_token();
