@@ -234,9 +234,7 @@ ErrorCode parse_function_list_rest(Parser *parser) {
 } // parse_function_list_rest()
 
 ErrorCode parse_function_def(Parser *parser) {
-  if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
-    RETURN_IF_ERROR(parse_main_opt(parser));
-  }
+  RETURN_IF_ERROR(parse_main_opt(parser));
   RETURN_IF_ERROR(parse_eol_opt(parser));
   RETURN_IF_ERROR(expect(parser, TOKEN_DEF));
   RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
@@ -252,8 +250,6 @@ ErrorCode parse_main_opt(Parser *parser) {
   // MainOpt -> AtMain
   if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
     RETURN_IF_ERROR(new_token(parser));
-  } else { // MainOpt -> ε
-    RETURN_IF_ERROR(compare_tokens(parser, TOKEN_DEF));
   }
 
   return ERROR_OK;
@@ -286,9 +282,9 @@ ErrorCode parse_param_list(Parser *parser) {
 } // parse_param_list()
 
 ErrorCode parse_param_list_rest(Parser *parser) {
-  // ParamListRest -> Comma Param ParamListRest
+  // ParamListRest -> Comma ParamListRestTail
   if (tokens_matches(parser, TOKEN_COMMA)) {
-    RETURN_IF_ERROR(expect(parser, TOKEN_COMMA));
+    RETURN_IF_ERROR(new_token(parser));
     RETURN_IF_ERROR(parse_param_list_rest_tail(parser));
   } else { // ParamListRest -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
@@ -302,11 +298,11 @@ ErrorCode parse_param_list_rest_tail(Parser *parser) {
   if (tokens_matches(parser, TOKEN_IDENTIFIER)) {
     RETURN_IF_ERROR(parse_param_list(parser));
   } else { // ParamListRestTail -> ε
-    RETURN_IF_ERROR(compare_tokens_next_token(parser, TOKEN_RPAREN));
+    // ParamListRestTail -> ε {checkLF(RParen)}
+    RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
     if (!parser->current_token->lf_before_rparen) {
       RETURN_SYNTACTIC_ERROR(parser);
     }
-    RETURN_IF_ERROR(new_token(parser));
   }
 
   return ERROR_OK;
@@ -323,7 +319,7 @@ ErrorCode parse_param(Parser *parser) {
 ErrorCode parse_type_opt(Parser *parser) {
   // TypeOpt -> Colon Type
   if (tokens_matches(parser, TOKEN_COLON)) {
-    RETURN_IF_ERROR(expect(parser, TOKEN_COLON));
+    RETURN_IF_ERROR(new_token(parser));
     RETURN_IF_ERROR(parse_type(parser));
   } else { // TypeOpt -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_ASSIGN));
@@ -341,12 +337,10 @@ ErrorCode parse_type(Parser *parser) {
     case TOKEN_STRING:
     case TOKEN_UNIT:
       RETURN_IF_ERROR(new_token(parser));
-      break;
+      return ERROR_OK;
     default:
       RETURN_SYNTACTIC_ERROR(parser);
   }
-
-  return ERROR_OK;
 } // parse_type()
 
 ErrorCode parse_function_body(Parser *parser) {
@@ -502,12 +496,15 @@ ErrorCode parse_expr_non_id(Parser *parser) {
 
   switch (parser->current_token->type) {
     case TOKEN_LPAREN:
-      RETURN_IF_ERROR(look_up_next_token(parser));
-      if (token_matches_next_token(parser, TOKEN_RPAREN)) { // UnitLiteral
+      RETURN_IF_ERROR(new_token(parser));
+      if (!tokens_matches(parser, TOKEN_RPAREN)) {
+        // ExprNonId -> LParen Expr RParen ExprTail
+        RETURN_IF_ERROR(parse_expr(parser));
         RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
-      } else { // parser->next_token != TOKEN_RPAREN
-        RETURN_SYNTACTIC_ERROR(parser);
+        RETURN_IF_ERROR(parse_expr_tail(parser));
+        break;
       }
+      // else UnitLiteral
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
@@ -702,6 +699,7 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser) {
       RETURN_IF_ERROR(parse_arg_list(parser));
       break;
     case TOKEN_RPAREN:
+      // ArgListRestTail -> ε {checkLF(RParen)}
       if (!parser->current_token->lf_before_rparen) {
         RETURN_SYNTACTIC_ERROR(parser);
       }
