@@ -33,6 +33,8 @@ Parser *parser_init();
 /**
  * @brief Frees the memory allocated for struct parser
  *
+ * In case current token or next token isn't NULL, frees memory allocated for these Tokens too.
+ *
  * @param parser Ptr to struct parser
  */
 void parser_free(Parser *parser);
@@ -40,21 +42,17 @@ void parser_free(Parser *parser);
 /**
  * @brief Checks if struct parser or current token isn't NULL
  *
+ * If it is, print error message and returns with ERROR_INTERNAL.
+ *
  * @param parser Ptr to struct parser
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode check_current_token(Parser *parser);
 
 /**
- * @brief Checks if struct parser or next token isn't NULL
- *
- * @param parser Ptr to struct parser
- * @return ErrorCode according to specification of IFJ26
- */
-ErrorCode check_next_token(Parser *parser);
-
-/**
  * @brief Compares current token with the expected token
+ *
+ * Also checks that parser or current token isn't NULL using check_current_token().
  *
  * @param parser Ptr to struct parser
  * @param expected_type Expected token according to LL grammar rules
@@ -65,6 +63,8 @@ ErrorCode compare_tokens(Parser *parser, TokenType expected_type);
 /**
  * @brief Compares next token with the expected token
  *
+ * Also checks that parser or next token isn't NULL.
+ *
  * @param parser Ptr to struct parser
  * @param expected_type Expected token according to LL grammar rules
  * @return ErrorCode according to specification of IFJ26
@@ -72,7 +72,7 @@ ErrorCode compare_tokens(Parser *parser, TokenType expected_type);
 ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type);
 
 /**
- * @brief Checks if current token match the expected one and returns bool
+ * @brief Checks if current token matches the expected one and returns bool
  *
  * Compares tokens using compare_tokens(). Doesn't print error msg.
  * Used for comparing tokens, where failure doesn't mean an error.
@@ -80,12 +80,12 @@ ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type);
  *
  * @param Ptr to struct parser
  * @param expected_token Expected token according to LL grammar rules
- * @return True, if tokens match, othervise false
+ * @return True, if tokens matches, othervise false
  */
 bool tokens_matches(Parser *parser, TokenType expected_token);
 
 /**
- * @brief Checks if next token match the expected one and returns bool
+ * @brief Checks if next token matches the expected one and returns bool
  *
  * Compares tokens using compare_tokens_next_token(). Doesn't print error msg.
  * Used for comparing tokens, where failure doesn't mean an error.
@@ -100,26 +100,28 @@ bool token_matches_next_token(Parser *parser, TokenType expected_token);
 /**
  * @brief If it's possible, gets next token from scanner
  *
- * If look_up_next_token() was used, sets next token from struct parser as the current one
- * and deallocates memory used for next token.
- * Also checks if the action was succesfull.
+ * Deallocates memory used for current token.
+ * If look_up_next_token() was used before, sets next token from struct parser as the current one
+ * and sets next token to NULL.
+ * Checks if calling scanner was succesfull.
  *
  * @param parser Ptr to struct parser
  * @param expected_type Expected token according to LL grammar rules
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode new_token(Parser *parser, TokenType expected_type);
+ErrorCode new_token(Parser *parser);
 
 /**
  * @brief Looks up a token after the current one
  *
- * Works simillary as new_token(), but saves the given token as next token to struct parser.
+ * Saves the given token as next token to struct parser. Checks if calling scanner was succesfull.
+ * If parser is NULL or next token isn't NULL, prints error message and returns with ERROR_INTERNAL.
  *
  * @param parser Ptr to struct parser
  * @param expected_type Expected token according to LL grammar rules
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode look_up_next_token(Parser *parser, TokenType expected_type);
+ErrorCode look_up_next_token(Parser *parser);
 
 /**
  * @brief Compares current token with the expected token and gets next one
@@ -136,8 +138,8 @@ ErrorCode expect(Parser *parser, TokenType expected_type);
 /**
  * @brief Checks if current literal is UnitLiteral - represented as `()`.
  *
- * Uses look_up_next_token(). In case it is UnitLiteral, sets next token
- * as current token using expect().
+ * Uses look_up_next_token(). In case it is UnitLiteral, sets TOKEN_RPAREN
+ * as current token using new_token().
  *
  * @param parser Ptr to struct parser
  * @return ErrorCode according to specification of IFJ26

@@ -83,15 +83,6 @@ ErrorCode check_current_token(Parser *parser) {
   return ERROR_OK;
 } // check_current_token()
 
-ErrorCode check_next_token(Parser *parser) {
-  if (parser == NULL || parser->next_token == NULL) {
-    print_err(ERROR_INTERNAL, "next_token is empty.");
-    return ERROR_INTERNAL;
-  }
-
-  return ERROR_OK;
-} // check_next_token()
-
 ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
   RETURN_IF_ERROR(check_current_token(parser));
 
@@ -104,7 +95,10 @@ ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
 } // compare_tokens()
 
 ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type) {
-  RETURN_IF_ERROR(check_next_token(parser));
+  if (parser == NULL || parser->next_token == NULL) {
+    print_err(ERROR_INTERNAL, "next_token is empty.");
+    return ERROR_INTERNAL;
+  }
 
   // Compare current token type to the expected one
   if (parser->next_token->type != expected_type) {
@@ -128,7 +122,7 @@ bool token_matches_next_token(Parser *parser, TokenType expected_token) {
   return return_value;
 } // token_matches_next_token()
 
-ErrorCode new_token(Parser *parser, TokenType expected_type) {
+ErrorCode new_token(Parser *parser) {
   // Deallocate memory used for current token
   if (parser != NULL && parser->current_token != NULL) {
     free (parser->current_token->value);
@@ -137,10 +131,8 @@ ErrorCode new_token(Parser *parser, TokenType expected_type) {
 
   if (parser->next_token != NULL) {
     parser->current_token = parser->next_token;
-    free (parser->next_token->value);
-    free (parser->next_token);
     parser->next_token = NULL;
-  } else if (expected_type != TOKEN_EOF) { // If parser haven't expected EOF, get another token
+  } else {
     parser->current_token = get_next_token();
     if (parser->current_token == NULL) {
       print_err(ERROR_LEXICAL, "No more tokens to return.");
@@ -151,19 +143,21 @@ ErrorCode new_token(Parser *parser, TokenType expected_type) {
   return ERROR_OK;
 } // new_token()
 
-ErrorCode look_up_next_token(Parser *parser, TokenType expected_type) {
-  // If parser haven't expected EOF, get another token
-  if (expected_type != TOKEN_EOF) {
-    // Deallocate memory used for next token
-    if (parser != NULL && parser->next_token != NULL) {
-      free (parser->next_token->value);
-      free (parser->next_token);
-    }
-    parser->next_token = get_next_token();
-    if (parser->next_token == NULL) {
-      print_err(ERROR_LEXICAL, "No more tokens to return.");
-      return ERROR_LEXICAL;
-    }
+ErrorCode look_up_next_token(Parser *parser) {
+  if (parser == NULL) {
+    print_err(ERROR_INTERNAL, "Struct parser is NULL.");
+    return ERROR_INTERNAL;
+  }
+
+  if (parser->next_token != NULL) {
+    print_err(ERROR_INTERNAL, "Calling look_up_next_token() when next_token in parser struct is not NULL");
+    return ERROR_INTERNAL;
+  }
+
+  parser->next_token = get_next_token();
+  if (parser->next_token == NULL) {
+    print_err(ERROR_LEXICAL, "No more tokens to return.");
+    return ERROR_LEXICAL;
   }
 
   return ERROR_OK;
@@ -171,15 +165,15 @@ ErrorCode look_up_next_token(Parser *parser, TokenType expected_type) {
 
 ErrorCode expect(Parser *parser, TokenType expected_type) {
   RETURN_IF_ERROR(compare_tokens(parser, expected_type));
-  RETURN_IF_ERROR(new_token(parser, expected_type));
+  RETURN_IF_ERROR(new_token(parser));
 
   return ERROR_OK;
 } // expect()
 
 ErrorCode check_unit_literal(Parser *parser) {
-  RETURN_IF_ERROR(look_up_next_token(parser, TOKEN_RPAREN));
+  RETURN_IF_ERROR(look_up_next_token(parser));
   if (token_matches_next_token(parser, TOKEN_RPAREN)) { // UnitLiteral
-    RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
+    RETURN_IF_ERROR(new_token(parser));
   }
   return ERROR_OK;
 } // check_unit_literal()
@@ -194,10 +188,10 @@ ErrorCode parse_program() {
     return ERROR_INTERNAL;
   }
 
-  RETURN_IF_ERROR(new_token(parser, TOKEN_IMPORT));
+  RETURN_IF_ERROR(new_token(parser));
   RETURN_IF_ERROR(parse_prologue(parser));
   RETURN_IF_ERROR(parse_function_list(parser));
-  RETURN_IF_ERROR(expect(parser, TOKEN_EOF));
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_EOF));
 
   return ERROR_OK;
 } // parse_program()
@@ -211,7 +205,7 @@ ErrorCode parse_prologue(Parser *parser) {
   if (strcmp(parser->current_token->value, "ifj26") != 0) {
     RETURN_SYNTACTIC_ERROR(parser);
   }
-  RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(new_token(parser));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_DOT));
   RETURN_IF_ERROR(expect(parser, TOKEN_MULTIPLY));
@@ -257,7 +251,7 @@ ErrorCode parse_function_def(Parser *parser) {
 ErrorCode parse_main_opt(Parser *parser) {
   // MainOpt -> AtMain
   if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
-    RETURN_IF_ERROR(new_token(parser, TOKEN_MAIN_ANNOTATION));
+    RETURN_IF_ERROR(new_token(parser));
   } else { // MainOpt -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_DEF));
   }
@@ -312,7 +306,7 @@ ErrorCode parse_param_list_rest_tail(Parser *parser) {
     if (!parser->current_token->lf_before_rparen) {
       RETURN_SYNTACTIC_ERROR(parser);
     }
-    RETURN_IF_ERROR(new_token(parser, TOKEN_RPAREN));
+    RETURN_IF_ERROR(new_token(parser));
   }
 
   return ERROR_OK;
@@ -346,7 +340,7 @@ ErrorCode parse_type(Parser *parser) {
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_UNIT:
-      RETURN_IF_ERROR(new_token(parser, TOKEN_ASSIGN));
+      RETURN_IF_ERROR(new_token(parser));
       break;
     default:
       RETURN_SYNTACTIC_ERROR(parser);
@@ -371,7 +365,7 @@ ErrorCode parse_function_body(Parser *parser) {
       break;
     // Multi line function definition
     case TOKEN_NEWLINE:
-      RETURN_IF_ERROR(new_token(parser, TOKEN_INDENT));
+      RETURN_IF_ERROR(new_token(parser));
       RETURN_IF_ERROR(parse_block(parser));
       break;
     default:
@@ -383,7 +377,7 @@ ErrorCode parse_function_body(Parser *parser) {
 
 ErrorCode parse_eol_or_eof(Parser *parser) {
   if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF)) {
-    RETURN_IF_ERROR(new_token(parser, TOKEN_DEF));
+    RETURN_IF_ERROR(new_token(parser));
     return ERROR_OK;
   } else {
     RETURN_SYNTACTIC_ERROR(parser);
@@ -392,7 +386,7 @@ ErrorCode parse_eol_or_eof(Parser *parser) {
 
 ErrorCode parse_block(Parser *parser) {
   if (tokens_matches(parser, TOKEN_INDENT)) {
-    RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
+    RETURN_IF_ERROR(new_token(parser));
     RETURN_IF_ERROR(parse_statement_list(parser));
     RETURN_IF_ERROR(expect(parser, TOKEN_DEDENT));
     return ERROR_OK;
@@ -439,7 +433,7 @@ ErrorCode parse_statement_list_rest(Parser *parser) {
 
 ErrorCode parse_statement_end(Parser *parser) {
   if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_SEMICOLON)) {
-    RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
+    RETURN_IF_ERROR(new_token(parser));
     return ERROR_OK;
   } else {
     RETURN_SYNTACTIC_ERROR(parser);
@@ -464,7 +458,7 @@ ErrorCode parse_statement(Parser *parser) {
       RETURN_IF_ERROR(parse_return_statement(parser));
       break;
     case TOKEN_IDENTIFIER:
-      RETURN_IF_ERROR(new_token(parser, TOKEN_ASSIGN));
+      RETURN_IF_ERROR(new_token(parser));
       RETURN_IF_ERROR(parse_statement_after_id(parser));
       break;
     case TOKEN_LPAREN:
@@ -486,7 +480,7 @@ ErrorCode parse_statement_after_id(Parser *parser) {
 
   switch (parser->current_token->type) {
     case TOKEN_ASSIGN:
-      RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
+      RETURN_IF_ERROR(new_token(parser));
       RETURN_IF_ERROR(parse_expr_or_call(parser));
       break;
     case TOKEN_LPAREN:
@@ -508,7 +502,7 @@ ErrorCode parse_expr_non_id(Parser *parser) {
 
   switch (parser->current_token->type) {
     case TOKEN_LPAREN:
-      RETURN_IF_ERROR(look_up_next_token(parser, TOKEN_RPAREN));
+      RETURN_IF_ERROR(look_up_next_token(parser));
       if (token_matches_next_token(parser, TOKEN_RPAREN)) { // UnitLiteral
         RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
       } else { // parser->next_token != TOKEN_RPAREN
@@ -517,7 +511,7 @@ ErrorCode parse_expr_non_id(Parser *parser) {
     case TOKEN_INT_LITERAL:
     case TOKEN_DOUBLE_LITERAL:
     case TOKEN_STRING_LITERAL:
-      RETURN_IF_ERROR(new_token(parser, TOKEN_NEWLINE));
+      RETURN_IF_ERROR(new_token(parser));
       RETURN_IF_ERROR(parse_expr_tail(parser));
       break;
     default:
@@ -539,7 +533,7 @@ ErrorCode parse_var_def(Parser *parser) {
 
 ErrorCode parse_var_kind(Parser *parser) {
   if (tokens_matches(parser, TOKEN_VAL) || tokens_matches(parser, TOKEN_VAR)) {
-    RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
+    RETURN_IF_ERROR(new_token(parser));
     return ERROR_OK;
   } else {
     RETURN_SYNTACTIC_ERROR(parser);
@@ -604,7 +598,7 @@ ErrorCode parse_expr_or_call(Parser *parser) {
 
   switch (parser->current_token->type) {
     case TOKEN_IDENTIFIER:
-      RETURN_IF_ERROR(new_token(parser, TOKEN_LPAREN));
+      RETURN_IF_ERROR(new_token(parser));
       RETURN_IF_ERROR(parse_call_opt(parser));
       break;
     case TOKEN_LPAREN:
@@ -684,7 +678,7 @@ ErrorCode parse_arg_list(Parser *parser) {
 
 ErrorCode parse_arg_list_rest(Parser *parser) {
   if (tokens_matches(parser, TOKEN_COMMA)) {
-    RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
+    RETURN_IF_ERROR(new_token(parser));
     RETURN_IF_ERROR(parse_arg_list_rest_tail(parser));
 
     return ERROR_OK;
@@ -711,7 +705,7 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser) {
       if (!parser->current_token->lf_before_rparen) {
         RETURN_SYNTACTIC_ERROR(parser);
       }
-      RETURN_IF_ERROR(new_token(parser, TOKEN_RPAREN));
+      RETURN_IF_ERROR(new_token(parser));
       break;
     default:
       RETURN_SYNTACTIC_ERROR(parser);
@@ -723,7 +717,7 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser) {
 ErrorCode parse_eol_opt(Parser *parser) {
   // EOLOpt -> EOL
   if (tokens_matches(parser, TOKEN_NEWLINE)) {
-    RETURN_IF_ERROR(new_token(parser, TOKEN_NEWLINE));
+    RETURN_IF_ERROR(new_token(parser));
   } else { // EOLOpt -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_DEF));
   }
