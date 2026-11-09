@@ -38,7 +38,8 @@
  */
 #define RETURN_SYNTACTIC_ERROR(parser) do { \
   if (parser->print_error_msg) { \
-    print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one."); \
+    print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one (%s, line %u, column %u).", \
+      parser->current_token->value, parser->current_token->line, parser->current_token->column); \
   } \
   parser_free(parser); \
   return ERROR_SYNTACTIC; \
