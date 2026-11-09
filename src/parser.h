@@ -13,10 +13,10 @@
 #include "error.h"
 #include "token.h"
 
-typedef struct {
+typedef struct parser {
   Token *current_token; // Holds current token across all parser functions
   Token *next_token;    // Holds next token (used when look up a token after the current one is necessarily)
-  bool print_error_msg; // Program prints an error message according to this value
+  bool print_error_msg_and_return; // Prints an error message and returns according to this value
 } Parser;
 
 /********************************************************************
@@ -134,17 +134,6 @@ ErrorCode look_up_next_token(Parser *parser);
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode expect(Parser *parser, TokenType expected_type);
-
-/**
- * @brief Checks if current literal is UnitLiteral - represented as `()`.
- *
- * Uses look_up_next_token(). In case it is UnitLiteral, sets TOKEN_RPAREN
- * as current token using new_token().
- *
- * @param parser Ptr to struct parser
- * @return ErrorCode according to specification of IFJ26
- */
-ErrorCode check_unit_literal(Parser *parser);
 
 /********************************************************************
  ************** PARSING ACCORDING TO LL GRAMMAR RULES ***************
