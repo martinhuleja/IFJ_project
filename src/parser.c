@@ -1,7 +1,7 @@
 /**
  * @file   parser.c
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-08
+ * @date   2026-11-09
  *
  * @brief  Implementation of parser functions as recursive descent
  */
@@ -294,14 +294,28 @@ ErrorCode parse_param_list_rest(Parser *parser) {
   // ParamListRest -> Comma Param ParamListRest
   if (tokens_matches(parser, TOKEN_COMMA)) {
     RETURN_IF_ERROR(expect(parser, TOKEN_COMMA));
-    RETURN_IF_ERROR(parse_param(parser));
-    RETURN_IF_ERROR(parse_param_list_rest(parser));
+    RETURN_IF_ERROR(parse_param_list_rest_tail(parser));
   } else { // ParamListRest -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
   }
 
   return ERROR_OK;
 } // parse_param_list_rest()
+
+ErrorCode parse_param_list_rest_tail(Parser *parser) {
+  // ParamListRestTail -> ParamList
+  if (tokens_matches(parser, TOKEN_IDENTIFIER)) {
+    RETURN_IF_ERROR(parse_param_list(parser));
+  } else { // ParamListRestTail -> ε
+    RETURN_IF_ERROR(compare_tokens_next_token(parser, TOKEN_RPAREN));
+    if (!parser->current_token->lf_before_rparen) {
+      RETURN_SYNTACTIC_ERROR(parser);
+    }
+    RETURN_IF_ERROR(new_token(parser, TOKEN_RPAREN));
+  }
+
+  return ERROR_OK;
+} // parse_param_list_rest_tail()
 
 ErrorCode parse_param(Parser *parser) {
   RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
@@ -670,8 +684,7 @@ ErrorCode parse_arg_list(Parser *parser) {
 ErrorCode parse_arg_list_rest(Parser *parser) {
   if (tokens_matches(parser, TOKEN_COMMA)) {
     RETURN_IF_ERROR(new_token(parser, TOKEN_IDENTIFIER));
-    RETURN_IF_ERROR(parse_expr(parser));
-    RETURN_IF_ERROR(parse_arg_list_rest(parser));
+    RETURN_IF_ERROR(parse_arg_list_rest_tail(parser));
 
     return ERROR_OK;
   } else if (tokens_matches(parser, TOKEN_RPAREN)) {
@@ -681,7 +694,30 @@ ErrorCode parse_arg_list_rest(Parser *parser) {
   }
 } // parse_arg_list_rest()
 
-ErrorCode parse_expr_tail(Parser *parser);
+ErrorCode parse_arg_list_rest_tail(Parser *parser) {
+  RETURN_IF_ERROR(check_current_token(parser));
+
+  switch (parser->current_token->type) {
+    case TOKEN_LPAREN:
+      RETURN_IF_ERROR(check_unit_literal(parser));
+    case TOKEN_IDENTIFIER:
+    case TOKEN_INT_LITERAL:
+    case TOKEN_DOUBLE_LITERAL:
+    case TOKEN_STRING_LITERAL:
+      RETURN_IF_ERROR(parse_arg_list(parser));
+      break;
+    case TOKEN_RPAREN:
+      if (!parser->current_token->lf_before_rparen) {
+        RETURN_SYNTACTIC_ERROR(parser);
+      }
+      RETURN_IF_ERROR(new_token(parser, TOKEN_RPAREN));
+      break;
+    default:
+      RETURN_SYNTACTIC_ERROR(parser);
+  }
+
+  return ERROR_OK;
+} // parse_arg_list_rest_tail()
 
 ErrorCode parse_eol_opt(Parser *parser) {
   // EOLOpt -> EOL

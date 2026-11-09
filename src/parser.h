@@ -1,7 +1,7 @@
 /**
  * @file parser.h
  * @author Martin Huleja (xhulejm00)
- * @date 2026-11-08
+ * @date 2026-11-09
  *
  * @brief Header file for parser functions
  */
@@ -218,6 +218,13 @@ ErrorCode parse_param_list(Parser *parser);
 ErrorCode parse_param_list_rest(Parser *parser);
 
 /**
+ * @brief Parses ParamListRestTail according to LL grammar rules
+ * @param parser Ptr to struct parser
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode parse_param_list_rest_tail(Parser *parser);
+
+/**
  * @brief Parses Param according to LL grammar rules
  * @param parser Ptr to struct parser
  * @return ErrorCode according to specification of IFJ26
@@ -386,11 +393,11 @@ ErrorCode parse_arg_list(Parser *parser);
 ErrorCode parse_arg_list_rest(Parser *parser);
 
 /**
- * @brief Parses ExprTail according to LL grammar rules
+ * @brief Parses ArgListRestTail according to LL grammar rules
  * @param parser Ptr to struct parser
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_expr_tail(Parser *parser);
+ErrorCode parse_arg_list_rest_tail(Parser *parser);
 
 /**
  * @brief Parses EOLOpt according to LL grammar rules
