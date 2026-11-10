@@ -9,6 +9,7 @@
 #ifndef ABSTRACT_SYNTACTIC_TREE_H
 #define ABSTRACT_SYNTACTIC_TREE_H
 
+#include "error.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -87,6 +88,71 @@ typedef struct ast_node {
 typedef struct ast_tree {
   ASTNode *root; // Root node of the program
 } ASTree;
+
+/**
+ * @brief Initializes struct ast_tree
+ *
+ * Creates an empty root node of type AST_PROGRAM.
+ * If allocation fails, frees any allocated memory and returns NULL.
+ *
+ * @return Ptr to initialized struct ast_tree, or NULL on allocation failure
+ */
+ASTree *ast_init();
+
+/**
+ * @brief Creates and initializes an AST node of the given type
+ *
+ * @note The caller owns the node until it is passed to ast_add_child().
+ *
+ * @param type Type of the created node
+ * @return Ptr to initialized struct ast_node, or NULL on allocation failure
+ */
+ASTNode *ast_create_node(ASTNodeType type);
+
+/**
+ * @brief Adds a child node at the end of the parent's children
+ *
+ * Takes ownership of the child, which must not belong to another parent.
+ * If adding the child fails, frees its entire subtree using ast_node_free()
+ * and leaves the parent unchanged. The caller must not use the freed child.
+ *
+ * @param parent Ptr to the parent node
+ * @param child Ptr to the child node
+ * @return ERROR_OK on success, or ERROR_INTERNAL on failure
+ */
+ErrorCode ast_add_child(ASTNode *parent, ASTNode *child);
+
+/**
+ * @brief Sets the text stored in an AST node
+ *
+ * Stores its own copy of the text and frees any previously stored text.
+ * If allocation fails, leaves the original text unchanged.
+ *
+ * @param node Ptr to the AST node
+ * @param text Text to copy into the node
+ * @return ERROR_OK on success, or ERROR_INTERNAL on failure
+ */
+ErrorCode ast_set_text(ASTNode *node, const char *text);
+
+/**
+ * @brief Frees the memory allocated for an AST node and its subtree
+ *
+ * Frees all child nodes, the stored text and the children array too.
+ * If node is NULL, does nothing.
+ *
+ * @param node Ptr to the root node of the subtree to free
+ */
+void ast_node_free(ASTNode *node);
+
+/**
+ * @brief Frees the memory allocated for struct ast_tree
+ *
+ * Frees the entire program subtree using ast_node_free().
+ * If tree is NULL, does nothing.
+ *
+ * @param tree Ptr to struct ast_tree
+ */
+void ast_free(ASTree *tree);
 
 #endif // ABSTRACT_SYNTACTIC_TREE_H
 /* End of file abstract-syntactic-tree.h */
