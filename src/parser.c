@@ -267,7 +267,9 @@ ErrorCode parse_function_def(Parser *parser, ASTNode *program) {
 
   RETURN_IF_ERROR(parse_main_opt(parser, function));
   RETURN_IF_ERROR(expect(parser, TOKEN_DEF));
-  RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(ast_set_text(function, parser->current_token->value));
+  RETURN_IF_ERROR(new_token(parser));
   RETURN_IF_ERROR(parse_param_group(parser, function));
   RETURN_IF_ERROR(parse_type_opt(parser, function));
   RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
@@ -277,10 +279,14 @@ ErrorCode parse_function_def(Parser *parser, ASTNode *program) {
 } // parse_function_def()
 
 ErrorCode parse_main_opt(Parser *parser, ASTNode *function) {
-  (void)function;
+  if (function == NULL) {
+    print_err(ERROR_INTERNAL, "Function node is NULL.");
+    return ERROR_INTERNAL;
+  }
 
   // MainOpt -> AtMain
   if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
+    function->is_main = true;
     RETURN_IF_ERROR(new_token(parser));
     RETURN_IF_ERROR(parse_eol_opt(parser));
   }
@@ -354,7 +360,9 @@ ErrorCode parse_param(Parser *parser, ASTNode *param_list) {
   }
   RETURN_IF_ERROR(ast_add_child(param_list, param));
 
-  RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(ast_set_text(param, parser->current_token->value));
+  RETURN_IF_ERROR(new_token(parser));
   RETURN_IF_ERROR(expect(parser, TOKEN_COLON));
   RETURN_IF_ERROR(parse_type(parser, param));
 
@@ -368,29 +376,48 @@ ErrorCode parse_type_opt(Parser *parser, ASTNode *declaration) {
     RETURN_IF_ERROR(parse_type(parser, declaration));
   } else { // TypeOpt -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_ASSIGN));
+    declaration->declared_type = AST_DATA_UNKNOWN;
   }
 
   return ERROR_OK;
 } // parse_type_opt()
 
 ErrorCode parse_type(Parser *parser, ASTNode *declaration) {
-  (void)declaration;
+  if (declaration == NULL) {
+    print_err(ERROR_INTERNAL, "Declaration node is NULL.");
+    return ERROR_INTERNAL;
+  }
 
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
   case TOKEN_INT:
+    declaration->declared_type = AST_DATA_INT;
+    break;
   case TOKEN_DOUBLE:
+    declaration->declared_type = AST_DATA_DOUBLE;
+    break;
   case TOKEN_STRING:
+    declaration->declared_type = AST_DATA_STRING;
+    break;
   case TOKEN_UNIT:
-    RETURN_IF_ERROR(new_token(parser));
-    return ERROR_OK;
+    declaration->declared_type = AST_DATA_UNIT;
+    break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
   }
+
+  RETURN_IF_ERROR(new_token(parser));
+
+  return ERROR_OK;
 } // parse_type()
 
 ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
+  if (function == NULL) {
+    print_err(ERROR_INTERNAL, "Function node is NULL.");
+    return ERROR_INTERNAL;
+  }
+
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -403,10 +430,25 @@ ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
     // fall through
   case TOKEN_STRING_LITERAL:
     // fall through
-  case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr_or_call(parser, function));
+  case TOKEN_LPAREN: {
+    // Represent one line function body in AST similar to multi line function body
+    // Function -> Block -> Return -> ExprOrCall
+    ASTNode *block = ast_create_node(AST_BLOCK);
+    if (block == NULL) {
+      return ERROR_INTERNAL;
+    }
+    RETURN_IF_ERROR(ast_add_child(function, block));
+
+    ASTNode *return_node = ast_create_node(AST_RETURN);
+    if (return_node == NULL) {
+      return ERROR_INTERNAL;
+    }
+    RETURN_IF_ERROR(ast_add_child(block, return_node));
+
+    RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
     RETURN_IF_ERROR(parse_eol_or_eof(parser));
     break;
+  }
   // Multi line function definition
   case TOKEN_NEWLINE:
     RETURN_IF_ERROR(new_token(parser));
