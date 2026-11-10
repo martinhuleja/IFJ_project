@@ -11,7 +11,7 @@ int main() {
 
   ErrorCode return_value = ERROR_OK;
 
-  return_value = parse_program();
+  return_value = parse_program(tree);
 
   if (return_value == ERROR_OK) {
     // semantic analysis

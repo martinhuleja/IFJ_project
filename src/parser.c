@@ -189,7 +189,12 @@ ErrorCode expect(Parser *parser, TokenType expected_type) {
  ************** PARSING ACCORDING TO LL GRAMMAR RULES ***************
  *******************************************************************/
 
-ErrorCode parse_program() {
+ErrorCode parse_program(ASTree *tree) {
+  if (tree == NULL || tree->root == NULL) {
+    print_err(ERROR_INTERNAL, "AST tree or root node is NULL.");
+    return ERROR_INTERNAL;
+  }
+
   Parser *parser = parser_init();
   if (parser == NULL) {
     return ERROR_INTERNAL;
@@ -202,7 +207,7 @@ ErrorCode parse_program() {
     return_value = parse_prologue(parser);
   }
   if (return_value == ERROR_OK) {
-    return_value = parse_function_list(parser);
+    return_value = parse_function_list(parser, tree->root);
   }
   if (return_value == ERROR_OK) {
     return_value = compare_tokens(parser, TOKEN_EOF);
@@ -231,21 +236,21 @@ ErrorCode parse_prologue(Parser *parser) {
   return ERROR_OK;
 } // parse_prologue()
 
-ErrorCode parse_function_list(Parser *parser) {
+ErrorCode parse_function_list(Parser *parser, ASTNode *program) {
   while (tokens_matches(parser, TOKEN_NEWLINE)) {
     RETURN_IF_ERROR(new_token(parser));
   }
-  RETURN_IF_ERROR(parse_function_def(parser));
-  RETURN_IF_ERROR(parse_function_list_rest(parser));
+  RETURN_IF_ERROR(parse_function_def(parser, program));
+  RETURN_IF_ERROR(parse_function_list_rest(parser, program));
 
   return ERROR_OK;
 } // parse_function_list()
 
-ErrorCode parse_function_list_rest(Parser *parser) {
+ErrorCode parse_function_list_rest(Parser *parser, ASTNode *program) {
   // FunctionListRest -> FunctionDef FunctionListRest
   if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION) || tokens_matches(parser, TOKEN_DEF)) {
-    RETURN_IF_ERROR(parse_function_def(parser));
-    RETURN_IF_ERROR(parse_function_list_rest(parser));
+    RETURN_IF_ERROR(parse_function_def(parser, program));
+    RETURN_IF_ERROR(parse_function_list_rest(parser, program));
   } else { // FunctionListRest -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_EOF));
   }
@@ -253,19 +258,27 @@ ErrorCode parse_function_list_rest(Parser *parser) {
   return ERROR_OK;
 } // parse_function_list_rest()
 
-ErrorCode parse_function_def(Parser *parser) {
-  RETURN_IF_ERROR(parse_main_opt(parser));
+ErrorCode parse_function_def(Parser *parser, ASTNode *program) {
+  ASTNode *function = ast_create_node(AST_FUNCTION);
+  if (function == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(program, function));
+
+  RETURN_IF_ERROR(parse_main_opt(parser, function));
   RETURN_IF_ERROR(expect(parser, TOKEN_DEF));
   RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
-  RETURN_IF_ERROR(parse_param_group(parser));
-  RETURN_IF_ERROR(parse_type_opt(parser));
+  RETURN_IF_ERROR(parse_param_group(parser, function));
+  RETURN_IF_ERROR(parse_type_opt(parser, function));
   RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
-  RETURN_IF_ERROR(parse_function_body(parser));
+  RETURN_IF_ERROR(parse_function_body(parser, function));
 
   return ERROR_OK;
 } // parse_function_def()
 
-ErrorCode parse_main_opt(Parser *parser) {
+ErrorCode parse_main_opt(Parser *parser, ASTNode *function) {
+  (void)function;
+
   // MainOpt -> AtMain
   if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
     RETURN_IF_ERROR(new_token(parser));
@@ -275,18 +288,24 @@ ErrorCode parse_main_opt(Parser *parser) {
   return ERROR_OK;
 } // parse_main_opt()
 
-ErrorCode parse_param_group(Parser *parser) {
+ErrorCode parse_param_group(Parser *parser, ASTNode *function) {
+  ASTNode *param_list = ast_create_node(AST_PARAM_LIST);
+  if (param_list == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(function, param_list));
+
   RETURN_IF_ERROR(expect(parser, TOKEN_LPAREN));
-  RETURN_IF_ERROR(parse_param_list_opt(parser));
+  RETURN_IF_ERROR(parse_param_list_opt(parser, param_list));
   RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
 
   return ERROR_OK;
 } // parse_param_group()
 
-ErrorCode parse_param_list_opt(Parser *parser) {
+ErrorCode parse_param_list_opt(Parser *parser, ASTNode *param_list) {
   // ParamListOpt -> ParamList
   if (tokens_matches(parser, TOKEN_IDENTIFIER)) {
-    RETURN_IF_ERROR(parse_param_list(parser));
+    RETURN_IF_ERROR(parse_param_list(parser, param_list));
   } else { // ParamListOpt -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
   }
@@ -294,18 +313,18 @@ ErrorCode parse_param_list_opt(Parser *parser) {
   return ERROR_OK;
 } // parse_param_list_opt()
 
-ErrorCode parse_param_list(Parser *parser) {
-  RETURN_IF_ERROR(parse_param(parser));
-  RETURN_IF_ERROR(parse_param_list_rest(parser));
+ErrorCode parse_param_list(Parser *parser, ASTNode *param_list) {
+  RETURN_IF_ERROR(parse_param(parser, param_list));
+  RETURN_IF_ERROR(parse_param_list_rest(parser, param_list));
 
   return ERROR_OK;
 } // parse_param_list()
 
-ErrorCode parse_param_list_rest(Parser *parser) {
+ErrorCode parse_param_list_rest(Parser *parser, ASTNode *param_list) {
   // ParamListRest -> Comma ParamListRestTail
   if (tokens_matches(parser, TOKEN_COMMA)) {
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_param_list_rest_tail(parser));
+    RETURN_IF_ERROR(parse_param_list_rest_tail(parser, param_list));
   } else { // ParamListRest -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
   }
@@ -313,10 +332,10 @@ ErrorCode parse_param_list_rest(Parser *parser) {
   return ERROR_OK;
 } // parse_param_list_rest()
 
-ErrorCode parse_param_list_rest_tail(Parser *parser) {
+ErrorCode parse_param_list_rest_tail(Parser *parser, ASTNode *param_list) {
   // ParamListRestTail -> ParamList
   if (tokens_matches(parser, TOKEN_IDENTIFIER)) {
-    RETURN_IF_ERROR(parse_param_list(parser));
+    RETURN_IF_ERROR(parse_param_list(parser, param_list));
   } else { // ParamListRestTail -> ε
     // ParamListRestTail -> ε {checkLF(RParen)}
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_RPAREN));
@@ -328,19 +347,25 @@ ErrorCode parse_param_list_rest_tail(Parser *parser) {
   return ERROR_OK;
 } // parse_param_list_rest_tail()
 
-ErrorCode parse_param(Parser *parser) {
+ErrorCode parse_param(Parser *parser, ASTNode *param_list) {
+  ASTNode *param = ast_create_node(AST_PARAM);
+  if (param == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(param_list, param));
+
   RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
   RETURN_IF_ERROR(expect(parser, TOKEN_COLON));
-  RETURN_IF_ERROR(parse_type(parser));
+  RETURN_IF_ERROR(parse_type(parser, param));
 
   return ERROR_OK;
 } // parse_param()
 
-ErrorCode parse_type_opt(Parser *parser) {
+ErrorCode parse_type_opt(Parser *parser, ASTNode *declaration) {
   // TypeOpt -> Colon Type
   if (tokens_matches(parser, TOKEN_COLON)) {
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_type(parser));
+    RETURN_IF_ERROR(parse_type(parser, declaration));
   } else { // TypeOpt -> ε
     RETURN_IF_ERROR(compare_tokens(parser, TOKEN_ASSIGN));
   }
@@ -348,7 +373,9 @@ ErrorCode parse_type_opt(Parser *parser) {
   return ERROR_OK;
 } // parse_type_opt()
 
-ErrorCode parse_type(Parser *parser) {
+ErrorCode parse_type(Parser *parser, ASTNode *declaration) {
+  (void)declaration;
+
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -363,7 +390,7 @@ ErrorCode parse_type(Parser *parser) {
   }
 } // parse_type()
 
-ErrorCode parse_function_body(Parser *parser) {
+ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -377,13 +404,13 @@ ErrorCode parse_function_body(Parser *parser) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr_or_call(parser));
+    RETURN_IF_ERROR(parse_expr_or_call(parser, function));
     RETURN_IF_ERROR(parse_eol_or_eof(parser));
     break;
   // Multi line function definition
   case TOKEN_NEWLINE:
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_block(parser));
+    RETURN_IF_ERROR(parse_block(parser, function));
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
@@ -401,10 +428,16 @@ ErrorCode parse_eol_or_eof(Parser *parser) {
   }
 } // parse_eol_or_eof()
 
-ErrorCode parse_block(Parser *parser) {
+ErrorCode parse_block(Parser *parser, ASTNode *parent) {
   if (tokens_matches(parser, TOKEN_INDENT)) {
+    ASTNode *block = ast_create_node(AST_BLOCK);
+    if (block == NULL) {
+      return ERROR_INTERNAL;
+    }
+    RETURN_IF_ERROR(ast_add_child(parent, block));
+
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_statement_list(parser));
+    RETURN_IF_ERROR(parse_statement_list(parser, block));
     RETURN_IF_ERROR(expect(parser, TOKEN_DEDENT));
     return ERROR_OK;
   } else {
@@ -412,15 +445,15 @@ ErrorCode parse_block(Parser *parser) {
   }
 } // parse_block()
 
-ErrorCode parse_statement_list(Parser *parser) {
-  RETURN_IF_ERROR(parse_statement(parser));
+ErrorCode parse_statement_list(Parser *parser, ASTNode *block) {
+  RETURN_IF_ERROR(parse_statement(parser, block));
   RETURN_IF_ERROR(parse_statement_end(parser));
-  RETURN_IF_ERROR(parse_statement_list_rest(parser));
+  RETURN_IF_ERROR(parse_statement_list_rest(parser, block));
 
   return ERROR_OK;
 } // parse_statement_list()
 
-ErrorCode parse_statement_list_rest(Parser *parser) {
+ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -443,9 +476,9 @@ ErrorCode parse_statement_list_rest(Parser *parser) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_statement(parser));
+    RETURN_IF_ERROR(parse_statement(parser, block));
     RETURN_IF_ERROR(parse_statement_end(parser));
-    RETURN_IF_ERROR(parse_statement_list_rest(parser));
+    RETURN_IF_ERROR(parse_statement_list_rest(parser, block));
     break;
   case TOKEN_DEDENT:
     break;
@@ -465,28 +498,36 @@ ErrorCode parse_statement_end(Parser *parser) {
   }
 } // parse_statement_end()
 
-ErrorCode parse_statement(Parser *parser) {
+ErrorCode parse_statement(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
   case TOKEN_VAL:
     // fall through
   case TOKEN_VAR:
-    RETURN_IF_ERROR(parse_var_def(parser));
+    RETURN_IF_ERROR(parse_var_def(parser, block));
     break;
   case TOKEN_IF:
-    RETURN_IF_ERROR(parse_if_statement(parser));
+    RETURN_IF_ERROR(parse_if_statement(parser, block));
     break;
   case TOKEN_WHILE:
-    RETURN_IF_ERROR(parse_while_statement(parser));
+    RETURN_IF_ERROR(parse_while_statement(parser, block));
     break;
   case TOKEN_RETURN:
-    RETURN_IF_ERROR(parse_return_statement(parser));
+    RETURN_IF_ERROR(parse_return_statement(parser, block));
     break;
-  case TOKEN_IDENTIFIER:
+  case TOKEN_IDENTIFIER: {
+    ASTNode *statement = ast_create_node(AST_IDENTIFIER);
+    if (statement == NULL) {
+      return ERROR_INTERNAL;
+    }
+    RETURN_IF_ERROR(ast_add_child(block, statement));
+    RETURN_IF_ERROR(ast_set_text(statement, parser->current_token->value));
+
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_statement_after_id(parser));
+    RETURN_IF_ERROR(parse_statement_after_id(parser, statement));
     break;
+  }
   case TOKEN_INT_LITERAL:
     // fall through
   case TOKEN_DOUBLE_LITERAL:
@@ -494,7 +535,7 @@ ErrorCode parse_statement(Parser *parser) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr_non_id(parser));
+    RETURN_IF_ERROR(parse_expr_non_id(parser, block));
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
@@ -503,16 +544,16 @@ ErrorCode parse_statement(Parser *parser) {
   return ERROR_OK;
 } // parse_statement()
 
-ErrorCode parse_statement_after_id(Parser *parser) {
+ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
   case TOKEN_ASSIGN:
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_expr_or_call(parser));
+    RETURN_IF_ERROR(parse_expr_or_call(parser, statement));
     break;
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_arg_group(parser));
+    RETURN_IF_ERROR(parse_arg_group(parser, statement));
     break;
   case TOKEN_NEWLINE:
     // fall through
@@ -526,7 +567,9 @@ ErrorCode parse_statement_after_id(Parser *parser) {
   return ERROR_OK;
 } // parse_statement_after_id()
 
-ErrorCode parse_expr_non_id(Parser *parser) {
+ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
+  (void)parent;
+
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -556,17 +599,25 @@ ErrorCode parse_expr_non_id(Parser *parser) {
   return ERROR_OK;
 } // parse_expr_non_id()
 
-ErrorCode parse_var_def(Parser *parser) {
-  RETURN_IF_ERROR(parse_var_kind(parser));
+ErrorCode parse_var_def(Parser *parser, ASTNode *block) {
+  ASTNode *declaration = ast_create_node(AST_VAR_DECLARATION);
+  if (declaration == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(block, declaration));
+
+  RETURN_IF_ERROR(parse_var_kind(parser, declaration));
   RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
-  RETURN_IF_ERROR(parse_type_opt(parser));
+  RETURN_IF_ERROR(parse_type_opt(parser, declaration));
   RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
-  RETURN_IF_ERROR(parse_expr_or_call(parser));
+  RETURN_IF_ERROR(parse_expr_or_call(parser, declaration));
 
   return ERROR_OK;
 } // parse_var_def()
 
-ErrorCode parse_var_kind(Parser *parser) {
+ErrorCode parse_var_kind(Parser *parser, ASTNode *declaration) {
+  (void)declaration;
+
   if (tokens_matches(parser, TOKEN_VAL) || tokens_matches(parser, TOKEN_VAR)) {
     RETURN_IF_ERROR(new_token(parser));
     return ERROR_OK;
@@ -575,38 +626,56 @@ ErrorCode parse_var_kind(Parser *parser) {
   }
 } // parse_var_kind()
 
-ErrorCode parse_if_statement(Parser *parser) {
+ErrorCode parse_if_statement(Parser *parser, ASTNode *block) {
+  ASTNode *if_node = ast_create_node(AST_IF);
+  if (if_node == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(block, if_node));
+
   RETURN_IF_ERROR(expect(parser, TOKEN_IF));
   RETURN_IF_ERROR(parse_expr(parser));
   RETURN_IF_ERROR(expect(parser, TOKEN_THEN));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
-  RETURN_IF_ERROR(parse_block(parser));
+  RETURN_IF_ERROR(parse_block(parser, if_node));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(expect(parser, TOKEN_ELSE));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
-  RETURN_IF_ERROR(parse_block(parser));
+  RETURN_IF_ERROR(parse_block(parser, if_node));
 
   return ERROR_OK;
 } // parse_if_statement()
 
-ErrorCode parse_while_statement(Parser *parser) {
+ErrorCode parse_while_statement(Parser *parser, ASTNode *block) {
+  ASTNode *while_node = ast_create_node(AST_WHILE);
+  if (while_node == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(block, while_node));
+
   RETURN_IF_ERROR(expect(parser, TOKEN_WHILE));
   RETURN_IF_ERROR(parse_expr(parser));
   RETURN_IF_ERROR(expect(parser, TOKEN_DO));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
-  RETURN_IF_ERROR(parse_block(parser));
+  RETURN_IF_ERROR(parse_block(parser, while_node));
 
   return ERROR_OK;
 } // parse_while_statement()
 
-ErrorCode parse_return_statement(Parser *parser) {
+ErrorCode parse_return_statement(Parser *parser, ASTNode *block) {
+  ASTNode *return_node = ast_create_node(AST_RETURN);
+  if (return_node == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(block, return_node));
+
   RETURN_IF_ERROR(expect(parser, TOKEN_RETURN));
-  RETURN_IF_ERROR(parse_return_expr_opt(parser));
+  RETURN_IF_ERROR(parse_return_expr_opt(parser, return_node));
 
   return ERROR_OK;
 } // parse_return_statement()
 
-ErrorCode parse_return_expr_opt(Parser *parser) {
+ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -619,7 +688,7 @@ ErrorCode parse_return_expr_opt(Parser *parser) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr_or_call(parser));
+    RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
     break;
   case TOKEN_NEWLINE:
     // fall through
@@ -632,14 +701,22 @@ ErrorCode parse_return_expr_opt(Parser *parser) {
   return ERROR_OK;
 } // parse_return_expr_opt()
 
-ErrorCode parse_expr_or_call(Parser *parser) {
+ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-  case TOKEN_IDENTIFIER:
+  case TOKEN_IDENTIFIER: {
+    ASTNode *expression = ast_create_node(AST_IDENTIFIER);
+    if (expression == NULL) {
+      return ERROR_INTERNAL;
+    }
+    RETURN_IF_ERROR(ast_add_child(parent, expression));
+    RETURN_IF_ERROR(ast_set_text(expression, parser->current_token->value));
+
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_call_opt(parser));
+    RETURN_IF_ERROR(parse_call_opt(parser, expression));
     break;
+  }
   case TOKEN_INT_LITERAL:
     // fall through
   case TOKEN_DOUBLE_LITERAL:
@@ -656,9 +733,9 @@ ErrorCode parse_expr_or_call(Parser *parser) {
   return ERROR_OK;
 } // parse_expr_or_call()
 
-ErrorCode parse_call_opt(Parser *parser) {
+ErrorCode parse_call_opt(Parser *parser, ASTNode *expression) {
   if (tokens_matches(parser, TOKEN_LPAREN)) {
-    RETURN_IF_ERROR(parse_arg_group(parser));
+    RETURN_IF_ERROR(parse_arg_group(parser, expression));
     return ERROR_OK;
   } else if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF) ||
              tokens_matches(parser, TOKEN_SEMICOLON)) {
@@ -668,15 +745,21 @@ ErrorCode parse_call_opt(Parser *parser) {
   }
 } // parse_call_opt()
 
-ErrorCode parse_arg_group(Parser *parser) {
+ErrorCode parse_arg_group(Parser *parser, ASTNode *call) {
+  ASTNode *arg_list = ast_create_node(AST_ARG_LIST);
+  if (arg_list == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(call, arg_list));
+
   RETURN_IF_ERROR(expect(parser, TOKEN_LPAREN));
-  RETURN_IF_ERROR(parse_arg_list_opt(parser));
+  RETURN_IF_ERROR(parse_arg_list_opt(parser, arg_list));
   RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
 
   return ERROR_OK;
 } // parse_arg_group()
 
-ErrorCode parse_arg_list_opt(Parser *parser) {
+ErrorCode parse_arg_list_opt(Parser *parser, ASTNode *arg_list) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -689,7 +772,7 @@ ErrorCode parse_arg_list_opt(Parser *parser) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_arg_list(parser));
+    RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
     break;
   case TOKEN_RPAREN:
     break;
@@ -700,7 +783,7 @@ ErrorCode parse_arg_list_opt(Parser *parser) {
   return ERROR_OK;
 } // parse_arg_list_opt()
 
-ErrorCode parse_arg_list(Parser *parser) {
+ErrorCode parse_arg_list(Parser *parser, ASTNode *arg_list) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -714,7 +797,7 @@ ErrorCode parse_arg_list(Parser *parser) {
     // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr(parser));
-    RETURN_IF_ERROR(parse_arg_list_rest(parser));
+    RETURN_IF_ERROR(parse_arg_list_rest(parser, arg_list));
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
@@ -723,10 +806,10 @@ ErrorCode parse_arg_list(Parser *parser) {
   return ERROR_OK;
 } // parse_arg_list()
 
-ErrorCode parse_arg_list_rest(Parser *parser) {
+ErrorCode parse_arg_list_rest(Parser *parser, ASTNode *arg_list) {
   if (tokens_matches(parser, TOKEN_COMMA)) {
     RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_arg_list_rest_tail(parser));
+    RETURN_IF_ERROR(parse_arg_list_rest_tail(parser, arg_list));
 
     return ERROR_OK;
   } else if (tokens_matches(parser, TOKEN_RPAREN)) {
@@ -736,7 +819,7 @@ ErrorCode parse_arg_list_rest(Parser *parser) {
   }
 } // parse_arg_list_rest()
 
-ErrorCode parse_arg_list_rest_tail(Parser *parser) {
+ErrorCode parse_arg_list_rest_tail(Parser *parser, ASTNode *arg_list) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -749,7 +832,7 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_arg_list(parser));
+    RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
     break;
   case TOKEN_RPAREN:
     // ArgListRestTail -> ε {checkLF(RParen)}
