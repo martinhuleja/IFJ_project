@@ -41,9 +41,11 @@
  */
 #define RETURN_SYNTACTIC_ERROR(parser)                                                                                 \
   do {                                                                                                                 \
+    RETURN_IF_ERROR(check_current_token(parser));                                                                      \
     if (parser->print_error_msg_and_return) {                                                                          \
       print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one (%s, line %u, column %u).",             \
-                parser->current_token->value, parser->current_token->line, parser->current_token->column);             \
+                parser->current_token->value != NULL ? parser->current_token->value : "<no value>",                    \
+                parser->current_token->line, parser->current_token->column);                                           \
     }                                                                                                                  \
     return ERROR_SYNTACTIC;                                                                                            \
   } while (0)
@@ -66,7 +68,6 @@
       return ERROR_INTERNAL;                                                                                           \
     }                                                                                                                  \
   } while (0)
-
 
 Parser *parser_init() {
   Parser *parser = (Parser *)malloc(sizeof(Parser));
@@ -121,10 +122,6 @@ ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type) {
 
   // Compare current token type to the expected one
   if (parser->next_token->type != expected_type) {
-    if (parser->print_error_msg_and_return) {
-      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the next one (%s, line %u, column %u).",
-                parser->next_token->value, parser->next_token->line, parser->next_token->column);
-    }
     return ERROR_SYNTACTIC;
   }
 
@@ -232,6 +229,7 @@ ErrorCode parse_prologue(Parser *parser) {
   // Manually execute expect()
   RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
   // Compare current token value with "ifj26"
+  RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Identifier token value is NULL.");
   if (strcmp(parser->current_token->value, "ifj26") != 0) {
     RETURN_SYNTACTIC_ERROR(parser);
   }
@@ -369,6 +367,8 @@ ErrorCode parse_param(Parser *parser, ASTNode *param_list) {
 } // parse_param()
 
 ErrorCode parse_type_opt(Parser *parser, ASTNode *declaration) {
+  RETURN_INTERNAL_ERROR_IF_NULL(declaration, "Declaration node in ASTree is NULL.");
+
   // TypeOpt -> Colon Type
   if (tokens_matches(parser, TOKEN_COLON)) {
     RETURN_IF_ERROR(new_token(parser));
@@ -451,8 +451,10 @@ ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
 } // parse_function_body()
 
 ErrorCode parse_eol_or_eof(Parser *parser) {
-  if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF)) {
+  if (tokens_matches(parser, TOKEN_NEWLINE)) {
     RETURN_IF_ERROR(new_token(parser));
+    return ERROR_OK;
+  } else if (tokens_matches(parser, TOKEN_EOF)) {
     return ERROR_OK;
   } else {
     RETURN_SYNTACTIC_ERROR(parser);
