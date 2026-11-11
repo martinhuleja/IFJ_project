@@ -67,6 +67,7 @@ data *lookup_symbol(scope *current_scope,char *key)
 
 
 // checks if symbol already exists in scope, then enters it into hash_table
+// takes current scope, key of symbol and data of symbol
 // returns 99 if malloc error/called with invalid scope
 // returns 4 if symbol already exists within scope
 // returns 0
@@ -92,10 +93,11 @@ int insert_symbol(scope *current_scope,char *key,data data)
 }
 
 // checks wether value can be assigned to varriable
+// takes current scope, key of variable, and Token Type of right side (value)
 // returns 3 if variable doesnt exist
 // returns 7 if val
 // returns 99 if called with invalid scope, or with function instaed of variable
-// returns 6 if type doesnt match
+// returns 6 if uncompabitibletypes
 // returns 0
 int check_assign_variable(scope *current_scope, char *key,TokenType right_side)
 {
@@ -127,7 +129,8 @@ int check_assign_variable(scope *current_scope, char *key,TokenType right_side)
 
 // function checks if right and left side have compatible types
 // doesnt check for invalid scopes/variables -> is only meant to be called as a helper function from other funcitons that already checked
-// returns 6 if uncompabite types
+// takes tokentype of left side and rightside
+// returns 6 if uncompabitible types
 // returns 0
 int check_type(TokenType left_side, TokenType right_side)
 {
@@ -138,6 +141,51 @@ int check_type(TokenType left_side, TokenType right_side)
     else
         return 6;
 }
+
+// checks wether variable can be initialized
+// takes current scope, key of variable, data of variable, Token Type of right side (value), bool if variable has a declared type or not
+// returns 4 if variable already exists within scope
+// returns 99 if called with invalid scope, or with function instaed of variable or malloc error
+// returns 6 if uncompatibile types or cant deduct type
+// returns 0
+int check_init_variable(scope *current_scope, char *key,data data,TokenType right_side, bool has_declared_type)
+{
+
+    if (current_scope == NULL)
+    {
+        //called with invalid scope, so returning 99 
+        return 99;
+    }
+
+    if(data.kind == SYMBOL_FUNCTION)
+    {
+        return 99;
+    }
+
+    if(has_declared_type == true)
+    {
+        if(check_type(data.type,right_side) == 6)
+            return 6;
+    
+
+    }
+    // if type isnt declared we deduct type from right side
+    else
+    {
+        data.type = right_side;
+    }
+    int insert_symbol_result = insert_symbol(current_scope,key,data);
+    if( insert_symbol_result == 99)
+    {
+        return 99;
+    }
+    if( insert_symbol_result == 4)
+    {
+        return 4;
+    }
+    return 0;
+} 
+
 void free_scope(scope *current_scope)
 {
 

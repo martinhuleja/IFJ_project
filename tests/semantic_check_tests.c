@@ -25,7 +25,7 @@ void pop_scope_test()
     assert(pop_scope(NULL) == NULL);
 }
 
-void lookup_symbol_test(void) //zmena
+void lookup_symbol_test(void) 
 {
     scope *outer_scope = new_scope(NULL);
     assert(outer_scope != NULL);
@@ -141,7 +141,84 @@ void check_assign_variable_test()
     assert(check_assign_variable(outer_scope, key_4, TOKEN_STRING) == 6);
     free_scope(outer_scope);
 }
+void check_init_variable_test(void)
+{
+    scope *outer_scope = new_scope(NULL);
+    assert(outer_scope != NULL);
 
+    char *key = "test_key";
+    data test_data = {0};
+    test_data.kind = SYMBOL_VARIABLE;
+    test_data.type = TOKEN_INT;
+    test_data.changeable = true;
+
+    int result;
+    data *stored_data;
+
+    // calling with invalid scope
+    result = check_init_variable(NULL, key, test_data, TOKEN_INT, true);
+    assert(result == 99);
+
+    // calling with function instead of variable
+    test_data.kind = SYMBOL_FUNCTION;
+    char *key_2 = "function_test";
+    result = check_init_variable(outer_scope, key_2, test_data, TOKEN_INT, true);
+    assert(result == 99);
+
+    // valid declaration with explicit type
+    test_data.kind = SYMBOL_VARIABLE;
+    result = check_init_variable(outer_scope, key, test_data, TOKEN_INT, true);
+    assert(result == 0);
+
+    stored_data = lookup_symbol(outer_scope, key);
+    assert(stored_data != NULL);
+    assert(stored_data->type == TOKEN_INT);
+
+    // duplicate declaration within same scope
+    result = check_init_variable(outer_scope, key, test_data, TOKEN_INT, true);
+    assert(result == 4);
+
+    // incompatible types
+    char *key_3 = "wrong_type";
+    result = check_init_variable(outer_scope, key_3, test_data, TOKEN_STRING, true);
+    assert(result == 6);
+
+    // invalid declaration must not be inserted
+    assert(lookup_symbol(outer_scope, key_3) == NULL);
+
+    // int into double
+    test_data.type = TOKEN_DOUBLE;
+    char *key_4 = "double_test";
+    result = check_init_variable(outer_scope, key_4, test_data, TOKEN_INT, true);
+    assert(result == 0);
+
+    stored_data = lookup_symbol(outer_scope, key_4);
+    assert(stored_data != NULL);
+    assert(stored_data->type == TOKEN_DOUBLE);
+
+    // type deduction
+    test_data.type = TOKEN_INT;
+    char *key_5 = "deduct_test";
+    result = check_init_variable(outer_scope, key_5, test_data, TOKEN_STRING, false);
+    assert(result == 0);
+
+    stored_data = lookup_symbol(outer_scope, key_5);
+    assert(stored_data != NULL);
+    assert(stored_data->type == TOKEN_STRING);
+
+    // val can be initialized during declaration
+    test_data.changeable = false;
+    test_data.type = TOKEN_INT;
+    char *key_6 = "val_test";
+    result = check_init_variable(outer_scope, key_6, test_data, TOKEN_INT, true);
+    assert(result == 0);
+
+    stored_data = lookup_symbol(outer_scope, key_6);
+    assert(stored_data != NULL);
+    assert(stored_data->changeable == false);
+
+    free_scope(outer_scope);
+}
 int main(void)
 {
     new_scope_test();
@@ -149,4 +226,5 @@ int main(void)
     lookup_symbol_test();
     insert_symbol_test();
     check_assign_variable_test();
+    check_init_variable_test();
 }
