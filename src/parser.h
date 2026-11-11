@@ -252,6 +252,9 @@ ErrorCode parse_type(Parser *parser, ASTNode *declaration);
 
 /**
  * @brief Parses FunctionBody according to LL grammar rules
+ *
+ * Stores the body in AST as AST_BLOCK. One-line bodies contain an implicit AST_RETURN.
+ *
  * @param parser Ptr to struct parser
  * @param function Ptr to the function node receiving its body
  * @return ErrorCode according to specification of IFJ26
@@ -314,6 +317,9 @@ ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement);
 
 /**
  * @brief Parses ExprNonId according to LL grammar rules
+ *
+ * Creates a literal node or an AST_EXPR node for a parenthesized expression.
+ *
  * @param parser Ptr to struct parser
  * @param parent Ptr to the parent node receiving the expression
  * @return ErrorCode according to specification of IFJ26
@@ -338,6 +344,9 @@ ErrorCode parse_var_kind(Parser *parser, ASTNode *declaration);
 
 /**
  * @brief Parses IfStatement according to LL grammar rules
+ *
+ * Stores the condition as AST_EXPR, followed by the then block and the else block.
+ *
  * @param parser Ptr to struct parser
  * @param block Ptr to the block node receiving the if statement
  * @return ErrorCode according to specification of IFJ26
@@ -346,6 +355,9 @@ ErrorCode parse_if_statement(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses WhileStatement according to LL grammar rules
+ *
+ * Stores the condition as AST_EXPR, followed by the loop body block.
+ *
  * @param parser Ptr to struct parser
  * @param block Ptr to the block node receiving the while statement
  * @return ErrorCode according to specification of IFJ26
@@ -362,6 +374,9 @@ ErrorCode parse_return_statement(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses ReturnExprOpt according to LL grammar rules
+ *
+ * Leaves the return node without children if no expression is present.
+ *
  * @param parser Ptr to struct parser
  * @param return_node Ptr to the return statement node receiving its expression
  * @return ErrorCode according to specification of IFJ26
