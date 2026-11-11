@@ -702,7 +702,9 @@ ErrorCode parse_var_def(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(ast_add_child(block, declaration));
 
   RETURN_IF_ERROR(parse_var_kind(parser, declaration));
-  RETURN_IF_ERROR(expect(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
+  RETURN_IF_ERROR(ast_set_text(declaration, parser->current_token->value));
+  RETURN_IF_ERROR(new_token(parser));
   RETURN_IF_ERROR(parse_type_opt(parser, declaration));
   RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
   RETURN_IF_ERROR(parse_expr_or_call(parser, declaration));
@@ -711,9 +713,15 @@ ErrorCode parse_var_def(Parser *parser, ASTNode *block) {
 } // parse_var_def()
 
 ErrorCode parse_var_kind(Parser *parser, ASTNode *declaration) {
-  (void)declaration;
+  if (declaration == NULL) {
+    print_err(ERROR_INTERNAL, "Declaration node is NULL.");
+    return ERROR_INTERNAL;
+  }
+
+  RETURN_IF_ERROR(check_current_token(parser));
 
   if (tokens_matches(parser, TOKEN_VAL) || tokens_matches(parser, TOKEN_VAR)) {
+    declaration->is_changeable = parser->current_token->type == TOKEN_VAR;
     RETURN_IF_ERROR(new_token(parser));
     return ERROR_OK;
   } else {
@@ -729,7 +737,12 @@ ErrorCode parse_if_statement(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(ast_add_child(block, if_node));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_IF));
-  RETURN_IF_ERROR(parse_expr(parser));
+  ASTNode *condition = ast_create_node(AST_EXPR);
+  if (condition == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(if_node, condition));
+  RETURN_IF_ERROR(parse_expr(parser, condition));
   RETURN_IF_ERROR(expect(parser, TOKEN_THEN));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(parse_block(parser, if_node));
@@ -749,7 +762,12 @@ ErrorCode parse_while_statement(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(ast_add_child(block, while_node));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_WHILE));
-  RETURN_IF_ERROR(parse_expr(parser));
+  ASTNode *condition = ast_create_node(AST_EXPR);
+  if (condition == NULL) {
+    return ERROR_INTERNAL;
+  }
+  RETURN_IF_ERROR(ast_add_child(while_node, condition));
+  RETURN_IF_ERROR(parse_expr(parser, condition));
   RETURN_IF_ERROR(expect(parser, TOKEN_DO));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(parse_block(parser, while_node));
@@ -771,6 +789,11 @@ ErrorCode parse_return_statement(Parser *parser, ASTNode *block) {
 } // parse_return_statement()
 
 ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node) {
+  if (return_node == NULL) {
+    print_err(ERROR_INTERNAL, "Return node is NULL.");
+    return ERROR_INTERNAL;
+  }
+
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
@@ -819,7 +842,7 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr(parser));
+    RETURN_IF_ERROR(parse_expr(parser, parent));
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
@@ -829,7 +852,13 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
 } // parse_expr_or_call()
 
 ErrorCode parse_call_opt(Parser *parser, ASTNode *expression) {
+  if (expression == NULL) {
+    print_err(ERROR_INTERNAL, "Expression node is NULL.");
+    return ERROR_INTERNAL;
+  }
+
   if (tokens_matches(parser, TOKEN_LPAREN)) {
+    expression->type = AST_CALL;
     RETURN_IF_ERROR(parse_arg_group(parser, expression));
     return ERROR_OK;
   } else if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF) ||
@@ -891,7 +920,7 @@ ErrorCode parse_arg_list(Parser *parser, ASTNode *arg_list) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr(parser));
+    RETURN_IF_ERROR(parse_expr(parser, arg_list));
     RETURN_IF_ERROR(parse_arg_list_rest(parser, arg_list));
     break;
   default:
