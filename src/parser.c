@@ -48,6 +48,26 @@
     return ERROR_SYNTACTIC;                                                                                            \
   } while (0)
 
+/**
+ * @brief Returns ERROR_INTERNAL if the given pointer is NULL
+ *
+ * Prints the error message if it isn't NULL.
+ *
+ * @param ptr Ptr to check
+ * @param message Error message, or NULL to return without printing
+ */
+#define RETURN_INTERNAL_ERROR_IF_NULL(ptr, message)                                                                    \
+  do {                                                                                                                 \
+    if ((ptr) == NULL) {                                                                                               \
+      const char *error_msg = (message);                                                                               \
+      if (error_msg != NULL) {                                                                                         \
+        print_err(ERROR_INTERNAL, "%s", error_msg);                                                                    \
+      }                                                                                                                \
+      return ERROR_INTERNAL;                                                                                           \
+    }                                                                                                                  \
+  } while (0)
+
+
 Parser *parser_init() {
   Parser *parser = (Parser *)malloc(sizeof(Parser));
   if (parser == NULL) {
@@ -78,10 +98,8 @@ void parser_free(Parser *parser) {
 } // parser_free()
 
 ErrorCode check_current_token(Parser *parser) {
-  if (parser == NULL || parser->current_token == NULL) {
-    print_err(ERROR_INTERNAL, "current_token is empty.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(parser, "Parser is NULL.");
+  RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token, "current_token in Parser is NULL.");
 
   return ERROR_OK;
 } // check_current_token()
@@ -98,10 +116,8 @@ ErrorCode compare_tokens(Parser *parser, TokenType expected_type) {
 } // compare_tokens()
 
 ErrorCode compare_tokens_next_token(Parser *parser, TokenType expected_type) {
-  if (parser == NULL || parser->next_token == NULL) {
-    print_err(ERROR_INTERNAL, "next_token is empty.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(parser, "Parser is NULL.");
+  RETURN_INTERNAL_ERROR_IF_NULL(parser->next_token, "next_token in Parser is NULL.");
 
   // Compare current token type to the expected one
   if (parser->next_token->type != expected_type) {
@@ -138,10 +154,7 @@ bool token_matches_next_token(Parser *parser, TokenType expected_token) {
 } // token_matches_next_token()
 
 ErrorCode new_token(Parser *parser) {
-  if (parser == NULL) {
-    print_err(ERROR_INTERNAL, "Struct parser is empty.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(parser, "Parser is NULL.");
 
   // Deallocate memory used for current token
   if (parser->current_token != NULL) {
@@ -164,10 +177,7 @@ ErrorCode new_token(Parser *parser) {
 } // new_token()
 
 ErrorCode look_up_next_token(Parser *parser) {
-  if (parser == NULL) {
-    print_err(ERROR_INTERNAL, "Struct parser is empty.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(parser, "Parser is NULL.");
 
   if (parser->next_token == NULL) {
     parser->next_token = get_next_token();
@@ -192,15 +202,11 @@ ErrorCode expect(Parser *parser, TokenType expected_type) {
  *******************************************************************/
 
 ErrorCode parse_program(ASTree *tree) {
-  if (tree == NULL || tree->root == NULL) {
-    print_err(ERROR_INTERNAL, "AST tree or root node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(tree, "ASTree is NULL.");
+  RETURN_INTERNAL_ERROR_IF_NULL(tree->root, "Root node in ASTree is NULL.");
 
   Parser *parser = parser_init();
-  if (parser == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(parser, NULL);
 
   ErrorCode return_value = ERROR_OK;
 
@@ -262,9 +268,7 @@ ErrorCode parse_function_list_rest(Parser *parser, ASTNode *program) {
 
 ErrorCode parse_function_def(Parser *parser, ASTNode *program) {
   ASTNode *function = ast_create_node(AST_FUNCTION);
-  if (function == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(function, NULL);
   RETURN_IF_ERROR(ast_add_child(program, function));
 
   RETURN_IF_ERROR(parse_main_opt(parser, function));
@@ -281,10 +285,7 @@ ErrorCode parse_function_def(Parser *parser, ASTNode *program) {
 } // parse_function_def()
 
 ErrorCode parse_main_opt(Parser *parser, ASTNode *function) {
-  if (function == NULL) {
-    print_err(ERROR_INTERNAL, "Function node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(function, "Function node in ASTree is NULL.");
 
   // MainOpt -> AtMain
   if (tokens_matches(parser, TOKEN_MAIN_ANNOTATION)) {
@@ -298,9 +299,7 @@ ErrorCode parse_main_opt(Parser *parser, ASTNode *function) {
 
 ErrorCode parse_param_group(Parser *parser, ASTNode *function) {
   ASTNode *param_list = ast_create_node(AST_PARAM_LIST);
-  if (param_list == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(param_list, NULL);
   RETURN_IF_ERROR(ast_add_child(function, param_list));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_LPAREN));
@@ -357,9 +356,7 @@ ErrorCode parse_param_list_rest_tail(Parser *parser, ASTNode *param_list) {
 
 ErrorCode parse_param(Parser *parser, ASTNode *param_list) {
   ASTNode *param = ast_create_node(AST_PARAM);
-  if (param == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(param, NULL);
   RETURN_IF_ERROR(ast_add_child(param_list, param));
 
   RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
@@ -385,10 +382,7 @@ ErrorCode parse_type_opt(Parser *parser, ASTNode *declaration) {
 } // parse_type_opt()
 
 ErrorCode parse_type(Parser *parser, ASTNode *declaration) {
-  if (declaration == NULL) {
-    print_err(ERROR_INTERNAL, "Declaration node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(declaration, "Declaration node in ASTree is NULL.");
 
   RETURN_IF_ERROR(check_current_token(parser));
 
@@ -415,10 +409,7 @@ ErrorCode parse_type(Parser *parser, ASTNode *declaration) {
 } // parse_type()
 
 ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
-  if (function == NULL) {
-    print_err(ERROR_INTERNAL, "Function node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(function, "Function node in ASTree is NULL.");
 
   RETURN_IF_ERROR(check_current_token(parser));
 
@@ -436,15 +427,11 @@ ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
     // Represent one line function body in AST similar to multi line function body
     // Function -> Block -> Return -> ExprOrCall
     ASTNode *block = ast_create_node(AST_BLOCK);
-    if (block == NULL) {
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(block, NULL);
     RETURN_IF_ERROR(ast_add_child(function, block));
 
     ASTNode *return_node = ast_create_node(AST_RETURN);
-    if (return_node == NULL) {
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(return_node, NULL);
     RETURN_IF_ERROR(ast_add_child(block, return_node));
 
     RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
@@ -475,9 +462,7 @@ ErrorCode parse_eol_or_eof(Parser *parser) {
 ErrorCode parse_block(Parser *parser, ASTNode *parent) {
   if (tokens_matches(parser, TOKEN_INDENT)) {
     ASTNode *block = ast_create_node(AST_BLOCK);
-    if (block == NULL) {
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(block, NULL);
     RETURN_IF_ERROR(ast_add_child(parent, block));
 
     RETURN_IF_ERROR(new_token(parser));
@@ -562,9 +547,7 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
     break;
   case TOKEN_IDENTIFIER: {
     ASTNode *statement = ast_create_node(AST_IDENTIFIER);
-    if (statement == NULL) {
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(statement, NULL);
     RETURN_IF_ERROR(ast_add_child(block, statement));
     RETURN_IF_ERROR(ast_set_text(statement, parser->current_token->value));
 
@@ -589,10 +572,7 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
 } // parse_statement()
 
 ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement) {
-  if (statement == NULL) {
-    print_err(ERROR_INTERNAL, "Statement node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(statement, "Statement node in ASTree is NULL.");
 
   RETURN_IF_ERROR(check_current_token(parser));
 
@@ -622,9 +602,7 @@ ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   ASTNode *expression = ast_create_node(AST_EXPR);
-  if (expression == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(expression, NULL);
   RETURN_IF_ERROR(ast_add_child(parent, expression));
 
   switch (parser->current_token->type) {
@@ -642,10 +620,7 @@ ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
 
   case TOKEN_INT_LITERAL: {
     expression->type = AST_INT_LITERAL;
-    if (parser->current_token->value == NULL) {
-      print_err(ERROR_INTERNAL, "Literal token value is empty.");
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
 
     char *end; // pointer to end of strtol() reading
     errno = 0;
@@ -660,10 +635,7 @@ ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
   }
   case TOKEN_DOUBLE_LITERAL: {
     expression->type = AST_DOUBLE_LITERAL;
-    if (parser->current_token->value == NULL) {
-      print_err(ERROR_INTERNAL, "Literal token value is empty.");
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
 
     char *end; // pointer to end of strtod() reading
     errno = 0;
@@ -677,10 +649,7 @@ ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
   }
   case TOKEN_STRING_LITERAL:
     expression->type = AST_STRING_LITERAL;
-    if (parser->current_token->value == NULL) {
-      print_err(ERROR_INTERNAL, "Literal token value is empty.");
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
 
     RETURN_IF_ERROR(ast_set_text(expression, parser->current_token->value));
     break;
@@ -696,9 +665,7 @@ ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
 
 ErrorCode parse_var_def(Parser *parser, ASTNode *block) {
   ASTNode *declaration = ast_create_node(AST_VAR_DECLARATION);
-  if (declaration == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(declaration, NULL);
   RETURN_IF_ERROR(ast_add_child(block, declaration));
 
   RETURN_IF_ERROR(parse_var_kind(parser, declaration));
@@ -713,10 +680,7 @@ ErrorCode parse_var_def(Parser *parser, ASTNode *block) {
 } // parse_var_def()
 
 ErrorCode parse_var_kind(Parser *parser, ASTNode *declaration) {
-  if (declaration == NULL) {
-    print_err(ERROR_INTERNAL, "Declaration node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(declaration, "Declaration node in ASTree is NULL.");
 
   RETURN_IF_ERROR(check_current_token(parser));
 
@@ -731,17 +695,15 @@ ErrorCode parse_var_kind(Parser *parser, ASTNode *declaration) {
 
 ErrorCode parse_if_statement(Parser *parser, ASTNode *block) {
   ASTNode *if_node = ast_create_node(AST_IF);
-  if (if_node == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(if_node, NULL);
   RETURN_IF_ERROR(ast_add_child(block, if_node));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_IF));
+
   ASTNode *condition = ast_create_node(AST_EXPR);
-  if (condition == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(condition, NULL);
   RETURN_IF_ERROR(ast_add_child(if_node, condition));
+
   RETURN_IF_ERROR(parse_expr(parser, condition));
   RETURN_IF_ERROR(expect(parser, TOKEN_THEN));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
@@ -756,17 +718,15 @@ ErrorCode parse_if_statement(Parser *parser, ASTNode *block) {
 
 ErrorCode parse_while_statement(Parser *parser, ASTNode *block) {
   ASTNode *while_node = ast_create_node(AST_WHILE);
-  if (while_node == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(while_node, NULL);
   RETURN_IF_ERROR(ast_add_child(block, while_node));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_WHILE));
+
   ASTNode *condition = ast_create_node(AST_EXPR);
-  if (condition == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(condition, NULL);
   RETURN_IF_ERROR(ast_add_child(while_node, condition));
+
   RETURN_IF_ERROR(parse_expr(parser, condition));
   RETURN_IF_ERROR(expect(parser, TOKEN_DO));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
@@ -777,9 +737,7 @@ ErrorCode parse_while_statement(Parser *parser, ASTNode *block) {
 
 ErrorCode parse_return_statement(Parser *parser, ASTNode *block) {
   ASTNode *return_node = ast_create_node(AST_RETURN);
-  if (return_node == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(return_node, NULL);
   RETURN_IF_ERROR(ast_add_child(block, return_node));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_RETURN));
@@ -789,10 +747,7 @@ ErrorCode parse_return_statement(Parser *parser, ASTNode *block) {
 } // parse_return_statement()
 
 ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node) {
-  if (return_node == NULL) {
-    print_err(ERROR_INTERNAL, "Return node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(return_node, "Return node in ASTree is NULL.");
 
   RETURN_IF_ERROR(check_current_token(parser));
 
@@ -825,9 +780,7 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER: {
     ASTNode *expression = ast_create_node(AST_IDENTIFIER);
-    if (expression == NULL) {
-      return ERROR_INTERNAL;
-    }
+    RETURN_INTERNAL_ERROR_IF_NULL(expression, NULL);
     RETURN_IF_ERROR(ast_add_child(parent, expression));
     RETURN_IF_ERROR(ast_set_text(expression, parser->current_token->value));
 
@@ -852,10 +805,7 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
 } // parse_expr_or_call()
 
 ErrorCode parse_call_opt(Parser *parser, ASTNode *expression) {
-  if (expression == NULL) {
-    print_err(ERROR_INTERNAL, "Expression node is NULL.");
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(expression, "Expression node in ASTree is NULL.");
 
   if (tokens_matches(parser, TOKEN_LPAREN)) {
     expression->type = AST_CALL;
@@ -871,9 +821,7 @@ ErrorCode parse_call_opt(Parser *parser, ASTNode *expression) {
 
 ErrorCode parse_arg_group(Parser *parser, ASTNode *call) {
   ASTNode *arg_list = ast_create_node(AST_ARG_LIST);
-  if (arg_list == NULL) {
-    return ERROR_INTERNAL;
-  }
+  RETURN_INTERNAL_ERROR_IF_NULL(arg_list, NULL);
   RETURN_IF_ERROR(ast_add_child(call, arg_list));
 
   RETURN_IF_ERROR(expect(parser, TOKEN_LPAREN));
