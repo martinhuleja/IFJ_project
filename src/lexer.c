@@ -18,7 +18,20 @@ typedef struct {
     unsigned int leading_spaces;
     unsigned int parenthesis_depth;
     unsigned int comment_depth;
+    int lookahead;
+    bool has_lookahead;
+    unsigned int line;
+    unsigned int column;
+    bool logical_line_has_token;
 } LexerState;
+
+typedef struct {
+    char *data;
+    size_t length;
+    size_t capacity;
+} CharBuffer;
+
+static LexerState lexer = {.line = 1, .column = 1};
 
 void token_free(Token *token) {
     if (token == NULL) {
@@ -128,12 +141,124 @@ static bool is_identifier_continue(int c) {
            (c == '_');
 }
 
+static int peek_char(void) {
+    if (!lexer.has_lookahead) {
+        lexer.lookahead = getchar();
+        lexer.has_lookahead = true;
+    }
+    return lexer.lookahead;
+}
+
+static int take_char(void) {
+    int c = peek_char();
+    lexer.has_lookahead = false;
+
+    if (c == '\n') {
+        lexer.line++;
+        lexer.column = 1;
+    } else if (c != EOF) {
+        lexer.column++;
+    }
+    return c;
+}
+
+static void out_of_memory(void) {
+    fputs("internal compiler error: out of memory\n", stderr);
+    exit(EXIT_FAILURE);
+}
+
+static void buffer_append(CharBuffer *buffer, char c) {
+    if (buffer->length + 1 >= buffer->capacity) {
+        size_t new_capacity = buffer->capacity ? buffer->capacity * 2 : 32;
+        if (new_capacity <= buffer->capacity) {
+            out_of_memory();
+        }
+        char *new_data = realloc(buffer->data, new_capacity);
+        if (new_data == NULL) {
+            out_of_memory();
+        }
+        buffer->data = new_data;
+        buffer->capacity = new_capacity;
+    }
+
+    buffer->data[buffer->length++] = c;
+    buffer->data[buffer->length] = '\0';
+}
+
+static Token *make_token(TokenType type, char *value,
+                         unsigned int line, unsigned int column) {
+    Token *token = malloc(sizeof(*token));
+    if (token == NULL) {
+        out_of_memory();
+    }
+    token->type = type;
+    token->value = value;
+    token->lf_before_rparen = false;
+    token->line = line;
+    token->column = column;
+    if (type != TOKEN_NEWLINE && type != TOKEN_EOF) {
+        lexer.logical_line_has_token = true;
+    }
+    return token;
+}
+
+static TokenType word_type(FSMState state) {
+    switch (state) {
+        case ST_Double: return TOKEN_DOUBLE;
+        case ST_Int: return TOKEN_INT;
+        case ST_String: return TOKEN_STRING;
+        case ST_Unit: return TOKEN_UNIT;
+        case ST_def: return TOKEN_DEF;
+        case ST_do: return TOKEN_DO;
+        case ST_else: return TOKEN_ELSE;
+        case ST_if: return TOKEN_IF;
+        case ST_import: return TOKEN_IMPORT;
+        case ST_return: return TOKEN_RETURN;
+        case ST_then: return TOKEN_THEN;
+        case ST_val: return TOKEN_VAL;
+        case ST_var: return TOKEN_VAR;
+        case ST_while: return TOKEN_WHILE;
+        default: return TOKEN_IDENTIFIER;
+    }
+}
+
 Token *get_next_token(void) {
     FSMState state = ST_START;
+    CharBuffer buffer = {0};
+    unsigned int token_line = 0;
+    unsigned int token_column = 0;
     int c;
 
     while (true) {
-        c = getchar();
+        c = peek_char();
+
+        if (state != ST_START && !is_identifier_continue(c)) {
+            return make_token(word_type(state), buffer.data,
+                              token_line, token_column);
+        }
+
+        if (state == ST_START) {
+            if (c == ' ' || c == '\t' || c == '\r') {
+                take_char();
+                continue;
+            }
+            if (c == '\n') {
+                unsigned int line = lexer.line;
+                unsigned int column = lexer.column;
+                take_char();
+                if (!lexer.logical_line_has_token) {
+                    continue;
+                }
+                lexer.logical_line_has_token = false;
+                return make_token(TOKEN_NEWLINE, NULL, line, column);
+            }
+            if (c == EOF) {
+                return make_token(TOKEN_EOF, NULL, lexer.line, lexer.column);
+            }
+            token_line = lexer.line;
+            token_column = lexer.column;
+        }
+
         switch (state) {
             case ST_START:
                 if (c == 'B') state = ST_B;
@@ -404,8 +529,15 @@ Token *get_next_token(void) {
                     break;
                 }
                 break;
-            case ST_STRING:
-                break;
+            default:
+                free(buffer.data);
+                return NULL;
         }
+
+        if (state == ST_START) {
+            free(buffer.data);
+            return NULL;
+        }
+        buffer_append(&buffer, (char)take_char());
     }
 }
