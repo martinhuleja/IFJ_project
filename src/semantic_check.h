@@ -12,6 +12,8 @@ ErrorCode semantic_analysis(ASTree *tree);
 ErrorCode first_run(scope *global_scope,ASTree *tree);
 ErrorCode built_in(scope *global_scope);
 ErrorCode allocate_params(data *function_data);
+ErrorCode second_run(scope *global_scope, ASTree *tree);
+
 /**
  * @brief Creates a new scope and puts it on top of stack
  *

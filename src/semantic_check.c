@@ -32,8 +32,12 @@ ErrorCode semantic_analysis(ASTree *tree)
         free_scope(global_scope);
         return result;
     }
-
-
+    result = second_run(global_scope,tree);
+    if (result != ERROR_OK)
+    {
+        free_scope(global_scope);
+        return result;
+    }
 
     //cleaning up
     free_scope(global_scope);
@@ -47,7 +51,6 @@ ErrorCode semantic_analysis(ASTree *tree)
 // error redef if 2 mains, error undef if 0 mains, error internal if malloc fail, returns registerfunction sometimes
 ErrorCode first_run(scope *global_scope,ASTree *tree)
 {
-    int position = 0;
     int main_found = 0;
     ErrorCode result = ERROR_OK;
     ASTNode *root = tree->root;
@@ -60,12 +63,11 @@ ErrorCode first_run(scope *global_scope,ASTree *tree)
         if (node->type == AST_FUNCTION)
         {
             tmp_data.kind = SYMBOL_FUNCTION;
-            tmp_data.position = position++;
             tmp_data.return_type = node->declared_type;
             ASTNode *params = NULL;
 
 
-                //find params and param counts
+                //find param child
                 for (size_t j = 0; j < node->children_count; j++)
                 {
                     if (node->children[j]->type == AST_PARAM_LIST)
@@ -114,6 +116,75 @@ ErrorCode first_run(scope *global_scope,ASTree *tree)
         return ERROR_UNDEFINED;
     return ERROR_OK;
 }
+//cycling thru each function each function has own scope
+//in function taking each node
+// puting it into check depending on what typa node it is
+
+ErrorCode second_run(scope *global_scope, ASTree *tree)
+{
+    ErrorCode result = ERROR_OK;
+    ASTNode *root = tree->root;
+    int position = 0;
+    for (size_t i = 0; i < root->children_count; i++)
+    {
+        position = 0;
+
+        ASTNode *node = root->children[i];
+        ASTNode *params = NULL;
+
+        if (node->type != AST_FUNCTION)
+            continue;
+
+
+        // each function gets own scope
+        scope *function_scope = new_scope(global_scope);
+        if (function_scope == NULL)
+            return ERROR_INTERNAL;
+
+        // finding params of the function
+        for ( size_t j = 0; j < node->children_count; j++)
+        {
+            if(node->children[j]->type == AST_PARAM_LIST)
+            {
+                params = node->children[j];
+                break;
+            }
+        }
+        // inserting params into local hashtable first
+        if (params != NULL)
+        {
+            for( size_t j = 0; j< params->children_count;j++)
+            {
+                ASTNode *param = params->children[j];
+                data param_data = {0};
+
+                param_data.position = position++;
+                param_data.kind = SYMBOL_VARIABLE;
+                param_data.type = param->declared_type;
+                param_data.changeable = false;
+                result = insert_symbol(function_scope,params->children[j]->text,param_data);
+                if (result != ERROR_OK)
+                {
+                    free_scope(function_scope);
+                    return result;
+                }
+            }
+        }
+        //find block
+        for (size_t j = 0; j < node->children_count; j++)
+        {
+            if (node->children[j]->type == AST_BLOCK)
+            {
+                //idk
+                break;
+            }
+        }
+        free_scope(function_scope);
+    }
+
+    return ERROR_OK;
+}
+
 // implementing built in functions first of all things
 // readInt() -> I ,readDouble() -> D, readLine -> S, print(Any) -> U, toStr(Any) -> S, toInt(D) -> I
 // strLength(S) -> I, subStr(S,I,I) -> S, ord(S,I) -> I, chr(I) -> S
@@ -291,6 +362,8 @@ ErrorCode built_in(scope *global_scope)
     }
     return ERROR_OK;
 }
+
+
 // creates new hashtab puts it into linked list and returns it
 scope* new_scope(scope *current_scope)
 {
@@ -493,6 +566,7 @@ ErrorCode check_function_call(scope *current_scope, char *key, ASTDataType *argu
     return ERROR_OK;
 }
 
+// allocates parameters of a function into its data
 ErrorCode allocate_params(data *function_data)
 {
     if (function_data == NULL || function_data->parameter_count < 0)
