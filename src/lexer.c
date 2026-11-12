@@ -202,6 +202,66 @@ static Token *make_token(TokenType type, char *value,
     return token;
 }
 
+static Token *scan_symbol(unsigned int line, unsigned int column) {
+    CharBuffer buffer = {0};
+    int c = take_char();
+    TokenType type;
+
+    buffer_append(&buffer, (char)c);
+    switch (c) {
+        case '>':
+            type = TOKEN_GREATER;
+            if (peek_char() == '=') type = TOKEN_GREATER_EQUAL;
+            break;
+        case '<':
+            type = TOKEN_LESS;
+            if (peek_char() == '=') type = TOKEN_LESS_EQUAL;
+            break;
+        case '=':
+            type = TOKEN_ASSIGN;
+            if (peek_char() == '=') type = TOKEN_EQUAL;
+            break;
+        case '!':
+            if (peek_char() != '=') {
+                free(buffer.data);
+                return NULL;
+            }
+            type = TOKEN_NOT_EQUAL;
+            break;
+        case '+': type = TOKEN_PLUS; break;
+        case '-': type = TOKEN_MINUS; break;
+        case '*': type = TOKEN_MULTIPLY; break;
+        case '/':
+            if (peek_char() == '/' || peek_char() == '*') {
+                free(buffer.data);
+                return NULL;
+            }
+            type = TOKEN_DIVIDE;
+            break;
+        case '(': type = TOKEN_LPAREN; break;
+        case ')': type = TOKEN_RPAREN; break;
+        case ':': type = TOKEN_COLON; break;
+        case ',': type = TOKEN_COMMA; break;
+        case ';': type = TOKEN_SEMICOLON; break;
+        case '.':
+            if (peek_char() >= '0' && peek_char() <= '9') {
+                free(buffer.data);
+                return NULL;
+            }
+            type = TOKEN_DOT;
+            break;
+        default:
+            free(buffer.data);
+            return NULL;
+    }
+
+    if (type == TOKEN_GREATER_EQUAL || type == TOKEN_LESS_EQUAL ||
+        type == TOKEN_EQUAL || type == TOKEN_NOT_EQUAL) {
+        buffer_append(&buffer, (char)take_char());
+    }
+    return make_token(type, buffer.data, line, column);
+}
+
 static TokenType word_type(FSMState state) {
     switch (state) {
         case ST_Double: return TOKEN_DOUBLE;
@@ -257,6 +317,10 @@ Token *get_next_token(void) {
             }
             token_line = lexer.line;
             token_column = lexer.column;
+            if (!((c >= 'a' && c <= 'z') ||
+                  (c >= 'A' && c <= 'Z'))) {
+                return scan_symbol(token_line, token_column);
+            }
         }
 
         switch (state) {
