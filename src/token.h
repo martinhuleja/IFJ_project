@@ -1,6 +1,8 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include <stdbool.h>
+
 typedef enum {
     TOKEN_EOF,
     TOKEN_NEWLINE,
@@ -57,12 +59,13 @@ typedef struct {
     TokenType type;
     char *value;
 
+    bool lf_before_rparen;
     unsigned int line;
     unsigned int column;
 
 } Token;
 
-/* bude sa menit */
-/* na indentacii sa este pracuje */
+void token_free(Token *token);
+Token *get_next_token(void);
 
 #endif

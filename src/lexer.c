@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "token.h"
 
 typedef struct IndentNode {
     unsigned int spaces;
@@ -17,7 +18,29 @@ typedef struct {
     unsigned int leading_spaces;
     unsigned int parenthesis_depth;
     unsigned int comment_depth;
+    int lookahead;
+    bool has_lookahead;
+    unsigned int line;
+    unsigned int column;
+    bool logical_line_has_token;
 } LexerState;
+
+typedef struct {
+    char *data;
+    size_t length;
+    size_t capacity;
+} CharBuffer;
+
+static LexerState lexer = {.line = 1, .column = 1};
+
+void token_free(Token *token) {
+    if (token == NULL) {
+        return;
+    }
+
+    free(token->value);
+    free(token);
+}
 
 void indent_stack_init(IndentStack *stack) {
     stack->top = NULL;
@@ -55,5 +78,466 @@ void indent_stack_pop(IndentStack *stack) {
 void indent_stack_free(IndentStack *stack) {
     while (stack->top != NULL) {
         indent_stack_pop(stack);
+    }
+}
+
+typedef enum {
+    ST_START,
+
+    ST_B, ST_Bo, ST_Boo, ST_Bool, ST_Boole, ST_Boolea, ST_Boolean,
+    ST_D,
+    ST_Do,
+    ST_Dou,
+    ST_Doub,
+    ST_Doubl,
+    ST_Double,
+    ST_I, ST_In, ST_Int,
+    ST_S, ST_St, ST_Str, ST_Stri, ST_Strin, ST_String,
+    ST_U, ST_Un, ST_Uni, ST_Unit,
+    ST_d, ST_de, ST_def, ST_do,
+    ST_e, ST_el, ST_els, ST_else,
+    ST_f, ST_fo, ST_for,
+    ST_i, ST_if, ST_im, ST_imp, ST_impo, ST_impor, ST_import,
+    ST_r, ST_re, ST_ret, ST_retu, ST_retur, ST_return,
+    ST_t, ST_th, ST_the, ST_then,
+    ST_v, ST_va, ST_val, ST_var,
+    ST_w, ST_wh, ST_whi, ST_whil, ST_while,
+
+    ST_IDENTIFIER,
+    ST_LEADING_UNDERSCORE,
+    ST_AT, ST_AT_M, ST_AT_MA, ST_AT_MAI, ST_AT_MAIN,
+
+    ST_GREATER, ST_GREATER_EQUAL,
+    ST_LESS, ST_LESS_EQUAL,
+    ST_BANG, ST_NOT_EQUAL,
+    ST_MULTIPLY, ST_DIVIDE,
+    ST_PLUS, ST_MINUS,
+    ST_ASSIGN, ST_EQUAL,
+    ST_DOT,
+    ST_NEWLINE,
+    ST_LPAREN, ST_RPAREN,
+    ST_COLON, ST_COMMA, ST_SEMICOLON,
+
+    ST_COMMENT,
+    ST_BLOCK_COMMENT, ST_BLOCK_COMMENT_STAR, ST_BLOCK_COMMENT_END,
+
+    ST_INT_ZERO, ST_INT_DIGITS, ST_INT_SEPARATOR,
+    ST_DOUBLE_DOT, ST_DOUBLE_FRACTION, ST_DOUBLE_FRACTION_SEPARATOR,
+    ST_DOUBLE_EXPONENT, ST_DOUBLE_EXPONENT_SIGN,
+    ST_DOUBLE_EXPONENT_DIGITS, ST_DOUBLE_EXPONENT_SEPARATOR,
+    ST_DOUBLE_SUFFIX,
+
+    ST_STRING_OPEN, ST_STRING_BODY, ST_STRING_ESCAPE,
+    ST_STRING_AFTER_ESCAPE, ST_STRING,
+    ST_STRING_EMPTY_OR_TRIPLE_PREFIX, ST_STRING_TRIPLE_BODY,
+    ST_STRING_TRIPLE_QUOTE_1, ST_STRING_TRIPLE_QUOTE_2,
+    ST_STRING_TRIPLE_END
+} FSMState;
+
+static bool is_identifier_continue(int c) {
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+           (c >= '0' && c <= '9') ||
+           (c == '_');
+}
+
+static int peek_char(void) {
+    if (!lexer.has_lookahead) {
+        lexer.lookahead = getchar();
+        lexer.has_lookahead = true;
+    }
+    return lexer.lookahead;
+}
+
+static int take_char(void) {
+    int c = peek_char();
+    lexer.has_lookahead = false;
+
+    if (c == '\n') {
+        lexer.line++;
+        lexer.column = 1;
+    } else if (c != EOF) {
+        lexer.column++;
+    }
+    return c;
+}
+
+static void out_of_memory(void) {
+    fputs("internal compiler error: out of memory\n", stderr);
+    exit(EXIT_FAILURE);
+}
+
+static void buffer_append(CharBuffer *buffer, char c) {
+    if (buffer->length + 1 >= buffer->capacity) {
+        size_t new_capacity = buffer->capacity ? buffer->capacity * 2 : 32;
+        if (new_capacity <= buffer->capacity) {
+            out_of_memory();
+        }
+        char *new_data = realloc(buffer->data, new_capacity);
+        if (new_data == NULL) {
+            out_of_memory();
+        }
+        buffer->data = new_data;
+        buffer->capacity = new_capacity;
+    }
+
+    buffer->data[buffer->length++] = c;
+    buffer->data[buffer->length] = '\0';
+}
+
+static Token *make_token(TokenType type, char *value,
+                         unsigned int line, unsigned int column) {
+    Token *token = malloc(sizeof(*token));
+    if (token == NULL) {
+        out_of_memory();
+    }
+    token->type = type;
+    token->value = value;
+    token->lf_before_rparen = false;
+    token->line = line;
+    token->column = column;
+    if (type != TOKEN_NEWLINE && type != TOKEN_EOF) {
+        lexer.logical_line_has_token = true;
+    }
+    return token;
+}
+
+static TokenType word_type(FSMState state) {
+    switch (state) {
+        case ST_Double: return TOKEN_DOUBLE;
+        case ST_Int: return TOKEN_INT;
+        case ST_String: return TOKEN_STRING;
+        case ST_Unit: return TOKEN_UNIT;
+        case ST_def: return TOKEN_DEF;
+        case ST_do: return TOKEN_DO;
+        case ST_else: return TOKEN_ELSE;
+        case ST_if: return TOKEN_IF;
+        case ST_import: return TOKEN_IMPORT;
+        case ST_return: return TOKEN_RETURN;
+        case ST_then: return TOKEN_THEN;
+        case ST_val: return TOKEN_VAL;
+        case ST_var: return TOKEN_VAR;
+        case ST_while: return TOKEN_WHILE;
+        default: return TOKEN_IDENTIFIER;
+    }
+}
+
+Token *get_next_token(void) {
+    FSMState state = ST_START;
+    CharBuffer buffer = {0};
+    unsigned int token_line = 0;
+    unsigned int token_column = 0;
+    int c;
+
+    while (true) {
+        c = peek_char();
+
+        if (state != ST_START && !is_identifier_continue(c)) {
+            return make_token(word_type(state), buffer.data,
+                              token_line, token_column);
+        }
+
+        if (state == ST_START) {
+            if (c == ' ' || c == '\t' || c == '\r') {
+                take_char();
+                continue;
+            }
+            if (c == '\n') {
+                unsigned int line = lexer.line;
+                unsigned int column = lexer.column;
+                take_char();
+                if (!lexer.logical_line_has_token) {
+                    continue;
+                }
+                lexer.logical_line_has_token = false;
+                return make_token(TOKEN_NEWLINE, NULL, line, column);
+            }
+            if (c == EOF) {
+                return make_token(TOKEN_EOF, NULL, lexer.line, lexer.column);
+            }
+            token_line = lexer.line;
+            token_column = lexer.column;
+        }
+
+        switch (state) {
+            case ST_START:
+                if (c == 'B') state = ST_B;
+                else if (c == 'D') state = ST_D;
+                else if (c == 'I') state = ST_I;
+                else if (c == 'S') state = ST_S;
+                else if (c == 'U') state = ST_U;
+                else if (c == 'd') state = ST_d;
+                else if (c == 'e') state = ST_e;
+                else if (c == 'f') state = ST_f;
+                else if (c == 'i') state = ST_i;
+                else if (c == 'r') state = ST_r;
+                else if (c == 't') state = ST_t;
+                else if (c == 'v') state = ST_v;
+                else if (c == 'w') state = ST_w;
+                else if ((c >= 'a' && c <= 'z') ||
+                         (c >= 'A' && c <= 'Z')) {
+                    state = ST_IDENTIFIER;
+                }
+                break;
+            case ST_D:
+                if (c == 'o') {
+                    state = ST_Do;
+                    break;
+                }
+                else if (is_identifier_continue(c)) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_Do:
+                if (c == 'u') {
+                    state = ST_Dou;
+                    break;
+                }
+                else if (is_identifier_continue(c)) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_Dou:
+                if (c=='b') {
+                    state = ST_Doub;
+                    break;
+                }
+                else if (is_identifier_continue(c)) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_Doub:
+                if (c=='l') {
+                    state = ST_Doubl;
+                    break;
+                }
+                else if (is_identifier_continue(c)) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_Doubl:
+                if (c=='e') {
+                    state = ST_Double;
+                    break;
+                }
+                else if (is_identifier_continue(c)) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_Double:
+                if (is_identifier_continue(c)) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            case ST_B:
+                if (c == 'o') state = ST_Bo;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Bo:
+                if (c == 'o') state = ST_Boo;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Boo:
+                if (c == 'l') state = ST_Bool;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Bool:
+                if (c == 'e') state = ST_Boole;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Boole:
+                if (c == 'a') state = ST_Boolea;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Boolea:
+                if (c == 'n') state = ST_Boolean;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_I:
+                if (c == 'n') state = ST_In;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_In:
+                if (c == 't') state = ST_Int;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_S:
+                if (c == 't') state = ST_St;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_St:
+                if (c == 'r') state = ST_Str;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Str:
+                if (c == 'i') state = ST_Stri;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Stri:
+                if (c == 'n') state = ST_Strin;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Strin:
+                if (c == 'g') state = ST_String;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_U:
+                if (c == 'n') state = ST_Un;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Un:
+                if (c == 'i') state = ST_Uni;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Uni:
+                if (c == 't') state = ST_Unit;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_d:
+                if (c == 'e') state = ST_de;
+                else if (c == 'o') state = ST_do;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_de:
+                if (c == 'f') state = ST_def;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_e:
+                if (c == 'l') state = ST_el;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_el:
+                if (c == 's') state = ST_els;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_els:
+                if (c == 'e') state = ST_else;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_f:
+                if (c == 'o') state = ST_fo;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_fo:
+                if (c == 'r') state = ST_for;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_i:
+                if (c == 'f') state = ST_if;
+                else if (c == 'm') state = ST_im;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_im:
+                if (c == 'p') state = ST_imp;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_imp:
+                if (c == 'o') state = ST_impo;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_impo:
+                if (c == 'r') state = ST_impor;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_impor:
+                if (c == 't') state = ST_import;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_r:
+                if (c == 'e') state = ST_re;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_re:
+                if (c == 't') state = ST_ret;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_ret:
+                if (c == 'u') state = ST_retu;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_retu:
+                if (c == 'r') state = ST_retur;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_retur:
+                if (c == 'n') state = ST_return;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_t:
+                if (c == 'h') state = ST_th;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_th:
+                if (c == 'e') state = ST_the;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_the:
+                if (c == 'n') state = ST_then;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_v:
+                if (c == 'a') state = ST_va;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_va:
+                if (c == 'l') state = ST_val;
+                else if (c == 'r') state = ST_var;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_w:
+                if (c == 'h') state = ST_wh;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_wh:
+                if (c == 'i') state = ST_whi;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_whi:
+                if (c == 'l') state = ST_whil;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_whil:
+                if (c == 'e') state = ST_while;
+                else if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_Boolean:
+            case ST_Int:
+            case ST_String:
+            case ST_Unit:
+            case ST_def:
+            case ST_do:
+            case ST_else:
+            case ST_for:
+            case ST_if:
+            case ST_import:
+            case ST_return:
+            case ST_then:
+            case ST_val:
+            case ST_var:
+            case ST_while:
+                if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_IDENTIFIER:
+                if (is_identifier_continue(c)) {
+                    state = ST_IDENTIFIER;
+                    break;
+                }
+                break;
+            default:
+                free(buffer.data);
+                return NULL;
+        }
+
+        if (state == ST_START) {
+            free(buffer.data);
+            return NULL;
+        }
+        buffer_append(&buffer, (char)take_char());
     }
 }
