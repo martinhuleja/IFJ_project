@@ -1,53 +1,119 @@
 #ifndef SEMANTIC_CHECK_H
 #define SEMANTIC_CHECK_H
 #include "symtable.h"
+#include "error.h"
 
-// single linked list
+/**
+ * @brief Single linked list scope
+ */
 typedef struct Sscope scope;
 
-// returns NULL if malloc errorr
-// returns new scope
+/**
+ * @brief Creates a new scope and puts it on top of stack
+ *
+ * @param current_scope
+ * @return PTR to new_scope on success, or NULL on malloc error
+ */
 scope* new_scope(scope *current_scope);
 
-// returns previous scope
+/**
+ * @brief pops current scope from stack
+ *
+ * @param current_scope PTR to current_scope
+ * @return PTR to previous_scope on success, or NULL if called with invalid scope
+ */
 scope* pop_scope(scope *current_scope);
 
-// checks if symbol exists through all scopes
-// returns NULL if called with invalid scope
-// returns NULL if function didnt find symbol
-// returns data
+/**
+ * @brief checks if symbol exists across current and all parent scopes
+ *
+ * @param current_scope PTR to current_scope
+ * @param *key pointer to symbol key
+ * @return ptr to data of symbol on success, NULL if symbol not found, NULL If called with invalid scope
+ */
 data *lookup_symbol(scope *current_scope,char *key);
 
-// checks if symbol already exists in scope, then enters it into hash_table
-// takes current scope, key of symbol and data of symbol
-// returns 99 if malloc error/called with invalid scope
-// returns 4 if symbol already exists within scope
-// returns 0
-int insert_symbol(scope *current_scope,char *key,data data);
+
+/**
+ * @brief checks if symbol already exists in scope, then enters it into hash_table
+ *
+ * @param current_scope PTR to current_scope
+ * @param key pointer to symbol key
+ * @param data data of symbol to be inserted
+ * @return ERROR_OK on success, ERROR_INTERNAL on malloc error,
+ * ERROR_INTERNAL if called with invalid scope, ERROR_REDEFINITION if symbol already exists in scope
+ */
+ErrorCode insert_symbol(scope *current_scope,char *key,data data);
 
 void free_scope(scope *current_scope);
 
-// checks wether value can be assigned to varriable
-// takes current scope, key of variable, and Token Type of right side (value)
-// returns 3 if variable doesnt exist
-// returns 7 if val
-// returns 99 if called with invalid scope, or with function instaed of variable
-// returns 6 if uncompabitibletypes
-// returns 0
-int check_assign_variable(scope *current_scope, char *key,TokenType right_side);
 
-// function checks if right and left side have compatible types
-// doesnt check for invalid scopes/variables -> is only meant to be called as a helper function from other funcitons that already checked
-// takes tokentype of left side and rightside
-// returns 6 if uncompabite types
-// returns 0 
-int check_type(TokenType left_side, TokenType right_side);
 
-// checks wether variable can be initialized
-// takes current scope, key of variable, data of variable, Token Type of right side (value), bool if variable has a declared type or not
-// returns 4 if variable already exists within scope
-// returns 99 if called with invalid scope, or with function instaed of variable or malloc error
-// returns 6 if uncompatibile types or cant deduct type
-// returns 0
-int check_init_variable(scope *current_scope, char *key,data data,TokenType right_side, bool has_declared_type);
+/**
+ * @brief takes current scope, key of variable, and ASTDataType of right side (value)
+ *
+ * @param current_scope PTR to current_scope
+ * @param key pointer to varaible key
+ * @param right_side ASTDataType of right side (value)
+ * @return ERROR_OK on success, ERROR_IMMUTABLE_ASSIGNEMENT if not called with variable,
+ * ERROR_INTERNAL if called with invalid scope, ERROR_TYPE_COMPATIBILITY if uncompabitible types,
+ * ERROR_IMMUTABLE_ASSIGNMENT if leftisde is val, ERROR_UNDEFINED if  symbol doesnt exist
+ */
+ErrorCode check_assign_variable(scope *current_scope, char *key,ASTDataType right_side);
+
+/**
+ * @brief checks if two data types have compatible types
+ *
+ * doesnt check for invalid scopes/variables -> is only meant to be called as a helper function from other funcitons that already checked
+ *
+ * @param left_side ASTDataType of first value
+ * @param right_side ASTDataType of second value
+ * @return ERROR_OK on success, ERROR_TYPE_COMPATIBILITY if uncompabitible types,
+ */
+ErrorCode check_type(ASTDataType left_side, ASTDataType right_side);
+
+/**
+ * @brief checks wether variable can be initialized
+ *
+ * checks if variable hasnt been repeatedly declard, if right and left side are compatibile
+ *
+ * @param current_scope PTR to current_scope
+ * @param key pointer to varaible key
+ * @param data data of variable, that value should be assigned to
+ * @param right_side ASTDataType of right side (value)
+ * @return ERROR_OK on success, ERROR_INTERNAL on malloc_error, ERROR_INTERNAL if not valled with variable,
+ * ERROR_INTERNAL if called with invalid scope, ERROR_TYPE_COMPATIBILITY if uncompabitible types,
+ * ERROR_REDEFINITION if variable already exists within scope
+ */
+ErrorCode check_init_variable(scope *current_scope, char *key,data data,ASTDataType right_side);
+
+/**
+ * @brief registering functions
+ *
+ * registers functions, used during first run through of semantic analysis
+ *
+ * @param global_scope PTR to global scope
+ * @param key pointer to varaible key
+ * @param data data of function ought to be registred
+ * @return ERROR_OK on sucess, ERROR_INTERNAL if called with invalid scope,
+ * ERROR_REDEFINITION if funciton already defined, ERROR_INTERNAL on malloc error,
+ * ERROR_INTERNAL if not called with function, ERROR_INTERNAL if function has internal data discrepencies.
+ */
+ErrorCode register_function(scope *global_scope, char *key,data data);
+
+/**
+ * @brief checks if a function has been called correctly
+ *
+ * checks if function exists and compares argument count and types
+ *
+ * @param current_scope PTR to current scope
+ * @param key pointer to function key
+ * @param argument_types pointer to array of argument types
+ * @param argument_count number of arguments
+ * @return ERROR_OK on success, ERROR_INTERNAL if called with invalid scope,
+ * ERROR_INTERNAL if argument array is invalid, ERROR_UNDEFINED if function
+ * doesnt exist or symbol isnt a function, ERROR_FUNCTION_ARGS if argument
+ * count or types
+*/
+ErrorCode check_function_call(scope *current_scope, char *key, ASTDataType *argument_types,int argument_count);
 #endif

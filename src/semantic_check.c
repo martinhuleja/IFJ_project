@@ -1,12 +1,12 @@
 #include "semantic_check.h"
 #include <stdlib.h> 
 #include <stdio.h>
+#include <string.h>
 struct Sscope
 {
     scope *parent; 
     table *hash_tab;
 };
-
 
 // creates new hashtab puts it into linked list and returns it
 scope* new_scope(scope *current_scope)
@@ -39,10 +39,6 @@ scope* pop_scope(scope *current_scope)
     return previous_scope;
 }
 
-// checks if symbol exists through all scopes
-// returns NULL if called with invalid scope
-// returns NULL if function didnt find symbol
-// returns data
 data *lookup_symbol(scope *current_scope,char *key)
 {
     if (current_scope == NULL)
@@ -65,107 +61,83 @@ data *lookup_symbol(scope *current_scope,char *key)
     return NULL;
 }
 
-
-// checks if symbol already exists in scope, then enters it into hash_table
-// takes current scope, key of symbol and data of symbol
-// returns 99 if malloc error/called with invalid scope
-// returns 4 if symbol already exists within scope
-// returns 0
-int insert_symbol(scope *current_scope,char *key,data data)
+ErrorCode insert_symbol(scope *current_scope,char *key,data data)
 {
     if (current_scope == NULL)
     {
         //called with invalid scope, so returning 99 
-        return 99;
+        return ERROR_INTERNAL;
     }
     if(search_table(current_scope->hash_tab,key) == true)
     {
         // returns error code, for 2nd declaration of variable within same scope
-        return(4);
+        return ERROR_REDEFINITION;
     }
     
     if(insert_item(current_scope->hash_tab,key,data) == NULL)
     {        
         // malloc failed, so returning 99
-        return(99);
+        return ERROR_INTERNAL;
     }
     return 0;
 }
 
-// checks wether value can be assigned to varriable
-// takes current scope, key of variable, and Token Type of right side (value)
-// returns 3 if variable doesnt exist
-// returns 7 if val
-// returns 99 if called with invalid scope, or with function instaed of variable
-// returns 6 if uncompabitibletypes
-// returns 0
-int check_assign_variable(scope *current_scope, char *key,TokenType right_side)
+ErrorCode check_assign_variable(scope *current_scope, char *key,ASTDataType right_side)
 {
 
     if (current_scope == NULL)
     {
         //called with invalid scope, so returning 99 
-        return 99;
+        return ERROR_INTERNAL;
     }
     data *temp_data = lookup_symbol(current_scope,key);
     if(temp_data == NULL)
     {
         //variable doesnt exist
-        return 3;
+        return ERROR_UNDEFINED;
     }
     if(temp_data->kind == SYMBOL_FUNCTION)
     {
         // function is unchangeable 
-        return 7;
+        return ERROR_IMMUTABLE_ASSIGNMENT;
     }
     if(temp_data->changeable == false)
     { 
         // val is unchangeable
-        return 7;
+        return ERROR_IMMUTABLE_ASSIGNMENT;
     }
     return check_type(temp_data->type,right_side);
 
 }
 
-// function checks if right and left side have compatible types
-// doesnt check for invalid scopes/variables -> is only meant to be called as a helper function from other funcitons that already checked
-// takes tokentype of left side and rightside
-// returns 6 if uncompabitible types
-// returns 0
-int check_type(TokenType left_side, TokenType right_side)
+ErrorCode check_type(ASTDataType left_side, ASTDataType right_side)
 {
-    if(left_side == right_side)
-        return 0;
-    if(left_side == TOKEN_DOUBLE && right_side == TOKEN_INT)
-        return 0;
+    if(left_side == right_side && left_side != AST_DATA_UNKNOWN)
+        return ERROR_OK;
+    if(left_side == AST_DATA_DOUBLE && right_side == AST_DATA_INT)
+        return ERROR_OK;
     else
-        return 6;
+        return ERROR_TYPE_COMPATIBILITY;
 }
 
-// checks wether variable can be initialized
-// takes current scope, key of variable, data of variable, Token Type of right side (value), bool if variable has a declared type or not
-// returns 4 if variable already exists within scope
-// returns 99 if called with invalid scope, or with function instaed of variable or malloc error
-// returns 6 if uncompatibile types or cant deduct type
-// returns 0
-int check_init_variable(scope *current_scope, char *key,data data,TokenType right_side, bool has_declared_type)
+ErrorCode check_init_variable(scope *current_scope, char *key,data data,ASTDataType right_side)
 {
 
     if (current_scope == NULL)
     {
         //called with invalid scope, so returning 99 
-        return 99;
+        return ERROR_INTERNAL;
     }
 
     if(data.kind == SYMBOL_FUNCTION)
     {
-        return 99;
+        return ERROR_INTERNAL;
     }
 
-    if(has_declared_type == true)
+    if(data.type != AST_DATA_UNKNOWN)
     {
-        if(check_type(data.type,right_side) == 6)
-            return 6;
+        if(check_type(data.type,right_side) == ERROR_TYPE_COMPATIBILITY)
+            return ERROR_TYPE_COMPATIBILITY;
     
 
     }
@@ -175,20 +147,67 @@ int check_init_variable(scope *current_scope, char *key,data data,TokenType righ
         data.type = right_side;
     }
     int insert_symbol_result = insert_symbol(current_scope,key,data);
-    if( insert_symbol_result == 99)
+    if( insert_symbol_result == ERROR_INTERNAL)
     {
-        return 99;
+        return ERROR_INTERNAL;
     }
-    if( insert_symbol_result == 4)
+    if( insert_symbol_result == ERROR_REDEFINITION)
     {
-        return 4;
+        return ERROR_REDEFINITION;
     }
-    return 0;
+    return ERROR_OK;
 } 
+
+// first run-through registering functions
+ErrorCode register_function(scope *global_scope, char *key,data data)
+{
+    if (global_scope == NULL)
+    {
+        //called with invalid scope, so returning 99
+        return ERROR_INTERNAL;
+    }
+    if(data.kind != SYMBOL_FUNCTION)
+    {
+        //NOT CALED WITH FUNCTION SO RETURNING 99
+        return ERROR_INTERNAL;
+    }
+    if(data.parameter_count >0 && data.parameter_types == NULL)
+        return ERROR_INTERNAL;
+    return(insert_symbol(global_scope,key,data));
+}
+// checks if function called correctly
+ErrorCode check_function_call(scope *current_scope, char *key, ASTDataType *argument_types,int argument_count)
+{
+    if (current_scope == NULL)
+    {
+        //called with invalid scope, so returning 99
+        return ERROR_INTERNAL;
+    }
+    data *function_data = lookup_symbol(current_scope,key);
+    if (function_data == NULL)
+        return ERROR_UNDEFINED;
+    if (function_data->kind != SYMBOL_FUNCTION)
+        return ERROR_UNDEFINED;
+    //comparasioning
+    if( function_data->parameter_count != argument_count)
+        return ERROR_FUNCTION_ARGS;
+    if(argument_count >0 && argument_types == NULL)
+    //caller has wrong data
+        return ERROR_INTERNAL;
+    for(int i = 0;i<argument_count;i++)
+    {
+        if(check_type(function_data->parameter_types[i],argument_types[i]) != ERROR_OK)
+            return ERROR_FUNCTION_ARGS;
+    }
+    return ERROR_OK;
+}
 
 void free_scope(scope *current_scope)
 {
 
-    free_table(current_scope->hash_tab);
-    free(current_scope); 
+    if(current_scope != NULL)
+    {
+        free_table(current_scope->hash_tab);
+        free(current_scope);
+    }
 }
