@@ -229,9 +229,7 @@ static Token *make_token(TokenType type, char *value,
     return token;
 }
 
-static bool prepare_indentation(Token **indent_token,
-                                unsigned int line, unsigned int column,
-                                int first_char) {
+static bool prepare_indentation(Token **indent_token, unsigned int line, unsigned int column) {
     *indent_token = NULL;
     if (!lexer.at_line_start) {
         return true;
@@ -242,8 +240,7 @@ static bool prepare_indentation(Token **indent_token,
 
     if (lexer.parenthesis_depth > 0) {
         /* The stack top is the indentation of this logical line. */
-        if (first_char != ')' &&
-            lexer.leading_spaces <= indent_stack_top(&lexer.indent_stack)) {
+        if (lexer.leading_spaces <= indent_stack_top(&lexer.indent_stack)) {
             return false;
         }
         lexer.at_line_start = false;
