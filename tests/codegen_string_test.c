@@ -34,6 +34,24 @@ int main(void)
     codegen_bool(false);
     printf("\nWRITE string@\\010\n");
 
+    printf("DEFVAR ");
+    codegen_variable(CODEGEN_GF, "x");
+    printf("\nCREATEFRAME\n");
+
+    printf("DEFVAR ");
+    codegen_variable(CODEGEN_TF, "x");
+    printf("\nPUSHFRAME\n");
+
+    codegen_defvar(CODEGEN_LF, "y");
+
+    codegen_move_int(CODEGEN_LF, "y", 42);
+
+    codegen_move_var(CODEGEN_GF, "x", CODEGEN_LF, "y");
+
+    codegen_add_int(CODEGEN_LF, "y", CODEGEN_GF, "x", 8);
+
+    codegen_write_var(CODEGEN_LF, "y");
+
     printf("EXIT int@0\n");
 
     return 0;

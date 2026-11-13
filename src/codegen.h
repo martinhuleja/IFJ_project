@@ -16,9 +16,24 @@
 void codegen_string(const unsigned char *text, size_t length);
 /** Writes an integer constant without a trailing newline. */
 void codegen_int(long long value);
-/** Writes a folating-point constant without a trailing newline. */
+/** Writes a floating-point constant without a trailing newline. */
 void codegen_float(double value);
 /** Writes a Boolean constant without a trailing newline. */
 void codegen_bool(bool value);
+
+typedef enum {
+    CODEGEN_GF,
+    CODEGEN_LF,
+    CODEGEN_TF
+} CodegenFrame;
+
+void codegen_variable(CodegenFrame frame, const char *name);
+void codegen_defvar(CodegenFrame frame, const char *name);
+
+void codegen_move_int(CodegenFrame frame, const char *name, long long value);
+void codegen_move_var(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name);
+void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
+
+void codegen_write_var(CodegenFrame frame, const char *name);
 
 #endif

@@ -8,4 +8,13 @@ WRITE bool@true
 WRITE string@\010
 WRITE bool@false
 WRITE string@\010
+DEFVAR GF@x
+CREATEFRAME
+DEFVAR TF@x
+PUSHFRAME
+DEFVAR LF@y
+MOVE LF@y int@42
+MOVE GF@x LF@y
+ADD LF@y GF@x int@8
+WRITE LF@y
 EXIT int@0
