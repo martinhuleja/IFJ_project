@@ -16,6 +16,9 @@ typedef struct {
     IndentStack indent_stack;
     bool at_line_start;
     unsigned int leading_spaces;
+    bool leading_tab;
+    unsigned int pending_dedents;
+    bool pending_divide;
     unsigned int parenthesis_depth;
     unsigned int comment_depth;
     int lookahead;
@@ -32,7 +35,7 @@ typedef struct {
     size_t capacity;
 } CharBuffer;
 
-static LexerState lexer = {.line = 1, .column = 1};
+static LexerState lexer = {.at_line_start = true, .line = 1, .column = 1};
 
 void token_free(Token *token) {
     if (token == NULL) {
@@ -62,6 +65,9 @@ bool indent_stack_push(IndentStack *stack, unsigned int spaces) {
 }
 
 unsigned int indent_stack_top(const IndentStack *stack) {
+    if (stack->top == NULL) {
+        return 0;
+    }
     return stack->top->spaces;
 }
 
@@ -214,10 +220,66 @@ static Token *make_token(TokenType type, char *value,
     token->lf_before_rparen = false;
     token->line = line;
     token->column = column;
-    if (type != TOKEN_NEWLINE && type != TOKEN_EOF) {
+    if (type != TOKEN_NEWLINE && type != TOKEN_EOF && type != TOKEN_INDENT && type != TOKEN_DEDENT) {
         lexer.logical_line_has_token = true;
     }
     return token;
+}
+
+static bool prepare_indentation(Token **indent_token,
+                                unsigned int line, unsigned int column,
+                                int first_char) {
+    *indent_token = NULL;
+    if (!lexer.at_line_start) {
+        return true;
+    }
+    if (lexer.leading_tab) {
+        return false;
+    }
+
+    if (lexer.parenthesis_depth > 0) {
+        /* The stack top is the indentation of this logical line. */
+        if (first_char != ')' &&
+            lexer.leading_spaces <= indent_stack_top(&lexer.indent_stack)) {
+            return false;
+        }
+        lexer.at_line_start = false;
+        return true;
+    }
+
+    lexer.at_line_start = false;
+    unsigned int current = indent_stack_top(&lexer.indent_stack);
+    if (lexer.leading_spaces > current) {
+        if (!indent_stack_push(&lexer.indent_stack, lexer.leading_spaces)) {
+            out_of_memory();
+        }
+        *indent_token = make_token(TOKEN_INDENT, NULL, line, column);
+        return true;
+    }
+    if (lexer.leading_spaces == current) {
+        return true;
+    }
+
+    unsigned int dedent_count = 0;
+    IndentNode *level = lexer.indent_stack.top;
+    while (level != NULL && level->spaces > lexer.leading_spaces) {
+        dedent_count++;
+        level = level->next;
+    }
+    unsigned int matching_level = 0;
+    if (level != NULL) {
+        matching_level = level->spaces;
+    }
+    if (matching_level != lexer.leading_spaces) {
+        return false;
+    }
+
+    for (unsigned int i = 0; i < dedent_count; i++) {
+        indent_stack_pop(&lexer.indent_stack);
+    }
+    lexer.pending_dedents = dedent_count - 1;
+    *indent_token = make_token(TOKEN_DEDENT, NULL, line, column);
+    return true;
 }
 
 static Token *scan_string(unsigned int line, unsigned int column) {
@@ -521,8 +583,16 @@ static Token *scan_symbol(unsigned int line, unsigned int column) {
         case '+': type = TOKEN_PLUS; break;
         case '-': type = TOKEN_MINUS; break;
         case '*': type = TOKEN_MULTIPLY; break;
-        case '(': type = TOKEN_LPAREN; break;
-        case ')': type = TOKEN_RPAREN; break;
+        case '(':
+            type = TOKEN_LPAREN;
+            lexer.parenthesis_depth++;
+            break;
+        case ')':
+            type = TOKEN_RPAREN;
+            if (lexer.parenthesis_depth > 0) {
+                lexer.parenthesis_depth--;
+            }
+            break;
         case ':': type = TOKEN_COLON; break;
         case ',': type = TOKEN_COMMA; break;
         case ';': type = TOKEN_SEMICOLON; break;
@@ -567,10 +637,27 @@ static TokenType word_type(FSMState state) {
 Token *get_next_token(void) {
     FSMState state = ST_START;
     bool scanning_word = false;
+    bool counting_leading_spaces = true;
     CharBuffer buffer = {0};
     unsigned int token_line = 0;
     unsigned int token_column = 0;
     int c;
+
+    if (lexer.pending_dedents > 0) {
+        lexer.pending_dedents--;
+        unsigned int column = lexer.column;
+        if (lexer.pending_divide) {
+            /* The slash was consumed before the dedents were returned. */
+            column--;
+        }
+        return make_token(TOKEN_DEDENT, NULL, lexer.line, column);
+    }
+    if (lexer.pending_divide) {
+        lexer.pending_divide = false;
+        buffer_append(&buffer, '/');
+        return make_token(TOKEN_DIVIDE, buffer.data,
+                          lexer.line, lexer.column - 1);
+    }
 
     while (true) {
         c = peek_char();
@@ -607,10 +694,15 @@ Token *get_next_token(void) {
                 if (!skip_block_comment(&newline_line, &newline_column)) {
                     return NULL;
                 }
+                counting_leading_spaces = false;
                 state = ST_START;
                 if (newline_line != 0) {
                     lexer.after_multiline_block_comment = true;
-                    if (lexer.logical_line_has_token) {
+                    lexer.at_line_start = true;
+                    lexer.leading_spaces = 0;
+                    lexer.leading_tab = false;
+                    if (lexer.logical_line_has_token &&
+                        lexer.parenthesis_depth == 0) {
                         lexer.logical_line_has_token = false;
                         return make_token(TOKEN_NEWLINE, NULL,
                                           newline_line, newline_column);
@@ -620,6 +712,16 @@ Token *get_next_token(void) {
             }
             if (lexer.after_multiline_block_comment) {
                 return NULL;
+            }
+            Token *indent_token = NULL;
+            if (!prepare_indentation(&indent_token,
+                                     token_line, token_column, '/')) {
+                return NULL;
+            }
+            if (indent_token != NULL) {
+                /* The slash was consumed while checking for a comment. */
+                lexer.pending_divide = true;
+                return indent_token;
             }
             buffer_append(&buffer, '/');
             return make_token(TOKEN_DIVIDE, buffer.data,
@@ -636,7 +738,21 @@ Token *get_next_token(void) {
         }
 
         if (state == ST_START) {
-            if (c == ' ' || c == '\t' || c == '\r') {
+            if (c == ' ') {
+                if (lexer.at_line_start && counting_leading_spaces) {
+                    lexer.leading_spaces++;
+                }
+                take_char();
+                continue;
+            }
+            if (c == '\t') {
+                if (lexer.at_line_start && counting_leading_spaces) {
+                    lexer.leading_tab = true;
+                }
+                take_char();
+                continue;
+            }
+            if (c == '\r') {
                 take_char();
                 continue;
             }
@@ -645,6 +761,13 @@ Token *get_next_token(void) {
                 unsigned int column = lexer.column;
                 take_char();
                 lexer.after_multiline_block_comment = false;
+                lexer.at_line_start = true;
+                lexer.leading_spaces = 0;
+                lexer.leading_tab = false;
+                counting_leading_spaces = true;
+                if (lexer.parenthesis_depth > 0) {
+                    continue;
+                }
                 if (!lexer.logical_line_has_token) {
                     continue;
                 }
@@ -652,6 +775,11 @@ Token *get_next_token(void) {
                 return make_token(TOKEN_NEWLINE, NULL, line, column);
             }
             if (c == EOF) {
+                if (lexer.indent_stack.top != NULL) {
+                    indent_stack_pop(&lexer.indent_stack);
+                    return make_token(TOKEN_DEDENT, NULL,
+                                      lexer.line, lexer.column);
+                }
                 return make_token(TOKEN_EOF, NULL, lexer.line, lexer.column);
             }
             if (lexer.after_multiline_block_comment && c != '/') {
@@ -659,6 +787,19 @@ Token *get_next_token(void) {
             }
             token_line = lexer.line;
             token_column = lexer.column;
+            if (c == '/') {
+                take_char();
+                state = ST_DIVIDE;
+                continue;
+            }
+            Token *indent_token = NULL;
+            if (!prepare_indentation(&indent_token,
+                                     token_line, token_column, c)) {
+                return NULL;
+            }
+            if (indent_token != NULL) {
+                return indent_token;
+            }
             if (is_digit(c)) {
                 state = c == '0' ? ST_INT_ZERO : ST_INT_DIGITS;
                 buffer_append(&buffer, (char)take_char());
@@ -671,11 +812,6 @@ Token *get_next_token(void) {
             }
             if (c == '"') {
                 return scan_string(token_line, token_column);
-            }
-            if (c == '/') {
-                take_char();
-                state = ST_DIVIDE;
-                continue;
             }
             if (!((c >= 'a' && c <= 'z') ||
                   (c >= 'A' && c <= 'Z') || c == '_')) {
