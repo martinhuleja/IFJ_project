@@ -22,13 +22,15 @@ Token *get_next_token() {
   return token;
 }
 
-ErrorCode parse_expr(Parser *parser) {
+ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
   parser = parser;
+  (void)parent;
   return ERROR_OK;
 }
 
-ErrorCode parse_expr_tail(Parser *parser) {
+ErrorCode parse_expr_tail(Parser *parser, ASTNode *expression) {
   parser = parser;
+  (void)expression;
   return ERROR_OK;
 }
 

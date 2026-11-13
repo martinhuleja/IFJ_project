@@ -9,6 +9,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "abstract-syntactic-tree.h"
 #include "error.h"
 #include "token.h"
 #include <stdbool.h>
@@ -141,9 +142,10 @@ ErrorCode expect(Parser *parser, TokenType expected_type);
 
 /**
  * @brief Parses Program according to LL grammar rules
+ * @param tree Ptr to the AST of the entire program
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_program();
+ErrorCode parse_program(ASTree *tree);
 
 /**
  * @brief Parses Prologue according to LL grammar rules
@@ -155,93 +157,109 @@ ErrorCode parse_prologue(Parser *parser);
 /**
  * @brief Parses FunctionList according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param program Ptr to the program node receiving function definitions
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_function_list(Parser *parser);
+ErrorCode parse_function_list(Parser *parser, ASTNode *program);
 
 /**
  * @brief Parses FunctionListRest according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param program Ptr to the program node receiving function definitions
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_function_list_rest(Parser *parser);
+ErrorCode parse_function_list_rest(Parser *parser, ASTNode *program);
 
 /**
  * @brief Parses FunctionDef according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param program Ptr to the program node receiving the function definition
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_function_def(Parser *parser);
+ErrorCode parse_function_def(Parser *parser, ASTNode *program);
 
 /**
  * @brief Parses MainOpt according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param function Ptr to the function node whose main annotation is set
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_main_opt(Parser *parser);
+ErrorCode parse_main_opt(Parser *parser, ASTNode *function);
 
 /**
  * @brief Parses ParamGroup according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param function Ptr to the function node receiving the parameter list
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_param_group(Parser *parser);
+ErrorCode parse_param_group(Parser *parser, ASTNode *function);
 
 /**
  * @brief Parses ParamListOpt according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param param_list Ptr to the parameter list node receiving parameters
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_param_list_opt(Parser *parser);
+ErrorCode parse_param_list_opt(Parser *parser, ASTNode *param_list);
 
 /**
  * @brief Parses ParamList according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param param_list Ptr to the parameter list node receiving parameters
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_param_list(Parser *parser);
+ErrorCode parse_param_list(Parser *parser, ASTNode *param_list);
 
 /**
  * @brief Parses ParamListRest according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param param_list Ptr to the parameter list node receiving parameters
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_param_list_rest(Parser *parser);
+ErrorCode parse_param_list_rest(Parser *parser, ASTNode *param_list);
 
 /**
  * @brief Parses ParamListRestTail according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param param_list Ptr to the parameter list node receiving parameters
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_param_list_rest_tail(Parser *parser);
+ErrorCode parse_param_list_rest_tail(Parser *parser, ASTNode *param_list);
 
 /**
  * @brief Parses Param according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param param_list Ptr to the parameter list node receiving the parameter
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_param(Parser *parser);
+ErrorCode parse_param(Parser *parser, ASTNode *param_list);
 
 /**
  * @brief Parses TypeOpt according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param declaration Ptr to the declaration node whose declared type is set
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_type_opt(Parser *parser);
+ErrorCode parse_type_opt(Parser *parser, ASTNode *declaration);
 
 /**
  * @brief Parses Type according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param declaration Ptr to the declaration node whose declared type is set
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_type(Parser *parser);
+ErrorCode parse_type(Parser *parser, ASTNode *declaration);
 
 /**
  * @brief Parses FunctionBody according to LL grammar rules
+ *
+ * Stores the body in AST as AST_BLOCK. One-line bodies contain an implicit AST_RETURN.
+ *
  * @param parser Ptr to struct parser
+ * @param function Ptr to the function node receiving its body
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_function_body(Parser *parser);
+ErrorCode parse_function_body(Parser *parser, ASTNode *function);
 
 /**
  * @brief Parses EOLOrEOF according to LL grammar rules
@@ -253,23 +271,26 @@ ErrorCode parse_eol_or_eof(Parser *parser);
 /**
  * @brief Parses Block according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param parent Ptr to the parent node receiving the block
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_block(Parser *parser);
+ErrorCode parse_block(Parser *parser, ASTNode *parent);
 
 /**
  * @brief Parses StatementList according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param block Ptr to the block node receiving statements
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_statement_list(Parser *parser);
+ErrorCode parse_statement_list(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses StatementListRest according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param block Ptr to the block node receiving statements
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_statement_list_rest(Parser *parser);
+ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses StatementEnd according to LL grammar rules
@@ -281,114 +302,142 @@ ErrorCode parse_statement_end(Parser *parser);
 /**
  * @brief Parses Statement according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param block Ptr to the block node receiving the statement
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_statement(Parser *parser);
+ErrorCode parse_statement(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses StatementAfterID according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param statement Ptr to the statement node holding the consumed identifier
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_statement_after_id(Parser *parser);
+ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement);
 
 /**
  * @brief Parses ExprNonId according to LL grammar rules
+ *
+ * Creates a literal node or an AST_EXPR node for a parenthesized expression.
+ *
  * @param parser Ptr to struct parser
+ * @param parent Ptr to the parent node receiving the expression
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_expr_non_id(Parser *parser);
+ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent);
 
 /**
  * @brief Parses VarDef according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param block Ptr to the block node receiving the variable declaration
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_var_def(Parser *parser);
+ErrorCode parse_var_def(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses VarKind according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param declaration Ptr to the variable declaration node whose mutability is set
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_var_kind(Parser *parser);
+ErrorCode parse_var_kind(Parser *parser, ASTNode *declaration);
 
 /**
  * @brief Parses IfStatement according to LL grammar rules
+ *
+ * Stores the condition as AST_EXPR, followed by the then block and the else block.
+ *
  * @param parser Ptr to struct parser
+ * @param block Ptr to the block node receiving the if statement
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_if_statement(Parser *parser);
+ErrorCode parse_if_statement(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses WhileStatement according to LL grammar rules
+ *
+ * Stores the condition as AST_EXPR, followed by the loop body block.
+ *
  * @param parser Ptr to struct parser
+ * @param block Ptr to the block node receiving the while statement
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_while_statement(Parser *parser);
+ErrorCode parse_while_statement(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses ReturnStatement according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param block Ptr to the block node receiving the return statement
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_return_statement(Parser *parser);
+ErrorCode parse_return_statement(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses ReturnExprOpt according to LL grammar rules
+ *
+ * Leaves the return node without children if no expression is present.
+ *
  * @param parser Ptr to struct parser
+ * @param return_node Ptr to the return statement node receiving its expression
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_return_expr_opt(Parser *parser);
+ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node);
 
 /**
  * @brief Parses ExprOrCall according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param parent Ptr to the parent node receiving the expression or function call
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_expr_or_call(Parser *parser);
+ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent);
 
 /**
  * @brief Parses CallOpt according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param expression Ptr to the expression node holding the consumed identifier
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_call_opt(Parser *parser);
+ErrorCode parse_call_opt(Parser *parser, ASTNode *expression);
 
 /**
  * @brief Parses ArgGroup according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param call Ptr to the function call node receiving the argument list
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_arg_group(Parser *parser);
+ErrorCode parse_arg_group(Parser *parser, ASTNode *call);
 
 /**
  * @brief Parses ArgListOpt according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param arg_list Ptr to the argument list node receiving arguments
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_arg_list_opt(Parser *parser);
+ErrorCode parse_arg_list_opt(Parser *parser, ASTNode *arg_list);
 
 /**
  * @brief Parses ArgList according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param arg_list Ptr to the argument list node receiving arguments
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_arg_list(Parser *parser);
+ErrorCode parse_arg_list(Parser *parser, ASTNode *arg_list);
 
 /**
  * @brief Parses ArgListRest according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param arg_list Ptr to the argument list node receiving arguments
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_arg_list_rest(Parser *parser);
+ErrorCode parse_arg_list_rest(Parser *parser, ASTNode *arg_list);
 
 /**
  * @brief Parses ArgListRestTail according to LL grammar rules
  * @param parser Ptr to struct parser
+ * @param arg_list Ptr to the argument list node receiving arguments
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_arg_list_rest_tail(Parser *parser);
+ErrorCode parse_arg_list_rest_tail(Parser *parser, ASTNode *arg_list);
 
 /**
  * @brief Parses EOLOpt according to LL grammar rules
