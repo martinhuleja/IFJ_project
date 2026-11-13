@@ -26,6 +26,7 @@ typedef struct {
     unsigned int line;
     unsigned int column;
     bool logical_line_has_token;
+    bool lf_since_token;
     bool after_multiline_block_comment;
 } LexerState;
 
@@ -178,6 +179,7 @@ static int take_char(void) {
     lexer.has_lookahead = false;
 
     if (c == '\n') {
+        lexer.lf_since_token = true;
         lexer.line++;
         lexer.column = 1;
     } else if (c != EOF) {
@@ -217,7 +219,8 @@ static Token *make_token(TokenType type, char *value,
     }
     token->type = type;
     token->value = value;
-    token->lf_before_rparen = false;
+    token->lf_before_rparen = type == TOKEN_RPAREN && lexer.lf_since_token;
+    lexer.lf_since_token = false;
     token->line = line;
     token->column = column;
     if (type != TOKEN_NEWLINE && type != TOKEN_EOF && type != TOKEN_INDENT && type != TOKEN_DEDENT) {
