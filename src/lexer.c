@@ -84,6 +84,7 @@ void indent_stack_free(IndentStack *stack) {
 typedef enum {
     ST_START,
 
+    /* finishing */
     ST_B, ST_Bo, ST_Boo, ST_Bool, ST_Boole, ST_Boolea, ST_Boolean,
     ST_D,
     ST_Do,
@@ -104,9 +105,12 @@ typedef enum {
     ST_w, ST_wh, ST_whi, ST_whil, ST_while,
 
     ST_IDENTIFIER,
+    
+    /* non-finishing */
     ST_LEADING_UNDERSCORE,
     ST_AT, ST_AT_M, ST_AT_MA, ST_AT_MAI, ST_AT_MAIN,
 
+    /* finishing */
     ST_GREATER, ST_GREATER_EQUAL,
     ST_LESS, ST_LESS_EQUAL,
     ST_BANG, ST_NOT_EQUAL,
@@ -293,6 +297,10 @@ Token *get_next_token(void) {
         c = peek_char();
 
         if (state != ST_START && !is_identifier_continue(c)) {
+            if (state == ST_LEADING_UNDERSCORE) {
+                free(buffer.data);
+                return NULL;
+            }
             return make_token(word_type(state), buffer.data,
                               token_line, token_column);
         }
@@ -318,7 +326,7 @@ Token *get_next_token(void) {
             token_line = lexer.line;
             token_column = lexer.column;
             if (!((c >= 'a' && c <= 'z') ||
-                  (c >= 'A' && c <= 'Z'))) {
+                  (c >= 'A' && c <= 'Z') || c == '_')) {
                 return scan_symbol(token_line, token_column);
             }
         }
@@ -338,10 +346,14 @@ Token *get_next_token(void) {
                 else if (c == 't') state = ST_t;
                 else if (c == 'v') state = ST_v;
                 else if (c == 'w') state = ST_w;
+                else if (c == '_') state = ST_LEADING_UNDERSCORE;
                 else if ((c >= 'a' && c <= 'z') ||
                          (c >= 'A' && c <= 'Z')) {
                     state = ST_IDENTIFIER;
                 }
+                break;
+            case ST_LEADING_UNDERSCORE:
+                if (is_identifier_continue(c)) state = ST_IDENTIFIER;
                 break;
             case ST_D:
                 if (c == 'o') {
