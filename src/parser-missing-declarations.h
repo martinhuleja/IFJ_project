@@ -22,10 +22,10 @@
 Token *get_next_token();
 
 // Parser calls this function for evaluating expressions (will be implemented in precedence syntactic analysis)
-ErrorCode parse_expr(Parser *parser);
+ErrorCode parse_expr(Parser *parser, ASTNode *parent);
 
 // Parser calls this function for evaluating expressions (will be implemented in precedence syntactic analysis)
-ErrorCode parse_expr_tail(Parser *parser);
+ErrorCode parse_expr_tail(Parser *parser, ASTNode *expression);
 
 #endif // PARSER_MISSING_DECLARATIONS_H
 /* End of file parser-missing-declarations.h */

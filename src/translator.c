@@ -1,12 +1,26 @@
+#include "abstract-syntactic-tree.h"
+#include "error.h"
 #include "parser.h"
-// #include "abstract-syntactic-tree.h"
 #include <stdlib.h>
 
 int main() {
-  // ast_init();
-  parse_program();
-  // semantic analysis
-  // codegen
-  // ast_free();
-  return EXIT_SUCCESS;
+  ASTree *tree = ast_init();
+  if (tree == NULL) {
+    return ERROR_INTERNAL;
+  }
+
+  ErrorCode return_value = ERROR_OK;
+
+  return_value = parse_program(tree);
+
+  if (return_value == ERROR_OK) {
+    // semantic analysis
+  }
+  if (return_value == ERROR_OK) {
+    // codegen
+  }
+
+  ast_free(tree);
+
+  return return_value;
 }
