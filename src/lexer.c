@@ -82,9 +82,10 @@ void indent_stack_free(IndentStack *stack) {
 }
 
 typedef enum {
+    /* Non-finishing: no token has started. */
     ST_START,
 
-    /* finishing */
+    /* Finishing: keyword prefixes can end as identifiers. */
     ST_B, ST_Bo, ST_Boo, ST_Bool, ST_Boole, ST_Boolea, ST_Boolean,
     ST_D,
     ST_Do,
@@ -105,15 +106,17 @@ typedef enum {
     ST_w, ST_wh, ST_whi, ST_whil, ST_while,
 
     ST_IDENTIFIER,
-    
-    /* non-finishing */
-    ST_LEADING_UNDERSCORE,
-    ST_AT, ST_AT_M, ST_AT_MA, ST_AT_MAI, ST_AT_MAIN,
 
-    /* finishing */
+    /* A leading underscore needs another identifier character. */
+    ST_LEADING_UNDERSCORE,
+    ST_AT, ST_AT_M, ST_AT_MA, ST_AT_MAI, /* non-finishing */
+    ST_AT_MAIN,                          /* finishing */
+
+    /* Finishing operators and punctuation, except a lone '!'. */
     ST_GREATER, ST_GREATER_EQUAL,
     ST_LESS, ST_LESS_EQUAL,
-    ST_BANG, ST_NOT_EQUAL,
+    ST_BANG,       /* non-finishing */
+    ST_NOT_EQUAL,  /* finishing */
     ST_MULTIPLY, ST_DIVIDE,
     ST_PLUS, ST_MINUS,
     ST_ASSIGN, ST_EQUAL,
@@ -122,20 +125,28 @@ typedef enum {
     ST_LPAREN, ST_RPAREN,
     ST_COLON, ST_COMMA, ST_SEMICOLON,
 
-    ST_COMMENT,
-    ST_BLOCK_COMMENT, ST_BLOCK_COMMENT_STAR, ST_BLOCK_COMMENT_END,
+    ST_COMMENT,                                /* finishing */
+    ST_BLOCK_COMMENT, ST_BLOCK_COMMENT_STAR,  /* non-finishing */
+    ST_BLOCK_COMMENT_END,                     /* finishing */
 
-    ST_INT_ZERO, ST_INT_DIGITS, ST_INT_SEPARATOR,
-    ST_DOUBLE_DOT, ST_DOUBLE_FRACTION, ST_DOUBLE_FRACTION_SEPARATOR,
-    ST_DOUBLE_EXPONENT, ST_DOUBLE_EXPONENT_SIGN,
-    ST_DOUBLE_EXPONENT_DIGITS, ST_DOUBLE_EXPONENT_SEPARATOR,
-    ST_DOUBLE_SUFFIX,
+    /* Numeric states correspond to the double and single circles in the diagram. */
+    ST_INT_ZERO, ST_INT_DIGITS,                  /* finishing */
+    ST_INT_SEPARATOR,                           /* non-finishing */
+    ST_DOUBLE_DOT,                              /* non-finishing */
+    ST_DOUBLE_FRACTION,                         /* finishing */
+    ST_DOUBLE_FRACTION_SEPARATOR,               /* non-finishing */
+    ST_DOUBLE_EXPONENT, ST_DOUBLE_EXPONENT_SIGN, /* non-finishing */
+    ST_DOUBLE_EXPONENT_DIGITS,                  /* finishing */
+    ST_DOUBLE_EXPONENT_SEPARATOR,               /* non-finishing */
+    ST_DOUBLE_SUFFIX,                           /* finishing */
 
-    ST_STRING_OPEN, ST_STRING_BODY, ST_STRING_ESCAPE,
-    ST_STRING_AFTER_ESCAPE, ST_STRING,
-    ST_STRING_EMPTY_OR_TRIPLE_PREFIX, ST_STRING_TRIPLE_BODY,
-    ST_STRING_TRIPLE_QUOTE_1, ST_STRING_TRIPLE_QUOTE_2,
-    ST_STRING_TRIPLE_END
+    ST_STRING_OPEN, ST_STRING_BODY, ST_STRING_ESCAPE, /* non-finishing */
+    ST_STRING_AFTER_ESCAPE,                          /* non-finishing */
+    ST_STRING,                                        /* finishing */
+    ST_STRING_EMPTY_OR_TRIPLE_PREFIX,                 /* finishing */
+    ST_STRING_TRIPLE_BODY,                            /* non-finishing */
+    ST_STRING_TRIPLE_QUOTE_1, ST_STRING_TRIPLE_QUOTE_2, /* non-finishing */
+    ST_STRING_TRIPLE_END                              /* finishing */
 } FSMState;
 
 static bool is_identifier_continue(int c) {
@@ -143,6 +154,10 @@ static bool is_identifier_continue(int c) {
            (c >= 'A' && c <= 'Z') ||
            (c >= '0' && c <= '9') ||
            (c == '_');
+}
+
+static bool is_digit(int c) {
+    return c >= '0' && c <= '9';
 }
 
 static int peek_char(void) {
@@ -206,6 +221,122 @@ static Token *make_token(TokenType type, char *value,
     return token;
 }
 
+static Token *scan_number(FSMState state, CharBuffer buffer,
+                          unsigned int line, unsigned int column) {
+    /* Keep Token.value parseable by strtol/strtod: omit '_' and d/D. */
+    while (true) {
+        int c = peek_char();
+        FSMState next = state;
+        bool advance = false;
+        bool append = true;
+
+        switch (state) {
+            case ST_INT_ZERO:
+                if (c == '.') next = ST_DOUBLE_DOT;
+                else if (c == 'e' || c == 'E') next = ST_DOUBLE_EXPONENT;
+                else break;
+                advance = true;
+                break;
+            case ST_INT_DIGITS:
+                if (is_digit(c)) next = ST_INT_DIGITS;
+                else if (c == '_') {
+                    next = ST_INT_SEPARATOR;
+                    append = false;
+                } else if (c == '.') next = ST_DOUBLE_DOT;
+                else if (c == 'e' || c == 'E') next = ST_DOUBLE_EXPONENT;
+                else break;
+                advance = true;
+                break;
+            case ST_INT_SEPARATOR:
+                if (is_digit(c)) {
+                    next = ST_INT_DIGITS;
+                    advance = true;
+                }
+                break;
+            case ST_DOUBLE_DOT:
+                if (is_digit(c)) {
+                    next = ST_DOUBLE_FRACTION;
+                    advance = true;
+                }
+                break;
+            case ST_DOUBLE_FRACTION:
+                if (is_digit(c)) next = ST_DOUBLE_FRACTION;
+                else if (c == '_') {
+                    next = ST_DOUBLE_FRACTION_SEPARATOR;
+                    append = false;
+                } else if (c == 'e' || c == 'E') next = ST_DOUBLE_EXPONENT;
+                else if (c == 'd' || c == 'D') {
+                    next = ST_DOUBLE_SUFFIX;
+                    append = false;
+                } else break;
+                advance = true;
+                break;
+            case ST_DOUBLE_FRACTION_SEPARATOR:
+                if (is_digit(c)) {
+                    next = ST_DOUBLE_FRACTION;
+                    advance = true;
+                }
+                break;
+            case ST_DOUBLE_EXPONENT:
+                if (is_digit(c)) next = ST_DOUBLE_EXPONENT_DIGITS;
+                else if (c == '+' || c == '-') next = ST_DOUBLE_EXPONENT_SIGN;
+                else break;
+                advance = true;
+                break;
+            case ST_DOUBLE_EXPONENT_SIGN:
+                if (is_digit(c)) {
+                    next = ST_DOUBLE_EXPONENT_DIGITS;
+                    advance = true;
+                }
+                break;
+            case ST_DOUBLE_EXPONENT_DIGITS:
+                if (is_digit(c)) next = ST_DOUBLE_EXPONENT_DIGITS;
+                else if (c == '_') {
+                    next = ST_DOUBLE_EXPONENT_SEPARATOR;
+                    append = false;
+                } else if (c == 'd' || c == 'D') {
+                    next = ST_DOUBLE_SUFFIX;
+                    append = false;
+                } else break;
+                advance = true;
+                break;
+            case ST_DOUBLE_EXPONENT_SEPARATOR:
+                if (is_digit(c)) {
+                    next = ST_DOUBLE_EXPONENT_DIGITS;
+                    advance = true;
+                }
+                break;
+            case ST_DOUBLE_SUFFIX:
+                break;
+            default:
+                break;
+        }
+
+        if (!advance) break;
+        take_char();
+        if (append) buffer_append(&buffer, (char)c);
+        state = next;
+    }
+
+    TokenType type;
+    if (state == ST_INT_ZERO || state == ST_INT_DIGITS) {
+        type = TOKEN_INT_LITERAL;
+    } else if (state == ST_DOUBLE_FRACTION ||
+               state == ST_DOUBLE_EXPONENT_DIGITS ||
+               state == ST_DOUBLE_SUFFIX) {
+        type = TOKEN_DOUBLE_LITERAL;
+    } else {
+        free(buffer.data);
+        return NULL;
+    }
+
+    if (is_identifier_continue(peek_char())) {
+        free(buffer.data);
+        return NULL;
+    }
+    return make_token(type, buffer.data, line, column);
+}
+
 static Token *scan_symbol(unsigned int line, unsigned int column) {
     CharBuffer buffer = {0};
     int c = take_char();
@@ -248,9 +379,8 @@ static Token *scan_symbol(unsigned int line, unsigned int column) {
         case ',': type = TOKEN_COMMA; break;
         case ';': type = TOKEN_SEMICOLON; break;
         case '.':
-            if (peek_char() >= '0' && peek_char() <= '9') {
-                free(buffer.data);
-                return NULL;
+            if (is_digit(peek_char())) {
+                return scan_number(ST_DOUBLE_DOT, buffer, line, column);
             }
             type = TOKEN_DOT;
             break;
@@ -288,6 +418,7 @@ static TokenType word_type(FSMState state) {
 
 Token *get_next_token(void) {
     FSMState state = ST_START;
+    bool scanning_word = false;
     CharBuffer buffer = {0};
     unsigned int token_line = 0;
     unsigned int token_column = 0;
@@ -296,7 +427,8 @@ Token *get_next_token(void) {
     while (true) {
         c = peek_char();
 
-        if (state != ST_START && !is_identifier_continue(c)) {
+        /* Numeric, string, and comment states need their own end rules. */
+        if (scanning_word && !is_identifier_continue(c)) {
             if (state == ST_LEADING_UNDERSCORE) {
                 free(buffer.data);
                 return NULL;
@@ -325,10 +457,16 @@ Token *get_next_token(void) {
             }
             token_line = lexer.line;
             token_column = lexer.column;
+            if (is_digit(c)) {
+                state = c == '0' ? ST_INT_ZERO : ST_INT_DIGITS;
+                buffer_append(&buffer, (char)take_char());
+                return scan_number(state, buffer, token_line, token_column);
+            }
             if (!((c >= 'a' && c <= 'z') ||
                   (c >= 'A' && c <= 'Z') || c == '_')) {
                 return scan_symbol(token_line, token_column);
             }
+            scanning_word = true;
         }
 
         switch (state) {
