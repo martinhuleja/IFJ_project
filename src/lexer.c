@@ -437,6 +437,15 @@ Token *get_next_token(void) {
                               token_line, token_column);
         }
 
+        if (state == ST_AT_MAIN) {
+            if (is_identifier_continue(c)) {
+                free(buffer.data);
+                return NULL;
+            }
+            return make_token(TOKEN_MAIN_ANNOTATION, buffer.data,
+                              token_line, token_column);
+        }
+
         if (state == ST_START) {
             if (c == ' ' || c == '\t' || c == '\r') {
                 take_char();
@@ -461,6 +470,11 @@ Token *get_next_token(void) {
                 state = c == '0' ? ST_INT_ZERO : ST_INT_DIGITS;
                 buffer_append(&buffer, (char)take_char());
                 return scan_number(state, buffer, token_line, token_column);
+            }
+            if (c == '@') {
+                state = ST_AT;
+                buffer_append(&buffer, (char)take_char());
+                continue;
             }
             if (!((c >= 'a' && c <= 'z') ||
                   (c >= 'A' && c <= 'Z') || c == '_')) {
@@ -492,6 +506,34 @@ Token *get_next_token(void) {
                 break;
             case ST_LEADING_UNDERSCORE:
                 if (is_identifier_continue(c)) state = ST_IDENTIFIER;
+                break;
+            case ST_AT:
+                if (c != 'm') {
+                    free(buffer.data);
+                    return NULL;
+                }
+                state = ST_AT_M;
+                break;
+            case ST_AT_M:
+                if (c != 'a') {
+                    free(buffer.data);
+                    return NULL;
+                }
+                state = ST_AT_MA;
+                break;
+            case ST_AT_MA:
+                if (c != 'i') {
+                    free(buffer.data);
+                    return NULL;
+                }
+                state = ST_AT_MAI;
+                break;
+            case ST_AT_MAI:
+                if (c != 'n') {
+                    free(buffer.data);
+                    return NULL;
+                }
+                state = ST_AT_MAIN;
                 break;
             case ST_D:
                 if (c == 'o') {
