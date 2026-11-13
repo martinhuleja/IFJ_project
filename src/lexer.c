@@ -221,6 +221,106 @@ static Token *make_token(TokenType type, char *value,
     return token;
 }
 
+static Token *scan_string(unsigned int line, unsigned int column) {
+    CharBuffer buffer = {0};
+    FSMState state = ST_STRING_OPEN;
+
+    take_char(); 
+    buffer_append(&buffer, '\0'); 
+    buffer.length = 0;
+
+    while (true) {
+        int c = peek_char();
+
+        switch (state) {
+            case ST_STRING_OPEN:
+            case ST_STRING_BODY:
+            case ST_STRING_AFTER_ESCAPE:
+                if (c == EOF || c == '\n') goto invalid_string;
+                if (c == '"') {
+                    take_char();
+                    state = state == ST_STRING_OPEN
+                                ? ST_STRING_EMPTY_OR_TRIPLE_PREFIX : ST_STRING;
+                } else if (c == '\\') {
+                    take_char();
+                    state = ST_STRING_ESCAPE;
+                } else {
+                    buffer_append(&buffer, (char)take_char());
+                    state = ST_STRING_BODY;
+                }
+                break;
+
+            case ST_STRING_ESCAPE:
+                switch (c) {
+                    case 'n': c = '\n'; break;
+                    case 't': c = '\t'; break;
+                    case 'r': c = '\r'; break;
+                    case '\\': break;
+                    case '"': break;
+                    default: goto invalid_string;
+                }
+                take_char();
+                buffer_append(&buffer, (char)c);
+                state = ST_STRING_AFTER_ESCAPE;
+                break;
+
+            case ST_STRING_EMPTY_OR_TRIPLE_PREFIX:
+                if (c != '"') {
+                    return make_token(TOKEN_STRING_LITERAL, buffer.data,
+                                      line, column);
+                }
+                take_char();
+                state = ST_STRING_TRIPLE_BODY;
+                break;
+
+            case ST_STRING_TRIPLE_BODY:
+                if (c == EOF) goto invalid_string;
+                if (c == '"') {
+                    take_char();
+                    state = ST_STRING_TRIPLE_QUOTE_1;
+                } else {
+                    buffer_append(&buffer, (char)take_char());
+                }
+                break;
+
+            case ST_STRING_TRIPLE_QUOTE_1:
+                if (c == EOF) goto invalid_string;
+                if (c == '"') {
+                    take_char();
+                    state = ST_STRING_TRIPLE_QUOTE_2;
+                } else {
+                    buffer_append(&buffer, '"');
+                    state = ST_STRING_TRIPLE_BODY;
+                }
+                break;
+
+            case ST_STRING_TRIPLE_QUOTE_2:
+                if (c == EOF) goto invalid_string;
+                if (c == '"') {
+                    take_char();
+                    state = ST_STRING_TRIPLE_END;
+                } else {
+                    buffer_append(&buffer, '"');
+                    buffer_append(&buffer, '"');
+                    state = ST_STRING_TRIPLE_BODY;
+                }
+                break;
+
+            case ST_STRING:
+            case ST_STRING_TRIPLE_END:
+                return make_token(TOKEN_STRING_LITERAL, buffer.data,
+                                  line, column);
+
+            default:
+                goto invalid_string;
+        }
+    }
+
+invalid_string:
+    free(buffer.data);
+    return NULL;
+}
+
 static Token *scan_number(FSMState state, CharBuffer buffer,
                           unsigned int line, unsigned int column) {
     /* Keep Token.value parseable by strtol/strtod: omit '_' and d/D. */
@@ -475,6 +575,9 @@ Token *get_next_token(void) {
                 state = ST_AT;
                 buffer_append(&buffer, (char)take_char());
                 continue;
+            }
+            if (c == '"') {
+                return scan_string(token_line, token_column);
             }
             if (!((c >= 'a' && c <= 'z') ||
                   (c >= 'A' && c <= 'Z') || c == '_')) {
