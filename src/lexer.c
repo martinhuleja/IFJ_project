@@ -323,7 +323,6 @@ invalid_string:
 
 static Token *scan_number(FSMState state, CharBuffer buffer,
                           unsigned int line, unsigned int column) {
-    /* Keep Token.value parseable by strtol/strtod: omit '_' and d/D. */
     while (true) {
         int c = peek_char();
         FSMState next = state;
@@ -466,13 +465,6 @@ static Token *scan_symbol(unsigned int line, unsigned int column) {
         case '+': type = TOKEN_PLUS; break;
         case '-': type = TOKEN_MINUS; break;
         case '*': type = TOKEN_MULTIPLY; break;
-        case '/':
-            if (peek_char() == '/' || peek_char() == '*') {
-                free(buffer.data);
-                return NULL;
-            }
-            type = TOKEN_DIVIDE;
-            break;
         case '(': type = TOKEN_LPAREN; break;
         case ')': type = TOKEN_RPAREN; break;
         case ':': type = TOKEN_COLON; break;
@@ -546,6 +538,27 @@ Token *get_next_token(void) {
                               token_line, token_column);
         }
 
+        if (state == ST_DIVIDE) {
+            if (c == '/') {
+                take_char();
+                state = ST_COMMENT;
+                continue;
+            }
+            if (c == '*') return NULL;
+            buffer_append(&buffer, '/');
+            return make_token(TOKEN_DIVIDE, buffer.data,
+                              token_line, token_column);
+        }
+
+        if (state == ST_COMMENT) {
+            if (c == '\n' || c == EOF) {
+                state = ST_START; 
+            } else {
+                take_char();
+            }
+            continue;
+        }
+
         if (state == ST_START) {
             if (c == ' ' || c == '\t' || c == '\r') {
                 take_char();
@@ -578,6 +591,11 @@ Token *get_next_token(void) {
             }
             if (c == '"') {
                 return scan_string(token_line, token_column);
+            }
+            if (c == '/') {
+                take_char();
+                state = ST_DIVIDE;
+                continue;
             }
             if (!((c >= 'a' && c <= 'z') ||
                   (c >= 'A' && c <= 'Z') || c == '_')) {
