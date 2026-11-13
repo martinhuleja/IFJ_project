@@ -23,6 +23,7 @@ typedef struct {
     unsigned int line;
     unsigned int column;
     bool logical_line_has_token;
+    bool after_multiline_block_comment;
 } LexerState;
 
 typedef struct {
@@ -85,7 +86,6 @@ typedef enum {
     /* Non-finishing: no token has started. */
     ST_START,
 
-    /* Finishing: keyword prefixes can end as identifiers. */
     ST_B, ST_Bo, ST_Boo, ST_Bool, ST_Boole, ST_Boolea, ST_Boolean,
     ST_D,
     ST_Do,
@@ -107,12 +107,10 @@ typedef enum {
 
     ST_IDENTIFIER,
 
-    /* A leading underscore needs another identifier character. */
     ST_LEADING_UNDERSCORE,
     ST_AT, ST_AT_M, ST_AT_MA, ST_AT_MAI, /* non-finishing */
     ST_AT_MAIN,                          /* finishing */
 
-    /* Finishing operators and punctuation, except a lone '!'. */
     ST_GREATER, ST_GREATER_EQUAL,
     ST_LESS, ST_LESS_EQUAL,
     ST_BANG,       /* non-finishing */
@@ -125,11 +123,12 @@ typedef enum {
     ST_LPAREN, ST_RPAREN,
     ST_COLON, ST_COMMA, ST_SEMICOLON,
 
-    ST_COMMENT,                                /* finishing */
-    ST_BLOCK_COMMENT, ST_BLOCK_COMMENT_STAR,  /* non-finishing */
-    ST_BLOCK_COMMENT_END,                     /* finishing */
+    ST_COMMENT,                 /* finishing */
+    ST_BLOCK_COMMENT,           /* non-finishing */
+    ST_BLOCK_COMMENT_SLASH,     /* non-finishing */
+    ST_BLOCK_COMMENT_STAR,      /* non-finishing */
+    ST_BLOCK_COMMENT_END,       /* finishing */
 
-    /* Numeric states correspond to the double and single circles in the diagram. */
     ST_INT_ZERO, ST_INT_DIGITS,                  /* finishing */
     ST_INT_SEPARATOR,                           /* non-finishing */
     ST_DOUBLE_DOT,                              /* non-finishing */
@@ -321,8 +320,65 @@ invalid_string:
     return NULL;
 }
 
-static Token *scan_number(FSMState state, CharBuffer buffer,
-                          unsigned int line, unsigned int column) {
+static bool skip_block_comment(unsigned int *newline_line, unsigned int *newline_column) {
+    FSMState state = ST_BLOCK_COMMENT;
+    lexer.comment_depth = 1;
+
+    while (state != ST_BLOCK_COMMENT_END) {
+        int c = peek_char();
+        if (c == EOF) {
+            return false;
+        }
+
+        if (c == '\n' && *newline_line == 0) {
+            *newline_line = lexer.line;
+            *newline_column = lexer.column;
+        }
+        take_char();
+
+        switch (state) {
+            case ST_BLOCK_COMMENT:
+                if (c == '/') {
+                    state = ST_BLOCK_COMMENT_SLASH;
+                } else if (c == '*') {
+                    state = ST_BLOCK_COMMENT_STAR;
+                }
+                break;
+
+            case ST_BLOCK_COMMENT_SLASH:
+                if (c == '*') {
+                    lexer.comment_depth++;
+                    state = ST_BLOCK_COMMENT;
+                } else if (c == '/') {
+                    state = ST_BLOCK_COMMENT_SLASH;
+                } else {
+                    state = ST_BLOCK_COMMENT;
+                }
+                break;
+
+            case ST_BLOCK_COMMENT_STAR:
+                if (c == '/') {
+                    lexer.comment_depth--;
+                    if (lexer.comment_depth == 0) {
+                        state = ST_BLOCK_COMMENT_END;
+                    } else {
+                        state = ST_BLOCK_COMMENT;
+                    }
+                } else if (c == '*') {
+                    state = ST_BLOCK_COMMENT_STAR;
+                } else {
+                    state = ST_BLOCK_COMMENT;
+                }
+                break;
+
+            default:
+                return false;
+        }
+    }
+    return true;
+}
+
+static Token *scan_number(FSMState state, CharBuffer buffer, unsigned int line, unsigned int column) {
     while (true) {
         int c = peek_char();
         FSMState next = state;
@@ -544,7 +600,27 @@ Token *get_next_token(void) {
                 state = ST_COMMENT;
                 continue;
             }
-            if (c == '*') return NULL;
+            if (c == '*') {
+                unsigned int newline_line = 0;
+                unsigned int newline_column = 0;
+                take_char();
+                if (!skip_block_comment(&newline_line, &newline_column)) {
+                    return NULL;
+                }
+                state = ST_START;
+                if (newline_line != 0) {
+                    lexer.after_multiline_block_comment = true;
+                    if (lexer.logical_line_has_token) {
+                        lexer.logical_line_has_token = false;
+                        return make_token(TOKEN_NEWLINE, NULL,
+                                          newline_line, newline_column);
+                    }
+                }
+                continue;
+            }
+            if (lexer.after_multiline_block_comment) {
+                return NULL;
+            }
             buffer_append(&buffer, '/');
             return make_token(TOKEN_DIVIDE, buffer.data,
                               token_line, token_column);
@@ -568,6 +644,7 @@ Token *get_next_token(void) {
                 unsigned int line = lexer.line;
                 unsigned int column = lexer.column;
                 take_char();
+                lexer.after_multiline_block_comment = false;
                 if (!lexer.logical_line_has_token) {
                     continue;
                 }
@@ -576,6 +653,9 @@ Token *get_next_token(void) {
             }
             if (c == EOF) {
                 return make_token(TOKEN_EOF, NULL, lexer.line, lexer.column);
+            }
+            if (lexer.after_multiline_block_comment && c != '/') {
+                return NULL;
             }
             token_line = lexer.line;
             token_column = lexer.column;
