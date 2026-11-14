@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "error.h"
 #include "token.h"
 
 typedef struct IndentNode {
@@ -190,7 +191,7 @@ static int take_char(void) {
 
 static void out_of_memory(void) {
     fputs("internal compiler error: out of memory\n", stderr);
-    exit(EXIT_FAILURE);
+    exit(ERROR_INTERNAL);
 }
 
 static void buffer_append(CharBuffer *buffer, char c) {
