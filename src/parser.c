@@ -433,16 +433,12 @@ ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
     // fall through
   case TOKEN_LPAREN: {
     // Represent one line function body in AST similar to multi line function body
-    // Function -> Block -> Return -> ExprOrCall
+    // Function -> Block -> ExprOrCall
     ASTNode *block = ast_create_node(AST_BLOCK);
     RETURN_INTERNAL_ERROR_IF_NULL(block, NULL);
     RETURN_IF_ERROR(ast_add_child(function, block));
 
-    ASTNode *return_node = ast_create_node(AST_RETURN);
-    RETURN_INTERNAL_ERROR_IF_NULL(return_node, NULL);
-    RETURN_IF_ERROR(ast_add_child(block, return_node));
-
-    RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
+    RETURN_IF_ERROR(parse_expr_or_call(parser, block));
     RETURN_IF_ERROR(parse_eol_or_eof(parser));
     break;
   }

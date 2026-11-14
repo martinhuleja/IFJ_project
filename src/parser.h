@@ -253,7 +253,7 @@ ErrorCode parse_type(Parser *parser, ASTNode *declaration);
 /**
  * @brief Parses FunctionBody according to LL grammar rules
  *
- * Stores the body in AST as AST_BLOCK. One-line bodies contain an implicit AST_RETURN.
+ * Stores the body in AST as AST_BLOCK. One-line bodies contain one expression or call directly.
  *
  * @param parser Ptr to struct parser
  * @param function Ptr to the function node receiving its body
