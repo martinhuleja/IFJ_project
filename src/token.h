@@ -2,6 +2,7 @@
 #define TOKEN_H
 
 #include <stdbool.h>
+#include "error.h"
 
 typedef enum {
     TOKEN_EOF,
@@ -66,6 +67,7 @@ typedef struct {
 } Token;
 
 void token_free(Token *token);
-Token *get_next_token(void);
+
+ErrorCode get_next_token(Token *token);
 
 #endif
