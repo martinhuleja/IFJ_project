@@ -13,6 +13,17 @@
 #include "token.h"
 
 /********************************************************************
+ ************************ SUPPORT FUNCTIONS *************************
+ *******************************************************************/
+
+PrecedenceRelation precedence_relation(PrecedenceSymbol stack_symbol, PrecedenceSymbol input_symbol) {
+  if (stack_symbol >= PREC_SYMBOL_COUNT || input_symbol >= PREC_SYMBOL_COUNT) {
+    return PREC_ERROR;
+  }
+  return (PrecedenceRelation)precedence_table[stack_symbol][input_symbol];
+} // precedence_relation()
+
+/********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
  *******************************************************************/
 

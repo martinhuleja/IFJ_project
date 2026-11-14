@@ -16,6 +16,55 @@
 #include "error.h"
 #include "parser.h"
 
+/**
+ * @brief Precedence table classes; stack entries also retain the concrete token or operator
+ */
+typedef enum precedence_symbol {
+  PREC_OPERAND,
+  PREC_UNARY_MINUS,
+  PREC_MULTIPLICATIVE,
+  PREC_ADDITIVE,
+  PREC_ORDERING,
+  PREC_EQUALITY,
+  PREC_LPAREN,
+  PREC_RPAREN,
+  PREC_END,
+  PREC_SYMBOL_COUNT,
+} PrecedenceSymbol;
+
+typedef enum precedence_relation {
+  PREC_ERROR = ' ',
+  PREC_SHIFT = '<',
+  PREC_EQUAL = '=',
+  PREC_REDUCE = '>',
+} PrecedenceRelation;
+
+/* Columns: operand, unary -, multiplicative, additive, ordering, equality, (, ), end. */
+static const char precedence_table[PREC_SYMBOL_COUNT][PREC_SYMBOL_COUNT] = {
+    [PREC_OPERAND]        = {' ', ' ', '>', '>', '>', '>', ' ', '>', '>'},
+    [PREC_UNARY_MINUS]    = {'<', '<', '>', '>', '>', '>', '<', '>', '>'},
+    [PREC_MULTIPLICATIVE] = {'<', '<', '>', '>', '>', '>', '<', '>', '>'},
+    [PREC_ADDITIVE]       = {'<', '<', '<', '>', '>', '>', '<', '>', '>'},
+    [PREC_ORDERING]       = {'<', '<', '<', '<', ' ', ' ', '<', '>', '>'},
+    [PREC_EQUALITY]       = {'<', '<', '<', '<', ' ', ' ', '<', '>', '>'},
+    [PREC_LPAREN]         = {'<', '<', '<', '<', '<', '<', '<', '=', ' '},
+    [PREC_RPAREN]         = {' ', ' ', '>', '>', '>', '>', ' ', '>', '>'},
+    [PREC_END]            = {'<', '<', '<', '<', '<', '<', '<', ' ', ' '},
+};
+
+/********************************************************************
+ ************************ SUPPORT FUNCTIONS *************************
+ *******************************************************************/
+
+/**
+ * @brief Compares the nearest stack terminal with the current input class
+ *
+ * @param stack_symbol Precedence class of the nearest terminal on the stack
+ * @param input_symbol Precedence class of the current input token
+ * @return Precedence relation, or PREC_ERROR for invalid classes
+ */
+PrecedenceRelation precedence_relation(PrecedenceSymbol stack_symbol, PrecedenceSymbol input_symbol);
+
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
  *******************************************************************/
