@@ -8,7 +8,7 @@
 
 #include "parser.h"
 #include "error.h"
-#include "parser-missing-declarations.h"
+#include "precedence-analysis.h"
 #include "token.h"
 #include <errno.h>
 #include <math.h>
