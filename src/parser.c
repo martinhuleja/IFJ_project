@@ -163,11 +163,15 @@ ErrorCode new_token(Parser *parser) {
     parser->current_token = parser->next_token;
     parser->next_token = NULL;
   } else {
-    parser->current_token = get_next_token();
-    if (parser->current_token == NULL) {
-      print_err(ERROR_LEXICAL, "No more tokens to return.");
-      return ERROR_LEXICAL;
+    Token *token = (Token *)malloc(sizeof(Token));
+    RETURN_INTERNAL_ERROR_IF_NULL(token, "Couldn't allocate memory for token.");
+
+    ErrorCode lexer_return_value = get_next_token(token);
+    if (lexer_return_value != ERROR_OK) {
+      free(token);
+      return lexer_return_value;
     }
+    parser->current_token = token;
   }
 
   return ERROR_OK;
@@ -177,15 +181,19 @@ ErrorCode look_up_next_token(Parser *parser) {
   RETURN_INTERNAL_ERROR_IF_NULL(parser, "Parser is NULL.");
 
   if (parser->next_token == NULL) {
-    parser->next_token = get_next_token();
-    if (parser->next_token == NULL) {
-      print_err(ERROR_LEXICAL, "No more tokens to return.");
-      return ERROR_LEXICAL;
+    Token *token = (Token *)malloc(sizeof(Token));
+    RETURN_INTERNAL_ERROR_IF_NULL(token, "Couldn't allocate memory for token.");
+
+    ErrorCode lexer_return_value = get_next_token(token);
+    if (lexer_return_value != ERROR_OK) {
+      free(token);
+      return lexer_return_value;
     }
+    parser->next_token = token;
   }
 
   return ERROR_OK;
-} // look_up_next_token;
+} // look_up_next_token()
 
 ErrorCode expect(Parser *parser, TokenType expected_type) {
   RETURN_IF_ERROR(compare_tokens(parser, expected_type));
