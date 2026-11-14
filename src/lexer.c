@@ -189,20 +189,15 @@ static int take_char(void) {
     return c;
 }
 
-static void out_of_memory(void) {
-    fputs("internal compiler error: out of memory\n", stderr);
-    exit(ERROR_INTERNAL);
-}
-
-static void buffer_append(CharBuffer *buffer, char c) {
+static ErrorCode buffer_append(CharBuffer *buffer, char c) {
     if (buffer->length + 1 >= buffer->capacity) {
         size_t new_capacity = buffer->capacity ? buffer->capacity * 2 : 32;
         if (new_capacity <= buffer->capacity) {
-            out_of_memory();
+            return ERROR_INTERNAL;
         }
         char *new_data = realloc(buffer->data, new_capacity);
         if (new_data == NULL) {
-            out_of_memory();
+            return ERROR_INTERNAL;
         }
         buffer->data = new_data;
         buffer->capacity = new_capacity;
@@ -210,14 +205,11 @@ static void buffer_append(CharBuffer *buffer, char c) {
 
     buffer->data[buffer->length++] = c;
     buffer->data[buffer->length] = '\0';
+    return ERROR_OK;
 }
 
-static Token *make_token(TokenType type, char *value,
-                         unsigned int line, unsigned int column) {
-    Token *token = malloc(sizeof(*token));
-    if (token == NULL) {
-        out_of_memory();
-    }
+static ErrorCode make_token(Token *token, TokenType type, char *value,
+                            unsigned int line, unsigned int column) {
     token->type = type;
     token->value = value;
     token->lf_before_rparen = type == TOKEN_RPAREN && lexer.lf_since_token;
@@ -227,38 +219,39 @@ static Token *make_token(TokenType type, char *value,
     if (type != TOKEN_NEWLINE && type != TOKEN_EOF && type != TOKEN_INDENT && type != TOKEN_DEDENT) {
         lexer.logical_line_has_token = true;
     }
-    return token;
+    return ERROR_OK;
 }
 
-static bool prepare_indentation(Token **indent_token, unsigned int line, unsigned int column) {
-    *indent_token = NULL;
+static ErrorCode prepare_indentation(Token *token, bool *has_token,
+                                     unsigned int line, unsigned int column) {
+    *has_token = false;
     if (!lexer.at_line_start) {
-        return true;
+        return ERROR_OK;
     }
     if (lexer.leading_tab) {
-        return false;
+        return ERROR_LEXICAL;
     }
 
     if (lexer.parenthesis_depth > 0) {
         /* The stack top is the indentation of this logical line. */
         if (lexer.leading_spaces <= indent_stack_top(&lexer.indent_stack)) {
-            return false;
+            return ERROR_LEXICAL;
         }
         lexer.at_line_start = false;
-        return true;
+        return ERROR_OK;
     }
 
     lexer.at_line_start = false;
     unsigned int current = indent_stack_top(&lexer.indent_stack);
     if (lexer.leading_spaces > current) {
         if (!indent_stack_push(&lexer.indent_stack, lexer.leading_spaces)) {
-            out_of_memory();
+            return ERROR_INTERNAL;
         }
-        *indent_token = make_token(TOKEN_INDENT, NULL, line, column);
-        return true;
+        *has_token = true;
+        return make_token(token, TOKEN_INDENT, NULL, line, column);
     }
     if (lexer.leading_spaces == current) {
-        return true;
+        return ERROR_OK;
     }
 
     unsigned int dedent_count = 0;
@@ -272,23 +265,23 @@ static bool prepare_indentation(Token **indent_token, unsigned int line, unsigne
         matching_level = level->spaces;
     }
     if (matching_level != lexer.leading_spaces) {
-        return false;
+        return ERROR_LEXICAL;
     }
 
     for (unsigned int i = 0; i < dedent_count; i++) {
         indent_stack_pop(&lexer.indent_stack);
     }
     lexer.pending_dedents = dedent_count - 1;
-    *indent_token = make_token(TOKEN_DEDENT, NULL, line, column);
-    return true;
+    *has_token = true;
+    return make_token(token, TOKEN_DEDENT, NULL, line, column);
 }
 
-static Token *scan_string(unsigned int line, unsigned int column) {
+static ErrorCode scan_string(Token *token, unsigned int line, unsigned int column) {
     CharBuffer buffer = {0};
     FSMState state = ST_STRING_OPEN;
 
     take_char(); 
-    buffer_append(&buffer, '\0'); 
+    if (buffer_append(&buffer, '\0') != ERROR_OK) goto memory_error;
     buffer.length = 0;
 
     while (true) {
@@ -307,7 +300,7 @@ static Token *scan_string(unsigned int line, unsigned int column) {
                     take_char();
                     state = ST_STRING_ESCAPE;
                 } else {
-                    buffer_append(&buffer, (char)take_char());
+                    if (buffer_append(&buffer, (char)take_char()) != ERROR_OK) goto memory_error;
                     state = ST_STRING_BODY;
                 }
                 break;
@@ -322,13 +315,13 @@ static Token *scan_string(unsigned int line, unsigned int column) {
                     default: goto invalid_string;
                 }
                 take_char();
-                buffer_append(&buffer, (char)c);
+                if (buffer_append(&buffer, (char)c) != ERROR_OK) goto memory_error;
                 state = ST_STRING_AFTER_ESCAPE;
                 break;
 
             case ST_STRING_EMPTY_OR_TRIPLE_PREFIX:
                 if (c != '"') {
-                    return make_token(TOKEN_STRING_LITERAL, buffer.data,
+                    return make_token(token, TOKEN_STRING_LITERAL, buffer.data,
                                       line, column);
                 }
                 take_char();
@@ -341,7 +334,7 @@ static Token *scan_string(unsigned int line, unsigned int column) {
                     take_char();
                     state = ST_STRING_TRIPLE_QUOTE_1;
                 } else {
-                    buffer_append(&buffer, (char)take_char());
+                    if (buffer_append(&buffer, (char)take_char()) != ERROR_OK) goto memory_error;
                 }
                 break;
 
@@ -351,7 +344,7 @@ static Token *scan_string(unsigned int line, unsigned int column) {
                     take_char();
                     state = ST_STRING_TRIPLE_QUOTE_2;
                 } else {
-                    buffer_append(&buffer, '"');
+                    if (buffer_append(&buffer, '"') != ERROR_OK) goto memory_error;
                     state = ST_STRING_TRIPLE_BODY;
                 }
                 break;
@@ -362,15 +355,15 @@ static Token *scan_string(unsigned int line, unsigned int column) {
                     take_char();
                     state = ST_STRING_TRIPLE_END;
                 } else {
-                    buffer_append(&buffer, '"');
-                    buffer_append(&buffer, '"');
+                    if (buffer_append(&buffer, '"') != ERROR_OK) goto memory_error;
+                    if (buffer_append(&buffer, '"') != ERROR_OK) goto memory_error;
                     state = ST_STRING_TRIPLE_BODY;
                 }
                 break;
 
             case ST_STRING:
             case ST_STRING_TRIPLE_END:
-                return make_token(TOKEN_STRING_LITERAL, buffer.data,
+                return make_token(token, TOKEN_STRING_LITERAL, buffer.data,
                                   line, column);
 
             default:
@@ -380,7 +373,11 @@ static Token *scan_string(unsigned int line, unsigned int column) {
 
 invalid_string:
     free(buffer.data);
-    return NULL;
+    return ERROR_LEXICAL;
+
+memory_error:
+    free(buffer.data);
+    return ERROR_INTERNAL;
 }
 
 static bool skip_block_comment(unsigned int *newline_line, unsigned int *newline_column) {
@@ -441,7 +438,8 @@ static bool skip_block_comment(unsigned int *newline_line, unsigned int *newline
     return true;
 }
 
-static Token *scan_number(FSMState state, CharBuffer buffer, unsigned int line, unsigned int column) {
+static ErrorCode scan_number(Token *token, FSMState state, CharBuffer buffer,
+                             unsigned int line, unsigned int column) {
     while (true) {
         int c = peek_char();
         FSMState next = state;
@@ -532,7 +530,10 @@ static Token *scan_number(FSMState state, CharBuffer buffer, unsigned int line, 
 
         if (!advance) break;
         take_char();
-        if (append) buffer_append(&buffer, (char)c);
+        if (append && buffer_append(&buffer, (char)c) != ERROR_OK) {
+            free(buffer.data);
+            return ERROR_INTERNAL;
+        }
         state = next;
     }
 
@@ -545,22 +546,25 @@ static Token *scan_number(FSMState state, CharBuffer buffer, unsigned int line, 
         type = TOKEN_DOUBLE_LITERAL;
     } else {
         free(buffer.data);
-        return NULL;
+        return ERROR_LEXICAL;
     }
 
     if (is_identifier_continue(peek_char())) {
         free(buffer.data);
-        return NULL;
+        return ERROR_LEXICAL;
     }
-    return make_token(type, buffer.data, line, column);
+    return make_token(token, type, buffer.data, line, column);
 }
 
-static Token *scan_symbol(unsigned int line, unsigned int column) {
+static ErrorCode scan_symbol(Token *token, unsigned int line, unsigned int column) {
     CharBuffer buffer = {0};
     int c = take_char();
     TokenType type;
 
-    buffer_append(&buffer, (char)c);
+    if (buffer_append(&buffer, (char)c) != ERROR_OK) {
+        free(buffer.data);
+        return ERROR_INTERNAL;
+    }
     switch (c) {
         case '>':
             type = TOKEN_GREATER;
@@ -577,7 +581,7 @@ static Token *scan_symbol(unsigned int line, unsigned int column) {
         case '!':
             if (peek_char() != '=') {
                 free(buffer.data);
-                return NULL;
+                return ERROR_LEXICAL;
             }
             type = TOKEN_NOT_EQUAL;
             break;
@@ -599,20 +603,23 @@ static Token *scan_symbol(unsigned int line, unsigned int column) {
         case ';': type = TOKEN_SEMICOLON; break;
         case '.':
             if (is_digit(peek_char())) {
-                return scan_number(ST_DOUBLE_DOT, buffer, line, column);
+                return scan_number(token, ST_DOUBLE_DOT, buffer, line, column);
             }
             type = TOKEN_DOT;
             break;
         default:
             free(buffer.data);
-            return NULL;
+            return ERROR_LEXICAL;
     }
 
     if (type == TOKEN_GREATER_EQUAL || type == TOKEN_LESS_EQUAL ||
         type == TOKEN_EQUAL || type == TOKEN_NOT_EQUAL) {
-        buffer_append(&buffer, (char)take_char());
+        if (buffer_append(&buffer, (char)take_char()) != ERROR_OK) {
+            free(buffer.data);
+            return ERROR_INTERNAL;
+        }
     }
-    return make_token(type, buffer.data, line, column);
+    return make_token(token, type, buffer.data, line, column);
 }
 
 static TokenType word_type(FSMState state) {
@@ -635,7 +642,12 @@ static TokenType word_type(FSMState state) {
     }
 }
 
-Token *get_next_token(void) {
+ErrorCode get_next_token(Token *token) {
+    if (token == NULL) {
+        return ERROR_INTERNAL;
+    }
+    token->value = NULL;
+
     FSMState state = ST_START;
     bool scanning_word = false;
     bool counting_leading_spaces = true;
@@ -648,37 +660,35 @@ Token *get_next_token(void) {
         lexer.pending_dedents--;
         unsigned int column = lexer.column;
         if (lexer.pending_divide) {
-            /* The slash was consumed before the dedents were returned. */
             column--;
         }
-        return make_token(TOKEN_DEDENT, NULL, lexer.line, column);
+        return make_token(token, TOKEN_DEDENT, NULL, lexer.line, column);
     }
     if (lexer.pending_divide) {
         lexer.pending_divide = false;
-        buffer_append(&buffer, '/');
-        return make_token(TOKEN_DIVIDE, buffer.data,
+        if (buffer_append(&buffer, '/') != ERROR_OK) goto memory_error;
+        return make_token(token, TOKEN_DIVIDE, buffer.data,
                           lexer.line, lexer.column - 1);
     }
 
     while (true) {
         c = peek_char();
 
-        /* Numeric, string, and comment states need their own end rules. */
         if (scanning_word && !is_identifier_continue(c)) {
             if (state == ST_LEADING_UNDERSCORE) {
                 free(buffer.data);
-                return NULL;
+                return ERROR_LEXICAL;
             }
-            return make_token(word_type(state), buffer.data,
+            return make_token(token, word_type(state), buffer.data,
                               token_line, token_column);
         }
 
         if (state == ST_AT_MAIN) {
             if (is_identifier_continue(c)) {
                 free(buffer.data);
-                return NULL;
+                return ERROR_LEXICAL;
             }
-            return make_token(TOKEN_MAIN_ANNOTATION, buffer.data,
+            return make_token(token, TOKEN_MAIN_ANNOTATION, buffer.data,
                               token_line, token_column);
         }
 
@@ -693,7 +703,7 @@ Token *get_next_token(void) {
                 unsigned int newline_column = 0;
                 take_char();
                 if (!skip_block_comment(&newline_line, &newline_column)) {
-                    return NULL;
+                    return ERROR_LEXICAL;
                 }
                 counting_leading_spaces = false;
                 state = ST_START;
@@ -705,27 +715,27 @@ Token *get_next_token(void) {
                     if (lexer.logical_line_has_token &&
                         lexer.parenthesis_depth == 0) {
                         lexer.logical_line_has_token = false;
-                        return make_token(TOKEN_NEWLINE, NULL,
+                        return make_token(token, TOKEN_NEWLINE, NULL,
                                           newline_line, newline_column);
                     }
                 }
                 continue;
             }
             if (lexer.after_multiline_block_comment) {
-                return NULL;
+                return ERROR_LEXICAL;
             }
-            Token *indent_token = NULL;
-            if (!prepare_indentation(&indent_token,
-                                     token_line, token_column)) {
-                return NULL;
+            bool has_indent_token = false;
+            ErrorCode indent_error = prepare_indentation(token, &has_indent_token,
+                                                         token_line, token_column);
+            if (indent_error != ERROR_OK) {
+                return indent_error;
             }
-            if (indent_token != NULL) {
-                /* The slash was consumed while checking for a comment. */
+            if (has_indent_token) {
                 lexer.pending_divide = true;
-                return indent_token;
+                return ERROR_OK;
             }
-            buffer_append(&buffer, '/');
-            return make_token(TOKEN_DIVIDE, buffer.data,
+            if (buffer_append(&buffer, '/') != ERROR_OK) goto memory_error;
+            return make_token(token, TOKEN_DIVIDE, buffer.data,
                               token_line, token_column);
         }
 
@@ -773,18 +783,18 @@ Token *get_next_token(void) {
                     continue;
                 }
                 lexer.logical_line_has_token = false;
-                return make_token(TOKEN_NEWLINE, NULL, line, column);
+                return make_token(token, TOKEN_NEWLINE, NULL, line, column);
             }
             if (c == EOF) {
                 if (lexer.indent_stack.top != NULL) {
                     indent_stack_pop(&lexer.indent_stack);
-                    return make_token(TOKEN_DEDENT, NULL,
+                    return make_token(token, TOKEN_DEDENT, NULL,
                                       lexer.line, lexer.column);
                 }
-                return make_token(TOKEN_EOF, NULL, lexer.line, lexer.column);
+                return make_token(token, TOKEN_EOF, NULL, lexer.line, lexer.column);
             }
             if (lexer.after_multiline_block_comment && c != '/') {
-                return NULL;
+                return ERROR_LEXICAL;
             }
             token_line = lexer.line;
             token_column = lexer.column;
@@ -793,30 +803,31 @@ Token *get_next_token(void) {
                 state = ST_DIVIDE;
                 continue;
             }
-            Token *indent_token = NULL;
-            if (!prepare_indentation(&indent_token,
-                                     token_line, token_column)) {
-                return NULL;
+            bool has_indent_token = false;
+            ErrorCode indent_error = prepare_indentation(token, &has_indent_token,
+                                                         token_line, token_column);
+            if (indent_error != ERROR_OK) {
+                return indent_error;
             }
-            if (indent_token != NULL) {
-                return indent_token;
+            if (has_indent_token) {
+                return ERROR_OK;
             }
             if (is_digit(c)) {
                 state = c == '0' ? ST_INT_ZERO : ST_INT_DIGITS;
-                buffer_append(&buffer, (char)take_char());
-                return scan_number(state, buffer, token_line, token_column);
+                if (buffer_append(&buffer, (char)take_char()) != ERROR_OK) goto memory_error;
+                return scan_number(token, state, buffer, token_line, token_column);
             }
             if (c == '@') {
                 state = ST_AT;
-                buffer_append(&buffer, (char)take_char());
+                if (buffer_append(&buffer, (char)take_char()) != ERROR_OK) goto memory_error;
                 continue;
             }
             if (c == '"') {
-                return scan_string(token_line, token_column);
+                return scan_string(token, token_line, token_column);
             }
             if (!((c >= 'a' && c <= 'z') ||
                   (c >= 'A' && c <= 'Z') || c == '_')) {
-                return scan_symbol(token_line, token_column);
+                return scan_symbol(token, token_line, token_column);
             }
             scanning_word = true;
         }
@@ -848,28 +859,28 @@ Token *get_next_token(void) {
             case ST_AT:
                 if (c != 'm') {
                     free(buffer.data);
-                    return NULL;
+                    return ERROR_LEXICAL;
                 }
                 state = ST_AT_M;
                 break;
             case ST_AT_M:
                 if (c != 'a') {
                     free(buffer.data);
-                    return NULL;
+                    return ERROR_LEXICAL;
                 }
                 state = ST_AT_MA;
                 break;
             case ST_AT_MA:
                 if (c != 'i') {
                     free(buffer.data);
-                    return NULL;
+                    return ERROR_LEXICAL;
                 }
                 state = ST_AT_MAI;
                 break;
             case ST_AT_MAI:
                 if (c != 'n') {
                     free(buffer.data);
-                    return NULL;
+                    return ERROR_LEXICAL;
                 }
                 state = ST_AT_MAIN;
                 break;
@@ -1125,13 +1136,17 @@ Token *get_next_token(void) {
                 break;
             default:
                 free(buffer.data);
-                return NULL;
+                return ERROR_LEXICAL;
         }
 
         if (state == ST_START) {
             free(buffer.data);
-            return NULL;
+            return ERROR_LEXICAL;
         }
-        buffer_append(&buffer, (char)take_char());
+        if (buffer_append(&buffer, (char)take_char()) != ERROR_OK) goto memory_error;
     }
+
+memory_error:
+    free(buffer.data);
+    return ERROR_INTERNAL;
 }
