@@ -716,7 +716,7 @@ Token *get_next_token(void) {
             }
             Token *indent_token = NULL;
             if (!prepare_indentation(&indent_token,
-                                     token_line, token_column, '/')) {
+                                     token_line, token_column)) {
                 return NULL;
             }
             if (indent_token != NULL) {
@@ -795,7 +795,7 @@ Token *get_next_token(void) {
             }
             Token *indent_token = NULL;
             if (!prepare_indentation(&indent_token,
-                                     token_line, token_column, c)) {
+                                     token_line, token_column)) {
                 return NULL;
             }
             if (indent_token != NULL) {
