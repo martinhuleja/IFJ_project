@@ -30,14 +30,17 @@ typedef enum precedence_symbol {
   PREC_RPAREN,
   PREC_END,
   PREC_SYMBOL_COUNT,
-} PrecedenceSymbol;
+} PrecSymbol;
 
+/**
+ * @brief Action selected by the precedence table
+ */
 typedef enum precedence_relation {
   PREC_ERROR = ' ',
   PREC_SHIFT = '<',
   PREC_EQUAL = '=',
   PREC_REDUCE = '>',
-} PrecedenceRelation;
+} PrecRelation;
 
 /* Columns: operand, unary -, multiplicative, additive, ordering, equality, (, ), end. */
 static const char precedence_table[PREC_SYMBOL_COUNT][PREC_SYMBOL_COUNT] = {
@@ -52,6 +55,33 @@ static const char precedence_table[PREC_SYMBOL_COUNT][PREC_SYMBOL_COUNT] = {
     [PREC_END]            = {'<', '<', '<', '<', '<', '<', '<', ' ', ' '},
 };
 
+/**
+ * @brief Kind of item stored on the precedence stack
+ */
+typedef enum precedence_stack_item_type {
+  PREC_STACK_TERMINAL,
+  PREC_STACK_EXPRESSION,
+  PREC_STACK_MARK,
+} PrecStackItemType;
+
+/**
+ * @brief Stack item containing a terminal, expression or handle marker
+ */
+typedef struct precedence_stack_item {
+  PrecStackItemType type;
+  PrecSymbol symbol;
+  ASTOperator operator;
+  ASTNode *node; // Owned subtree
+  struct precedence_stack_item *next;
+} PrecStackItem;
+
+/**
+ * @brief Precedence stack with a pointer to its first item
+ */
+typedef struct precedence_stack {
+  PrecStackItem *top;
+} PrecStack;
+
 /********************************************************************
  ************************ SUPPORT FUNCTIONS *************************
  *******************************************************************/
@@ -63,7 +93,52 @@ static const char precedence_table[PREC_SYMBOL_COUNT][PREC_SYMBOL_COUNT] = {
  * @param input_symbol Precedence class of the current input token
  * @return Precedence relation, or PREC_ERROR for invalid classes
  */
-PrecedenceRelation precedence_relation(PrecedenceSymbol stack_symbol, PrecedenceSymbol input_symbol);
+PrecRelation get_relation(PrecSymbol stack_symbol, PrecSymbol input_symbol);
+
+/**
+ * @brief Allocates memory for PrecStackItem
+ *
+ * @return Ptr to allocated PrecStackItem, or NULL
+ */
+PrecStackItem *create_stack_item();
+
+/**
+ * @brief Pushes an item onto the precedence stack
+ *
+ * @param stack Ptr to the initialized stack
+ * @param item Item to copy onto the stack
+ * @return ERROR_OK on success, or ERROR_INTERNAL
+ */
+ErrorCode stack_push(PrecStack *stack, PrecStackItem *item);
+
+/**
+ * @brief Returns the nearest terminal from the stack top, or NULL if none exists
+ *
+ * Does not modify the stack. The returned item remains owned by the stack.
+ *
+ * @param stack Ptr to the initialized stack
+ * @return Ptr to the nearest terminal, or NULL
+ */
+PrecStackItem *stack_top_terminal(PrecStack *stack);
+
+/**
+ * @brief Inserts a handle marker immediately above the nearest terminal, below any trailing expression
+ *
+ * Leaves the stack unchanged on failure.
+ *
+ * @param stack Ptr to the initialized stack
+ * @return ERROR_OK on success, or ERROR_INTERNAL
+ */
+ErrorCode stack_mark(PrecStack *stack);
+
+/**
+ * @brief Frees all items and their owned subtrees
+ *
+ * Sets top to NULL. Does not free the stack object itself. A NULL stack is ignored.
+ *
+ * @param stack Ptr to the initialized stack
+ */
+void stack_free(PrecStack *stack);
 
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
