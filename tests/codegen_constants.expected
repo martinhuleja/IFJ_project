@@ -29,9 +29,12 @@ LABEL koniec_cyklu
 WRITE LF@y
 WRITE string@\010
 CREATEFRAME
+DEFVAR TF@zdroj
+MOVE TF@zdroj int@42
 DEFVAR TF@cislo
 MOVE TF@cislo int@41
-MOVE TF@cislo int@42
+MOVE TF@cislo TF@zdroj
+ADD TF@cislo TF@cislo int@1
 CALL vypis_cislo
 WRITE TF@cislo
 WRITE string@\010

@@ -69,6 +69,8 @@ int main(void)
     puts("WRITE string@\\010");
 
     puts("CREATEFRAME");
+    codegen_defvar(tf, "zdroj");
+    codegen_move_int(tf, "zdroj", 42);
     ASTNode initializer = {
         .type = AST_INT_LITERAL,
         .int_value = 41
@@ -83,9 +85,10 @@ int main(void)
         .children_count = 1,
         .children_capacity = 1
     };
+    char source[] = "zdroj";
     ASTNode value = {
-        .type = AST_INT_LITERAL,
-        .int_value = 42
+        .type = AST_IDENTIFIER,
+        .text = source
     };
     ASTNode *update_children[] = {&value};
     ASTNode update = {
@@ -95,12 +98,36 @@ int main(void)
         .children_count = 1,
         .children_capacity = 1
     };
-    ASTNode *statements[] = {&declaration, &update};
+    ASTNode left = {
+        .type = AST_IDENTIFIER,
+        .text = name
+    };
+    ASTNode right = {
+        .type = AST_INT_LITERAL,
+        .int_value = 1
+    };
+    ASTNode *operands[] = {&left, &right};
+    ASTNode addition = {
+        .type = AST_BINARY_OP,
+        .operator = AST_OP_ADD,
+        .children = operands,
+        .children_count = 2,
+        .children_capacity = 2
+    };
+    ASTNode *increment_children[] = {&addition};
+    ASTNode increment = {
+        .type = AST_ASSIGN,
+        .text = name,
+        .children = increment_children,
+        .children_count = 1,
+        .children_capacity = 1
+    };
+    ASTNode *statements[] = {&declaration, &update, &increment};
     const ASTNode block = {
         .type = AST_BLOCK,
         .children = statements,
-        .children_count = 2,
-        .children_capacity = 2
+        .children_count = 3,
+        .children_capacity = 3
     };
     if (!codegen_block(tf, &block)) {
         return 1;

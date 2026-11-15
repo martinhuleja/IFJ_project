@@ -119,7 +119,27 @@ bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
     if (node == NULL || node->type != AST_ASSIGN || node->text == NULL || node->children_count != 1 || node->children == NULL) {
         return false;
     }
-    return codegen_move_literal(frame, node->text, node->children[0]);
+    const ASTNode *value = node->children[0];
+    if (value != NULL && value->type == AST_IDENTIFIER) {
+        if (value->text == NULL) {
+            return false;
+        }
+        codegen_move_var(frame, node->text, frame, value->text);
+        return true;
+    }
+    if (value != NULL && value->type == AST_BINARY_OP) {
+        if (value->operator != AST_OP_ADD || value->children_count != 2 || value->children == NULL) {
+            return false;
+        }
+        const ASTNode *left = value->children[0];
+        const ASTNode *right = value->children[1];
+        if (left == NULL || left->type != AST_IDENTIFIER || left->text == NULL || right == NULL || right->type != AST_INT_LITERAL) {
+            return false;
+        }
+        codegen_add_int(frame, node->text, frame, left->text, right->int_value);
+        return true;
+    }
+    return codegen_move_literal(frame, node->text, value);
 }
 
 bool codegen_block(CodegenFrame frame, const ASTNode *node)
