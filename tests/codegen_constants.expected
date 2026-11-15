@@ -30,6 +30,7 @@ WRITE LF@y
 WRITE string@\010
 CREATEFRAME
 DEFVAR TF@cislo
+MOVE TF@cislo int@41
 MOVE TF@cislo int@42
 CALL vypis_cislo
 WRITE TF@cislo

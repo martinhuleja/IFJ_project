@@ -92,6 +92,65 @@ void codegen_move_var(CodegenFrame dest_frame, const char *dest_name, CodegenFra
     printf("\n");
 }
 
+bool codegen_move_literal(CodegenFrame frame, const char *name, const ASTNode *node)
+{
+    if (node == NULL || node->type != AST_INT_LITERAL) {
+        return false;
+    }
+    codegen_move_int(frame, name, node->int_value);
+    return true;
+}
+
+bool codegen_var_declaration(CodegenFrame frame, const ASTNode *node)
+{
+    if (node == NULL || node->type != AST_VAR_DECLARATION || node->text == NULL || node->children_count != 1 || node->children == NULL){
+        return false;
+    }
+    const ASTNode *initializer = node->children[0];
+    if (initializer == NULL || initializer->type != AST_INT_LITERAL) {
+        return false;
+    }
+    codegen_defvar(frame, node->text);
+    return codegen_move_literal(frame, node->text, initializer);
+}
+
+bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
+{
+    if (node == NULL || node->type != AST_ASSIGN || node->text == NULL || node->children_count != 1 || node->children == NULL) {
+        return false;
+    }
+    return codegen_move_literal(frame, node->text, node->children[0]);
+}
+
+bool codegen_block(CodegenFrame frame, const ASTNode *node)
+{
+    if (node == NULL || node->type != AST_BLOCK || (node->children_count > 0 && node->children == NULL)) {
+        return false;
+    }
+    for (size_t i = 0; i < node->children_count; i++)
+    {
+        const ASTNode *statement = node->children[i];
+        if (statement == NULL){
+            return false;
+        }
+        switch (statement->type) {
+        case AST_VAR_DECLARATION:
+            if (!codegen_var_declaration(frame, statement)) {
+                return false;
+            }
+            break;
+        case AST_ASSIGN:
+            if (!codegen_assignment(frame, statement)) {
+                return false;
+            }
+            break;
+        default:
+            return false;
+        }
+    }
+    return true;
+}
+
 void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
 {
     printf("ADD ");

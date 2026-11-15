@@ -44,7 +44,22 @@ int main(void)
     codegen_write_var(lf, "y");
     puts("WRITE string@\\010");
 
-    codegen_move_int(lf, "y", 0);
+    ASTNode zero = {
+        .type = AST_INT_LITERAL,
+        .int_value = 0
+    };
+    ASTNode *assignment_children[] = {&zero};
+    char target[] = "y";
+    const ASTNode assignment = {
+        .type = AST_ASSIGN,
+        .text = target,
+        .children = assignment_children,
+        .children_count = 1,
+        .children_capacity = 1
+    };
+    if (!codegen_assignment(lf, &assignment)) {
+        return 1;
+    }
     codegen_label("zaciatok_cyklu");
     codegen_jumpifeq_int("koniec_cyklu", lf, "y", 3);
     codegen_add_int(lf, "y", lf, "y", 1);
@@ -54,8 +69,42 @@ int main(void)
     puts("WRITE string@\\010");
 
     puts("CREATEFRAME");
-    codegen_defvar(tf, "cislo");
-    codegen_move_int(tf, "cislo", 42);
+    ASTNode initializer = {
+        .type = AST_INT_LITERAL,
+        .int_value = 41
+    };
+    ASTNode *children[] = {&initializer};
+    char name[] = "cislo";
+
+    ASTNode declaration = {
+        .type = AST_VAR_DECLARATION,
+        .text = name,
+        .children = children,
+        .children_count = 1,
+        .children_capacity = 1
+    };
+    ASTNode value = {
+        .type = AST_INT_LITERAL,
+        .int_value = 42
+    };
+    ASTNode *update_children[] = {&value};
+    ASTNode update = {
+        .type = AST_ASSIGN,
+        .text = name,
+        .children = update_children,
+        .children_count = 1,
+        .children_capacity = 1
+    };
+    ASTNode *statements[] = {&declaration, &update};
+    const ASTNode block = {
+        .type = AST_BLOCK,
+        .children = statements,
+        .children_count = 2,
+        .children_capacity = 2
+    };
+    if (!codegen_block(tf, &block)) {
+        return 1;
+    }
     codegen_call("vypis_cislo");
     codegen_write_var(tf, "cislo");
     puts("WRITE string@\\010");
