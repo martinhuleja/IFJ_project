@@ -6,9 +6,10 @@
 # Enzo Štětina (xstetie00)
 
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic
+CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic -g
 TARGET = translator
-SRC = src/translator.c src/symtable.c
+
+SRC = src/translator.c src/symtable.c src/error.c src/parser.c src/parser-missing-declarations.c src/abstract-syntactic-tree.c
 
 # Clang-format configuration
 FORMAT = clang-format

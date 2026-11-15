@@ -1,9 +1,14 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include <stdbool.h>
+#include "error.h"
+
 typedef enum {
     TOKEN_EOF,
     TOKEN_NEWLINE,
+    TOKEN_INDENT,
+    TOKEN_DEDENT,
 
     TOKEN_IDENTIFIER,
     TOKEN_INT_LITERAL,
@@ -46,7 +51,7 @@ typedef enum {
     TOKEN_SEMICOLON,    /* ; */
     TOKEN_DOT,          /* . */
 
-    /* pre @main lebo je specialny lebo @ pouzivame ib v @main*/
+    /* pre @main lebo je specialny, @ pouzivame iba v @main a stringoch*/
     TOKEN_MAIN_ANNOTATION,
 } TokenType;
 
@@ -55,12 +60,14 @@ typedef struct {
     TokenType type;
     char *value;
 
+    bool lf_before_rparen;
     unsigned int line;
     unsigned int column;
 
 } Token;
 
-/* bude sa menit */
-/* na indentacii sa este pracuje */
+void token_free(Token *token);
+
+ErrorCode get_next_token(Token *token);
 
 #endif
