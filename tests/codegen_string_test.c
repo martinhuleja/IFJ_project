@@ -1,58 +1,74 @@
 /*
  * IFJ + IAL projekt 2026/2027
  * Adam Havier (xhaviea00)
- *
- * AI-generated code (ChatGPT).
- * Prompt: Create a small driver that emits IFJcode26 using codegen_string
- * for decoded text containing a space, hash, backslash and newline.
  */
 #include "codegen.h"
 #include <stdio.h>
 
 int main(void)
 {
+    const CodegenFrame gf = CODEGEN_GF;
+    const CodegenFrame lf = CODEGEN_LF;
+    const CodegenFrame tf = CODEGEN_TF;
     const unsigned char text[] = "A B#\\\n";
+    puts(".IFJcode26");
 
-    printf(".IFJcode26\n");
     printf("WRITE ");
     codegen_string(text, sizeof(text) - 1);
-    printf("\n");
-
+    putchar('\n');
     printf("WRITE ");
     codegen_int(1234567890123LL);
-    printf("\nWRITE string@\\010\n");
-
+    puts("\nWRITE string@\\010");
     printf("WRITE ");
     codegen_float(2.5);
-    printf("\nWRITE string@\\010\n");
+    puts("\nWRITE string@\\010");
 
     printf("WRITE ");
     codegen_bool(true);
-    printf("\nWRITE string@\\010\n");
-
+    puts("\nWRITE string@\\010");
     printf("WRITE ");
     codegen_bool(false);
-    printf("\nWRITE string@\\010\n");
+    puts("\nWRITE string@\\010");
 
-    printf("DEFVAR ");
-    codegen_variable(CODEGEN_GF, "x");
-    printf("\nCREATEFRAME\n");
+    codegen_defvar(gf, "x");
+    puts("CREATEFRAME");
+    puts("PUSHFRAME");
+    codegen_defvar(lf, "y");
+    codegen_move_int(lf, "y", 42);
+    codegen_move_var(gf, "x", lf, "y");
+    codegen_add_int(lf, "y", gf, "x", 8);
 
-    printf("DEFVAR ");
-    codegen_variable(CODEGEN_TF, "x");
-    printf("\nPUSHFRAME\n");
+    codegen_jumpifeq_int("vypis_vysledok", lf, "y", 50);
+    puts("WRITE int@999");
+    codegen_label("vypis_vysledok");
+    codegen_write_var(lf, "y");
+    puts("WRITE string@\\010");
 
-    codegen_defvar(CODEGEN_LF, "y");
+    codegen_move_int(lf, "y", 0);
+    codegen_label("zaciatok_cyklu");
+    codegen_jumpifeq_int("koniec_cyklu", lf, "y", 3);
+    codegen_add_int(lf, "y", lf, "y", 1);
+    codegen_jump("zaciatok_cyklu");
+    codegen_label("koniec_cyklu");
+    codegen_write_var(lf, "y");
+    puts("WRITE string@\\010");
 
-    codegen_move_int(CODEGEN_LF, "y", 42);
+    puts("CREATEFRAME");
+    codegen_defvar(tf, "cislo");
+    codegen_move_int(tf, "cislo", 42);
+    codegen_call("vypis_cislo");
+    codegen_write_var(tf, "cislo");
+    puts("WRITE string@\\010");
+    puts("WRITE int@8");
+    puts("WRITE string@\\010");
+    puts("POPFRAME");
+    puts("EXIT int@0");
 
-    codegen_move_var(CODEGEN_GF, "x", CODEGEN_LF, "y");
-
-    codegen_add_int(CODEGEN_LF, "y", CODEGEN_GF, "x", 8);
-
-    codegen_write_var(CODEGEN_LF, "y");
-
-    printf("EXIT int@0\n");
+    codegen_label("vypis_cislo");
+    puts("PUSHFRAME");
+    codegen_add_int(lf, "cislo", lf, "cislo", 1);
+    puts("POPFRAME");
+    codegen_return();
 
     return 0;
 }

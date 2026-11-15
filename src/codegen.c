@@ -109,3 +109,32 @@ void codegen_write_var(CodegenFrame frame, const char *name)
     codegen_variable(frame, name);
     printf("\n");
 }
+
+void codegen_label(const char *name)
+{
+    printf("LABEL %s\n", name);
+}
+
+void codegen_jump(const char *name)
+{
+    printf("JUMP %s\n", name);
+}
+
+void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *name, long long value)
+{
+    printf("JUMPIFEQ %s ", label);
+    codegen_variable(frame, name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_call(const char *label)
+{
+    printf("CALL %s\n", label);
+}
+
+void codegen_return()
+{
+    printf("RETURN\n");
+}

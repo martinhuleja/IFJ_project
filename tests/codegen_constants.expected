@@ -10,11 +10,36 @@ WRITE bool@false
 WRITE string@\010
 DEFVAR GF@x
 CREATEFRAME
-DEFVAR TF@x
 PUSHFRAME
 DEFVAR LF@y
 MOVE LF@y int@42
 MOVE GF@x LF@y
 ADD LF@y GF@x int@8
+JUMPIFEQ vypis_vysledok LF@y int@50
+WRITE int@999
+LABEL vypis_vysledok
 WRITE LF@y
+WRITE string@\010
+MOVE LF@y int@0
+LABEL zaciatok_cyklu
+JUMPIFEQ koniec_cyklu LF@y int@3
+ADD LF@y LF@y int@1
+JUMP zaciatok_cyklu
+LABEL koniec_cyklu
+WRITE LF@y
+WRITE string@\010
+CREATEFRAME
+DEFVAR TF@cislo
+MOVE TF@cislo int@42
+CALL vypis_cislo
+WRITE TF@cislo
+WRITE string@\010
+WRITE int@8
+WRITE string@\010
+POPFRAME
 EXIT int@0
+LABEL vypis_cislo
+PUSHFRAME
+ADD LF@cislo LF@cislo int@1
+POPFRAME
+RETURN
