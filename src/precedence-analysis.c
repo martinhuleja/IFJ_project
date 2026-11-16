@@ -468,7 +468,9 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
       if (return_value == ERROR_OK) {
         // Transfer ownership to the stack only after the item is filled successfully
         return_value = stack_push(stack, new_item);
+      }
 
+      if (return_value == ERROR_OK) {
         // Track only parentheses shifted by this call
         if (input_symbol == PREC_LPAREN) {
           parenthesis_depth++;

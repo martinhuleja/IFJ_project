@@ -240,7 +240,8 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
 
 \noindent $\mathrm{checkLF}(token) \Longleftrightarrow token.type = RParen \wedge token.lf\_before\_rparen = true$ \\
 
-\noindent Neterminály Expr a ExprTail jsou vyhodnocovány samostatnou precedenční syntaktickou analýzou zdola nahoru podle precedenční tabulky.
+\noindent Neterminály Expr a ExprTail jsou vyhodnocovány samostatnou precedenční syntaktickou
+analýzou zdola nahoru podle precedenční tabulky.
 
 % ====================
 % ===== LL table =====
@@ -317,18 +318,19 @@ Pro vyhodnocování výrazů byla v souladu se zadáním využita precedenční 
 
 Gramatika zpracovávající výrazy je definována jako
 $G_{\textnormal{expr}} = (\{E\}, T_{\textnormal{prec}}, P_{\textnormal{prec}}, E)$,
-kde $T_{\textnormal{prec}} = \{ i, -_{\textnormal{un}}, *, /, +, -_{\textnormal{bi}},
+kde $T_{\textnormal{prec}} = \{ i, -_{\textnormal{un}}, \\ *, /, +, -_{\textnormal{bi}},
 <, <=, >, >=, ==, !=, (, ), \$ \}$
 
 \begin{itemize}
-    \item $i$ značí identifikátory a literály typů \texttt{Int}, \texttt{Double}, \texttt{String}, \texttt{Unit},
+    \item $i$ značí identifikátory a literály typů \texttt{Int}, \texttt{Double}, \texttt{String},
     \item $-_{\textnormal{un}}$ značí unární operátor minus, $-_{\textnormal{bi}}$ binární odčítání,
     \item $\$$ značí ukončovač výrazu (\texttt{EOL}, \texttt{EOF}, \texttt{then}, \texttt{do}, \dots).
 \end{itemize}
 
 \noindent Množina pravidel $P_{\textnormal{prec}}$ zahrnuje: \quad $E \rightarrow i, \qquad E \rightarrow (E),
-\qquad E \rightarrow -E, \qquad E \rightarrow E * E, \qquad E \rightarrow E / E, \qquad E \rightarrow E + E,
-\qquad E \rightarrow E - E, \qquad E \rightarrow E \ rel \ E$, kde $rel \in \{ <, <=, >, >=, ==, != \}.$
+\qquad E \rightarrow (), \qquad E \rightarrow -_{\textnormal{un}}E, \qquad E \rightarrow E * E,
+\qquad E \rightarrow E / E, \qquad E \rightarrow E + E, \qquad E \rightarrow E -_{\textnormal{bi}} E,
+\qquad E \rightarrow E \ rel \ E$, kde $rel \in \{ <, <=, >, >=, ==, != \}.$
 
 \subsection{Precedenční tabulka}
 Hierarchie operátorů vychází ze specifikace jazyka IFJ26.

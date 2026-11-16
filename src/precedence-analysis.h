@@ -17,7 +17,7 @@
 #include "parser.h"
 
 /**
- * @brief Precedence table classes; stack entries also retain the concrete token or operator
+ * @brief Precedence table classes; operator identity is stored separately
  */
 typedef enum precedence_symbol {
   PREC_OPERAND,
@@ -152,7 +152,7 @@ void stack_free(PrecStack *stack);
 /**
  * @brief Maps the current token type to a precedence table class
  *
- * For TOKEN_MINUS returns the binary minus, parse_expr() resolves unary minus from its position.
+ * Returns PREC_ADDITIVE for TOKEN_MINUS; parse_expr() resolves unary minus from its position.
  *
  * @param type Type of the current token
  * @return Corresponding precedence class, or PREC_SYMBOL_COUNT for an unsupported token
@@ -216,7 +216,7 @@ ErrorCode reduce_parentheses(PrecStack *stack);
  * @brief Parses expression by bottom-up syntactic analysis
  *
  * Works according to precedence grammar and precedence table in documentation.
- * Appends one subtree on success and leaves its terminating token (including closing parenthesis) unconsumed.
+ * Appends one subtree on success, consumes matching parentheses and leaves the expression terminator unconsumed.
  * On failure releases partial subtrees and leaves parent unchanged.
  *
  * @param parser Ptr to struct parser
