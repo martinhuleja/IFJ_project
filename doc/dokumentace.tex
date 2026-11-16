@@ -81,7 +81,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
           VarDef, VarKind, IfStatement, WhileStatement, ReturnStatement, ArgGroup, ArgList,
           ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, Call, EOLOrEOF,
           Assignment, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
-  \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, TypeInt,
+  \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, TypeInt,
           TypeDouble, TypeString, TypeUnit, Val, Var, If, Then, Else, While, Do, Return,
           AtMain, Def, IFJ26Id, Import, Assign, LParen, RParen, Colon, Comma, Semicolon,
           Dot, Star, Indent, Dedent, EOL, EOF  $\}$
@@ -144,7 +144,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
   23  & Type $\rightarrow$ TypeUnit
       & $\{$ TypeUnit $\}$ \\ \hline
   24  & FunctionBody $\rightarrow$ ExprOrCall EOLOrEOF
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   25  & EOLOrEOF $\rightarrow$ EOL
       & $\{$ EOL $\}$ \\ \hline
   26  & EOLOrEOF $\rightarrow$ EOF
@@ -154,9 +154,9 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
   28  & Block $\rightarrow$ Indent StatementList Dedent
       & $\{$ Indent $\}$ \\ \hline
   29  & StatementList $\rightarrow$ Statement StatementEnd StatementListRest
-      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   30  & StatementListRest $\rightarrow$ Statement StatementEnd StatementListRest
-      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   31  & StatementListRest $\rightarrow \varepsilon$
       & $\{$ Dedent $\}$ \\ \hline
   32  & StatementEnd $\rightarrow$ EOL
@@ -174,7 +174,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
   38  & Statement $\rightarrow$ Assignment
       & $\{$ Identifier $\}$ \\ \hline
   39  & Statement $\rightarrow$ ExprOrCall
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   40  & Assignment $\rightarrow$ Identifier Assign ExprOrCall
       & $\{$ Identifier $\}$ \\ \hline
   48  & VarDef $\rightarrow$ VarKind Identifier TypeOpt Assign ExprOrCall
@@ -190,29 +190,29 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
   53  & ReturnStatement $\rightarrow$ Return ReturnExprOpt
       & $\{$ Return $\}$ \\ \hline
   54  & ReturnExprOpt $\rightarrow$ ExprOrCall
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   55  & ReturnExprOpt $\rightarrow \varepsilon$
       & $\{$ EOL, Semicolon $\}$ \\ \hline
   56  & ExprOrCall $\rightarrow$ Call
       & $\{$ Identifier $\}$ \\ \hline
   57  & ExprOrCall $\rightarrow$ Expr
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   58  & Call $\rightarrow$ Identifier ArgGroup
       & $\{$ Identifier $\}$ \\ \hline
   60  & ArgGroup $\rightarrow$ LParen ArgListOpt RParen
       & $\{$ LParen $\}$ \\ \hline
   61  & ArgListOpt $\rightarrow$ ArgList
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   62  & ArgListOpt $\rightarrow \varepsilon$
       & $\{$ RParen $\}$ \\ \hline
   63  & ArgList $\rightarrow$ Expr ArgListRest
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   64  & ArgListRest $\rightarrow$ Comma ArgListRestTail
       & $\{$ Comma $\}$ \\ \hline
   65  & ArgListRest $\rightarrow \varepsilon$
       & $\{$ RParen $\}$ \\ \hline
   66  & ArgListRestTail $\rightarrow$ ArgList
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   67  & ArgListRestTail $\rightarrow \varepsilon \quad \{\mathrm{checkLF}(RParen)\}$
       & $\{$ RParen $\}$ \\ \hline
   68  & EOLOpt $\rightarrow$ EOL
@@ -222,7 +222,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
 
 \end{xltabular}
 
-\noindent Některé pravidla používají pro rozhodnutí dva tokeny výhledu:
+Některé pravidla používají pro rozhodnutí dva tokeny výhledu:
 
 \begin{itemize}
   \item Statement: pro Identifier Assign se zvolí pravidlo 38, pro pro Identifier následovaný jiným tokenem pravidlo 39
@@ -231,8 +231,12 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
 \end{itemize}
 
 Překryv množin Predict v Identifier je tedy řešen druhým tokenem. V LL tabulce je tato volba označena 38/39 a 56/57.
+
 UnitLiteral je ve vstupu dvojice LParen RParen a rozpoznává jej precedenční syntatická analýza.
-Proto v pravidlech vstupuje jako LParen. \\
+Proto v pravidlech vstupuje jako LParen.
+
+Minus v množinách Predict označuje začátek výrazu s unárním mínusem. Rozlišení unárního a binárního mínusu provádí
+precedenční syntaktická analýza. \\
 
 \noindent $\mathrm{checkLF}(token) \Longleftrightarrow token.type = RParen \wedge token.lf\_before\_rparen = true$ \\
 
@@ -256,7 +260,7 @@ analýzou zdola nahoru podle precedenční tabulky.
 
   % === HEADER ===
   \textbf{Neterminál} & \rot{Identifier} & \rot{IntLiteral} & \rot{DoubleLiteral} &
-  \rot{StringLiteral} & \rot{UnitLiteral} & \rot{TypeInt} & \rot{TypeDouble} &
+  \rot{StringLiteral} & \rot{Minus} & \rot{TypeInt} & \rot{TypeDouble} &
   \rot{TypeString} & \rot{TypeUnit} & \rot{Val} & \rot{Var} & \rot{If} & \rot{Then} &
   \rot{Else} & \rot{While} & \rot{Do} & \rot{Return} & \rot{AtMain} & \rot{Def} &
   \rot{IFJ26Id} & \rot{Import} & \rot{Assign} & \rot{LParen} & \rot{RParen} &
@@ -282,7 +286,7 @@ analýzou zdola nahoru podle precedenční tabulky.
   Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 28 & & & \\
   StatementList & 29 & 29 & 29 & 29 & 29 & & & & & 29 & 29 & 29 & & & 29 & & 29 & & & & & & 29 & & & & & & & & & & \\
   StatementListRest & 30 & 30 & 30 & 30 & 30 & & & & & 30 & 30 & 30 & & & 30 & & 30 & & & & & & 30 & & & & & & & & 31 & & \\
-  Statement & 38/39 & 39 & 39 & 39 & & & & & & 34 & 34 & 35 & & & 36 & & 37 & & & & & & 39 & & & & & & & & & & \\
+  Statement & 38/39 & 39 & 39 & 39 & 39 & & & & & 34 & 34 & 35 & & & 36 & & 37 & & & & & & 39 & & & & & & & & & & \\
   StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & & 32 & \\
   VarDef & & & & & & & & & & 48 & 48 & & & & & & & & & & & & & & & & & & & & & & \\
   VarKind & & & & & & & & & & 49 & 50 & & & & & & & & & & & & & & & & & & & & & & \\
@@ -294,7 +298,7 @@ analýzou zdola nahoru podle precedenční tabulky.
   ArgListOpt & 61 & 61 & 61 & 61 & 61 & & & & & & & & & & & & & & & & & & 61 & 62 & & & & & & & & & \\
   ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 65 & & 64 & & & & & & & \\
   ArgListRestTail & 66 & 66 & 66 & 66 & 66 & & & & & & & & & & & & & & & & & & 66 & 67 & & & & & & & & & \\
-  ExprOrCall & 56/57 & 57 & 57 & 57 & & & & & & & & & & & & & & & & & & & 57 & & & & & & & & & & \\
+  ExprOrCall & 56/57 & 57 & 57 & 57 & 57 & & & & & & & & & & & & & & & & & & 57 & & & & & & & & & & \\
   ReturnExprOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & & & & 55 & & & & & 55 & \\
   Call & 58 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\

@@ -381,6 +381,8 @@ ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
     // fall through
   case TOKEN_STRING_LITERAL:
     // fall through
+  case TOKEN_MINUS:
+    // fall through
   case TOKEN_LPAREN: {
     // Represent one line function body in AST similar to multi line function body
     // Function -> Block -> ExprOrCall
@@ -460,6 +462,8 @@ ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block) {
     // fall through
   case TOKEN_STRING_LITERAL:
     // fall through
+  case TOKEN_MINUS:
+    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_statement(parser, block));
     RETURN_IF_ERROR(parse_statement_end(parser));
@@ -514,6 +518,8 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
   case TOKEN_DOUBLE_LITERAL:
     // fall through
   case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_MINUS:
     // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr_or_call(parser, block));
@@ -639,6 +645,8 @@ ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node) {
     // fall through
   case TOKEN_STRING_LITERAL:
     // fall through
+  case TOKEN_MINUS:
+    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
     break;
@@ -670,6 +678,8 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   case TOKEN_DOUBLE_LITERAL:
     // fall through
   case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_MINUS:
     // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr(parser, parent));
@@ -722,6 +732,8 @@ ErrorCode parse_arg_list_opt(Parser *parser, ASTNode *arg_list) {
     // fall through
   case TOKEN_STRING_LITERAL:
     // fall through
+  case TOKEN_MINUS:
+    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
     break;
@@ -745,6 +757,8 @@ ErrorCode parse_arg_list(Parser *parser, ASTNode *arg_list) {
   case TOKEN_DOUBLE_LITERAL:
     // fall through
   case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_MINUS:
     // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr(parser, arg_list));
@@ -781,6 +795,8 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser, ASTNode *arg_list) {
   case TOKEN_DOUBLE_LITERAL:
     // fall through
   case TOKEN_STRING_LITERAL:
+    // fall through
+  case TOKEN_MINUS:
     // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
