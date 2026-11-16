@@ -527,10 +527,4 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
   return return_value;
 } // parse_expr()
 
-ErrorCode parse_expr_tail(Parser *parser, ASTNode *expression) {
-  (void)parser;
-  (void)expression;
-  return ERROR_OK;
-}
-
 /* End of file precedence-analysis.c */

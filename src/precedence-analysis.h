@@ -215,7 +215,7 @@ ErrorCode reduce_parentheses(PrecStack *stack);
 /**
  * @brief Parses expression by bottom-up syntactic analysis
  *
- * Works according to precedence grammar and precedence table in documentation.
+ * Parses the complete expression from the current token according to the precedence grammar and precedence table.
  * Appends one subtree on success, consumes matching parentheses and leaves the expression terminator unconsumed.
  * On failure releases partial subtrees and leaves parent unchanged.
  *
@@ -224,15 +224,6 @@ ErrorCode reduce_parentheses(PrecStack *stack);
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode parse_expr(Parser *parser, ASTNode *parent);
-
-/**
- * @brief Parses expression tail by bottom-up syntactic analysis
- *
- * @param parser Ptr to struct parser
- * @param parent Ptr to the parent node receiving expression
- * @return ErrorCode according to specification of IFJ26
- */
-ErrorCode parse_expr_tail(Parser *parser, ASTNode *expression);
 
 #endif // PRECEDENCE_ANALYSIS_H
 /* End of file precedence-analysis.h */

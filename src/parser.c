@@ -10,8 +10,6 @@
 #include "error.h"
 #include "precedence-analysis.h"
 #include "token.h"
-#include <errno.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -543,71 +541,6 @@ ErrorCode parse_assignment(Parser *parser, ASTNode *block) {
 
   return ERROR_OK;
 } // parse_assignment()
-
-ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
-  RETURN_IF_ERROR(check_current_token(parser));
-
-  ASTNode *expression = ast_create_node(AST_EXPR);
-  RETURN_INTERNAL_ERROR_IF_NULL(expression, NULL);
-  RETURN_IF_ERROR(ast_add_child(parent, expression));
-
-  switch (parser->current_token->type) {
-  case TOKEN_LPAREN:
-    RETURN_IF_ERROR(new_token(parser));
-    if (!tokens_matches(parser, TOKEN_RPAREN)) {
-      // ExprNonId -> LParen Expr RParen ExprTail
-      RETURN_IF_ERROR(parse_expr(parser, expression));
-      RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
-      RETURN_IF_ERROR(parse_expr_tail(parser, expression));
-      return ERROR_OK;
-    }
-    expression->type = AST_UNIT_LITERAL;
-    break;
-
-  case TOKEN_INT_LITERAL: {
-    expression->type = AST_INT_LITERAL;
-    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
-
-    char *end; // pointer to end of strtol() reading
-    errno = 0;
-    long value = strtol(parser->current_token->value, &end, 10);
-    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || value < INT32_MIN ||
-        value > INT32_MAX) {
-      print_err(ERROR_LEXICAL, "Invalid Int literal.");
-      return ERROR_LEXICAL;
-    }
-    expression->int_value = (int32_t)value;
-    break;
-  }
-  case TOKEN_DOUBLE_LITERAL: {
-    expression->type = AST_DOUBLE_LITERAL;
-    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
-
-    char *end; // pointer to end of strtod() reading
-    errno = 0;
-    double value = strtod(parser->current_token->value, &end);
-    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || !isfinite(value)) {
-      print_err(ERROR_LEXICAL, "Invalid Double literal.");
-      return ERROR_LEXICAL;
-    }
-    expression->double_value = value;
-    break;
-  }
-  case TOKEN_STRING_LITERAL:
-    expression->type = AST_STRING_LITERAL;
-    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
-
-    RETURN_IF_ERROR(ast_set_text(expression, parser->current_token->value));
-    break;
-  default:
-    RETURN_SYNTACTIC_ERROR(parser);
-  }
-
-  RETURN_IF_ERROR(new_token(parser));
-  RETURN_IF_ERROR(parse_expr_tail(parser, expression));
-
-  return ERROR_OK;
-} // parse_expr_non_id()
 
 ErrorCode parse_var_def(Parser *parser, ASTNode *block) {
   ASTNode *declaration = ast_create_node(AST_VAR_DECLARATION);

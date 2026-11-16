@@ -79,7 +79,7 @@ typedef enum ast_data_type {
  * - AST_EXPR: [expression], used for conditions, parentheses in expressions do not create a wrapper.
  * - AST_IDENTIFIER: text = name; no children.
  * - Literals: int_value, double_value or text according to type; no children.
- *   AST_UNIT_LITERAL has no payload.
+ *   AST_UNIT_LITERAL is created by PSA for () and has no payload.
  * The expression module supplies AST_BINARY_OP [left, right] and AST_UNARY_OP
  * [operand], with operator set. resolved_type is reserved for semantic analysis.
  */

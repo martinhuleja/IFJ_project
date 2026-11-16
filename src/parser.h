@@ -365,17 +365,6 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block);
 ErrorCode parse_assignment(Parser *parser, ASTNode *block);
 
 /**
- * @brief Parses ExprNonId according to LL grammar rules
- *
- * Creates a literal node or an AST_EXPR node for a parenthesized expression.
- *
- * @param parser Ptr to struct parser
- * @param parent Ptr to the parent node receiving the expression
- * @return ErrorCode according to specification of IFJ26
- */
-ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent);
-
-/**
  * @brief Parses VarDef according to LL grammar rules
  * @param parser Ptr to struct parser
  * @param block Ptr to the block node receiving the variable declaration

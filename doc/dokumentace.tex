@@ -80,7 +80,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
           FunctionBody, Block, StatementList, StatementListRest, Statement, StatementEnd,
           VarDef, VarKind, IfStatement, WhileStatement, ReturnStatement, ArgGroup, ArgList,
           ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, Call, EOLOrEOF,
-          Assignment, ExprNonId, ExprTail, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
+          Assignment, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
   \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, TypeInt,
           TypeDouble, TypeString, TypeUnit, Val, Var, If, Then, Else, While, Do, Return,
           AtMain, Def, IFJ26Id, Import, Assign, LParen, RParen, Colon, Comma, Semicolon,
@@ -177,16 +177,6 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, LParen $\}$ \\ \hline
   40  & Assignment $\rightarrow$ Identifier Assign ExprOrCall
       & $\{$ Identifier $\}$ \\ \hline
-  43  & ExprNonId $\rightarrow$ IntLiteral ExprTail
-      & $\{$ IntLiteral $\}$ \\ \hline
-  44  & ExprNonId $\rightarrow$ DoubleLiteral ExprTail
-      & $\{$ DoubleLiteral $\}$ \\ \hline
-  45  & ExprNonId $\rightarrow$ StringLiteral ExprTail
-      & $\{$ StringLiteral $\}$ \\ \hline
-  46  & ExprNonId $\rightarrow$ UnitLiteral ExprTail
-      & $\{$ UnitLiteral $\}$ \\ \hline
-  47  & ExprNonId $\rightarrow$ LParen Expr RParen ExprTail
-      & $\{$ LParen $\}$ \\ \hline
   48  & VarDef $\rightarrow$ VarKind Identifier TypeOpt Assign ExprOrCall
       & $\{$ Val, Var $\}$ \\ \hline
   49  & VarKind $\rightarrow$ Val
@@ -246,7 +236,7 @@ Proto v pravidlech vstupuje jako LParen. \\
 
 \noindent $\mathrm{checkLF}(token) \Longleftrightarrow token.type = RParen \wedge token.lf\_before\_rparen = true$ \\
 
-\noindent Neterminály Expr a ExprTail jsou vyhodnocovány samostatnou precedenční syntaktickou
+\noindent Neterminál Expr je vyhodnocován samostatnou precedenční syntaktickou
 analýzou zdola nahoru podle precedenční tabulky.
 
 % ====================
@@ -309,7 +299,6 @@ analýzou zdola nahoru podle precedenční tabulky.
   Call & 58 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
   Assignment & 40 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
-  ExprNonId & & 43 & 44 & 45 & 46 & & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & \\
   EOLOpt & & & & & & & & & & & & & & & & & & & 69 & & & & & & & & & & & & & 68 & \\
   \bottomrule
   \end{tabular}
