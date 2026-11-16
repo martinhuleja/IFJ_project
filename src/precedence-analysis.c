@@ -1,7 +1,7 @@
 /**
  * @file   precedence-analysis.c
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-14
+ * @date   2026-11-16
  *
  * @brief  Implementation of bottom-up precedence syntactic analysis
  */
@@ -11,6 +11,8 @@
 #include "error.h"
 #include "parser.h"
 #include "token.h"
+#include <errno.h>
+#include <math.h>
 #include <stdlib.h>
 
 /********************************************************************
@@ -24,9 +26,31 @@ PrecRelation get_relation(PrecSymbol stack_symbol, PrecSymbol input_symbol) {
   return (PrecRelation)precedence_table[stack_symbol][input_symbol];
 } // get_relation()
 
+PrecStack *stack_init() {
+  // Allocate the stack and prepare its bottom terminal $
+  PrecStack *stack = (PrecStack *)malloc(sizeof(PrecStack));
+  if (stack == NULL) {
+    print_err(ERROR_INTERNAL, "Couldn't allocate PrecStack.");
+    return NULL;
+  }
+
+  stack->top = create_stack_item();
+  if (stack->top == NULL) {
+    free(stack);
+    return NULL;
+  }
+  stack->top->type = PREC_STACK_TERMINAL;
+  stack->top->symbol = PREC_END;
+  return stack;
+} // stack_init()
+
 PrecStackItem *create_stack_item() {
   PrecStackItem *new_item = (PrecStackItem *)malloc(sizeof(PrecStackItem));
-  RETURN_INTERNAL_ERROR_IF_NULL(new_item, "Couldn't allocate precedence stack item.");
+  if (new_item == NULL) {
+    print_err(ERROR_INTERNAL, "Couldn't allocate PrecStackItem.");
+    return NULL;
+  }
+  *new_item = (PrecStackItem){0};
   return new_item;
 } // create_stack_item()
 
@@ -95,8 +119,100 @@ void stack_free(PrecStack *stack) {
       ast_node_free(item->node);
       free(item);
     }
+    free(stack);
   }
 } // stack_free()
+
+PrecSymbol get_prec_symbol(TokenType type) {
+  switch (type) {
+  case TOKEN_IDENTIFIER:
+  case TOKEN_INT_LITERAL:
+  case TOKEN_DOUBLE_LITERAL:
+  case TOKEN_STRING_LITERAL:
+    return PREC_OPERAND;
+  case TOKEN_MULTIPLY:
+  case TOKEN_DIVIDE:
+    return PREC_MULTIPLICATIVE;
+  case TOKEN_PLUS:
+  case TOKEN_MINUS:
+    return PREC_ADDITIVE;
+  case TOKEN_LESS:
+  case TOKEN_LESS_EQUAL:
+  case TOKEN_GREATER:
+  case TOKEN_GREATER_EQUAL:
+    return PREC_ORDERING;
+  case TOKEN_EQUAL:
+  case TOKEN_NOT_EQUAL:
+    return PREC_EQUALITY;
+  case TOKEN_LPAREN:
+    return PREC_LPAREN;
+  case TOKEN_RPAREN:
+    return PREC_RPAREN;
+  case TOKEN_NEWLINE:
+  case TOKEN_EOF:
+  case TOKEN_SEMICOLON:
+  case TOKEN_THEN:
+  case TOKEN_DO:
+  case TOKEN_COMMA:
+  // case TOKEN_RPAREN:
+    return PREC_END;
+  default:
+    return PREC_SYMBOL_COUNT;
+  }
+} // get_prec_symbol()
+
+ErrorCode fill_operand_node(Parser *parser, ASTNode *node) {
+  RETURN_IF_ERROR(check_current_token(parser));
+  RETURN_INTERNAL_ERROR_IF_NULL(node, "Operand node is NULL.");
+
+  switch (parser->current_token->type) {
+  case TOKEN_IDENTIFIER:
+    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Identifier token value is NULL.");
+    node->type = AST_IDENTIFIER;
+    RETURN_IF_ERROR(ast_set_text(node, parser->current_token->value));
+    break;
+
+  case TOKEN_STRING_LITERAL:
+    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "StringLiteral value is NULL.");
+    node->type = AST_STRING_LITERAL;
+    RETURN_IF_ERROR(ast_set_text(node, parser->current_token->value));
+    break;
+
+  case TOKEN_INT_LITERAL: {
+    node->type = AST_INT_LITERAL;
+    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "IntLiteral value is NULL.");
+
+    char *end; // pointer to end of strtol() reading
+    errno = 0;
+    long value = strtol(parser->current_token->value, &end, 10);
+    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || value < INT32_MIN ||
+        value > INT32_MAX) {
+      print_err(ERROR_LEXICAL, "Invalid Int literal.");
+      return ERROR_LEXICAL;
+    }
+    node->int_value = (int32_t)value;
+    break;
+  }
+  case TOKEN_DOUBLE_LITERAL: {
+    node->type = AST_DOUBLE_LITERAL;
+    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "DoubleLiteral value is NULL.");
+
+    char *end; // pointer to end of strtod() reading
+    errno = 0;
+    double value = strtod(parser->current_token->value, &end);
+    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || !isfinite(value)) {
+      print_err(ERROR_LEXICAL, "Invalid Double literal.");
+      return ERROR_LEXICAL;
+    }
+    node->double_value = value;
+    break;
+  }
+  default:
+    RETURN_SYNTACTIC_ERROR(parser);
+  }
+
+  return ERROR_OK;
+} // fill_operand_node()
 
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************

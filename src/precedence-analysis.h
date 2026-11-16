@@ -1,7 +1,7 @@
 /**
  * @file   precedence-analysis.h
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-14
+ * @date   2026-11-16
  *
  * @brief  Header file for precedence analysis functions
  *
@@ -96,7 +96,14 @@ typedef struct precedence_stack {
 PrecRelation get_relation(PrecSymbol stack_symbol, PrecSymbol input_symbol);
 
 /**
- * @brief Allocates memory for PrecStackItem
+ * @brief Allocates a precedence stack and inserts its bottom terminal $
+ *
+ * @return Ptr to the initialized stack, or NULL on allocation failure
+ */
+PrecStack *stack_init();
+
+/**
+ * @brief Allocates and zero-initializes a PrecStackItem
  *
  * @return Ptr to allocated PrecStackItem, or NULL
  */
@@ -106,7 +113,7 @@ PrecStackItem *create_stack_item();
  * @brief Pushes an item onto the precedence stack
  *
  * @param stack Ptr to the initialized stack
- * @param item Item to copy onto the stack
+ * @param item Ptr to an item whose ownership is transferred to the stack on success
  * @return ERROR_OK on success, or ERROR_INTERNAL
  */
 ErrorCode stack_push(PrecStack *stack, PrecStackItem *item);
@@ -132,13 +139,30 @@ PrecStackItem *stack_top_terminal(PrecStack *stack);
 ErrorCode stack_mark(PrecStack *stack);
 
 /**
- * @brief Frees all items and their owned subtrees
+ * @brief Frees the allocated stack, all its items and their owned subtrees
  *
- * Sets top to NULL. Does not free the stack object itself. A NULL stack is ignored.
- *
- * @param stack Ptr to the initialized stack
+ * @param stack Ptr to a stack allocated by stack_init()
  */
 void stack_free(PrecStack *stack);
+
+/**
+ * @brief Maps the current token type to a precedence table class
+ *
+ * @param type Type of the current token
+ * @return PREC_OPERAND, PREC_END, or PREC_SYMBOL_COUNT for an unsupported token
+ */
+PrecSymbol get_prec_symbol(TokenType type);
+
+/**
+ * @brief Fills an AST node from the current identifier or literal
+ *
+ * Copies identifier and string text.
+ *
+ * @param parser Ptr to struct parser
+ * @param node Ptr to an empty AST node receiving the operand's type and value
+ * @return ERROR_OK on success, or other ErrorCode on failure
+ */
+ErrorCode fill_operand_node(Parser *parser, ASTNode *node);
 
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
