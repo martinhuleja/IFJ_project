@@ -153,9 +153,17 @@ void stack_free(PrecStack *stack);
  * @brief Maps the current token type to a precedence table class
  *
  * @param type Type of the current token
- * @return PREC_OPERAND, PREC_END, or PREC_SYMBOL_COUNT for an unsupported token
+ * @return Corresponding precedence class, or PREC_SYMBOL_COUNT for an unsupported token
  */
 PrecSymbol get_prec_symbol(TokenType type);
+
+/**
+ * @brief Maps a binary operator token to its specific AST operation
+ *
+ * @param type Type of the current token
+ * @return Corresponding ASTOperator, or AST_OP_NONE for an unsupported token
+ */
+ASTOperator get_ast_operator(TokenType type);
 
 /**
  * @brief Fills an AST node from the current identifier or literal
@@ -168,12 +176,26 @@ PrecSymbol get_prec_symbol(TokenType type);
  */
 ErrorCode fill_operand_node(Parser *parser, ASTNode *node);
 
+/**
+ * @brief Reduces the marked handle E op E to one expression owning an AST_BINARY_OP subtree
+ *
+ * Preserves operand order. On failure the caller still owns the stack and must free it.
+ *
+ * @param stack Ptr to the initialized stack
+ * @return ERROR_OK on success, ERROR_SYNTACTIC for an invalid handle, or ERROR_INTERNAL for invalid pointers/allocation
+ */
+ErrorCode reduce_binary(PrecStack *stack);
+
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
  *******************************************************************/
 
 /**
  * @brief Parses expression by bottom-up syntactic analysis
+ *
+ * Supports identifiers, numeric/string literals and binary arithmetic/comparison operators according to the table.
+ * Appends one subtree on success and leaves its terminating token unconsumed.
+ * On failure releases partial subtrees and leaves parent unchanged.
  *
  * @param parser Ptr to struct parser
  * @param parent Ptr to the parent node receiving expression

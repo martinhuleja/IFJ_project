@@ -108,6 +108,7 @@ ErrorCode new_token(Parser *parser) {
   if (parser->current_token != NULL) {
     free(parser->current_token->value);
     free(parser->current_token);
+    parser->current_token = NULL;
   }
 
   if (parser->next_token != NULL) {
