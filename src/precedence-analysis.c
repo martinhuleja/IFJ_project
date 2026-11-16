@@ -144,15 +144,14 @@ PrecSymbol get_prec_symbol(TokenType type) {
     return PREC_EQUALITY;
   case TOKEN_LPAREN:
     return PREC_LPAREN;
-  // case TOKEN_RPAREN:
-    // return PREC_RPAREN;
+  case TOKEN_RPAREN:
+    return PREC_RPAREN;
   case TOKEN_NEWLINE:
   case TOKEN_EOF:
   case TOKEN_SEMICOLON:
   case TOKEN_THEN:
   case TOKEN_DO:
   case TOKEN_COMMA:
-  case TOKEN_RPAREN:
     return PREC_END;
   default:
     return PREC_SYMBOL_COUNT;
@@ -337,6 +336,52 @@ ErrorCode reduce_unary(PrecStack *stack) {
   return ERROR_OK;
 } // reduce_unary()
 
+ErrorCode reduce_parentheses(PrecStack *stack) {
+  RETURN_INTERNAL_ERROR_IF_NULL(stack, "PrecStack is NULL.");
+
+  // Find the left parenthesis, with an optional expression between the parentheses
+  PrecStackItem *right = stack->top;
+  if (right == NULL || right->type != PREC_STACK_TERMINAL || right->symbol != PREC_RPAREN) {
+    return ERROR_SYNTACTIC;
+  }
+
+  PrecStackItem *middle = right->next;
+  if (middle == NULL) {
+    return ERROR_SYNTACTIC;
+  }
+
+  PrecStackItem *left = middle->type == PREC_STACK_EXPRESSION ? middle->next : middle;
+  if (left == NULL || left->type != PREC_STACK_TERMINAL || left->symbol != PREC_LPAREN) {
+    return ERROR_SYNTACTIC;
+  }
+
+  PrecStackItem *marker = left->next;
+  if (marker == NULL || marker->type != PREC_STACK_MARK) {
+    return ERROR_SYNTACTIC;
+  }
+
+  ASTNode *node;
+  if (middle == left) {
+    // Empty parentheses represent the UnitLiteral
+    node = ast_create_node(AST_UNIT_LITERAL);
+    RETURN_INTERNAL_ERROR_IF_NULL(node, NULL);
+  } else {
+    // Grouping keeps the inner subtree without adding an AST wrapper
+    RETURN_INTERNAL_ERROR_IF_NULL(middle->node, "Parenthesized expression node is NULL.");
+    node = middle->node;
+    middle->node = NULL;
+    free(middle);
+  }
+
+  // Replace ( E ) or ( ) with one expression
+  right->type = PREC_STACK_EXPRESSION;
+  right->node = node;
+  right->next = marker->next;
+  free(left);
+  free(marker);
+  return ERROR_OK;
+} // reduce_parentheses()
+
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
  *******************************************************************/
@@ -350,10 +395,16 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
   RETURN_INTERNAL_ERROR_IF_NULL(stack, NULL);
   ErrorCode return_value = ERROR_OK;
   bool expect_operand = true;
+  size_t parenthesis_depth = 0;
 
   while (return_value == ERROR_OK) {
     // Compare the nearest stack terminal with the current input symbol
     PrecSymbol input_symbol = get_prec_symbol(parser->current_token->type);
+
+    // A parenthesis not opened by this call belongs to the calling parser
+    if (input_symbol == PREC_RPAREN && parenthesis_depth == 0) {
+      input_symbol = PREC_END;
+    }
 
     // A minus before an operand is unary; after an operand it is binary
     if (parser->current_token->type == TOKEN_MINUS && expect_operand) {
@@ -400,7 +451,7 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
           break;
         }
         return_value = fill_operand_node(parser, new_item->node);
-      } else {
+      } else if (input_symbol != PREC_LPAREN && input_symbol != PREC_RPAREN) {
         if (input_symbol == PREC_UNARY_MINUS) {
           new_item->operator = AST_OP_NEGATION;
         } else {
@@ -418,8 +469,15 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
         // Transfer ownership to the stack only after the item is filled successfully
         return_value = stack_push(stack, new_item);
 
+        // Track only parentheses shifted by this call
+        if (input_symbol == PREC_LPAREN) {
+          parenthesis_depth++;
+        } else if (input_symbol == PREC_RPAREN) {
+          parenthesis_depth--;
+        }
+
         // Only shifted tokens change whether the next token should be an operand
-        expect_operand = input_symbol != PREC_OPERAND;
+        expect_operand = input_symbol != PREC_OPERAND && input_symbol != PREC_RPAREN;
         return_value = new_token(parser);
       } else {
         ast_node_free(new_item->node);
@@ -430,8 +488,10 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
     case PREC_REDUCE: {
       PrecStackItem *second_item = stack->top->next;
 
-      // Ruduce an operand
-      if (stack->top->type == PREC_STACK_TERMINAL && stack->top->symbol == PREC_OPERAND) {
+      // Reduce parentheses before handling operands and operators
+      if (stack->top->type == PREC_STACK_TERMINAL && stack->top->symbol == PREC_RPAREN) {
+        return_value = reduce_parentheses(stack);
+      } else if (stack->top->type == PREC_STACK_TERMINAL && stack->top->symbol == PREC_OPERAND) {
         // Check the complete handle before reducing i to E
         if (second_item == NULL || second_item->type != PREC_STACK_MARK) {
           return_value = ERROR_SYNTACTIC;

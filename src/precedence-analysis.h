@@ -198,6 +198,16 @@ ErrorCode reduce_binary(PrecStack *stack);
  */
 ErrorCode reduce_unary(PrecStack *stack);
 
+/**
+ * @brief Reduces ( E ) by reusing its subtree, or ( ) by creating an AST_UNIT_LITERAL
+ *
+ * Removes the parentheses and their handle marker. On failure the caller must free the stack.
+ *
+ * @param stack Ptr to the initialized stack with a closing parenthesis at its top
+ * @return ERROR_OK on success, ERROR_SYNTACTIC for an invalid handle, or ERROR_INTERNAL for invalid pointers/allocation
+ */
+ErrorCode reduce_parentheses(PrecStack *stack);
+
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
  *******************************************************************/
@@ -205,9 +215,8 @@ ErrorCode reduce_unary(PrecStack *stack);
 /**
  * @brief Parses expression by bottom-up syntactic analysis
  *
- * Supports identifiers, numeric/string literals and binary arithmetic/comparison operators according to the table.
- * Resolves unary minus from its position and builds AST_UNARY_OP nodes.
- * Appends one subtree on success and leaves its terminating token unconsumed.
+ * Works according to precedence grammar and precedence table in documentation.
+ * Appends one subtree on success and leaves its terminating token (including closing parenthesis) unconsumed.
  * On failure releases partial subtrees and leaves parent unchanged.
  *
  * @param parser Ptr to struct parser
