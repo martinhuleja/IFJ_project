@@ -433,7 +433,7 @@ ErrorCode parse_return_statement(Parser *parser, ASTNode *block);
 ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node);
 
 /**
- * @brief Parses ExprOrCall according to LL grammar rules
+ * @brief Parses ExprOrCall using the next token to distinguish a call from an expression
  * @param parser Ptr to struct parser
  * @param parent Ptr to the parent node receiving the expression or function call
  * @return ErrorCode according to specification of IFJ26
@@ -441,12 +441,12 @@ ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node);
 ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent);
 
 /**
- * @brief Parses CallOpt according to LL grammar rules
+ * @brief Parses Call according to LL grammar rules
  * @param parser Ptr to struct parser
- * @param expression Ptr to the expression node holding the consumed identifier
+ * @param parent Ptr to the parent node receiving the function call
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_call_opt(Parser *parser, ASTNode *expression);
+ErrorCode parse_call(Parser *parser, ASTNode *parent);
 
 /**
  * @brief Parses ArgGroup according to LL grammar rules

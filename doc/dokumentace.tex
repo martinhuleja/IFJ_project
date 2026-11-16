@@ -79,7 +79,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
           ParamGroup, ParamListOpt, ParamList, ParamListRest, Param, TypeOpt, Type,
           FunctionBody, Block, StatementList, StatementListRest, Statement, StatementEnd,
           VarDef, VarKind, IfStatement, WhileStatement, ReturnStatement, ArgGroup, ArgList,
-          ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, CallOpt, EOLOrEOF,
+          ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, Call, EOLOrEOF,
           StatementAfterId, ExprNonId, ExprTail, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
   \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, TypeInt,
           TypeDouble, TypeString, TypeUnit, Val, Var, If, Then, Else, While, Do, Return,
@@ -207,14 +207,12 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
   55  & ReturnExprOpt $\rightarrow \varepsilon$
       & $\{$ EOL, Semicolon $\}$ \\ \hline
-  56  & ExprOrCall $\rightarrow$ Identifier CallOpt
+  56  & ExprOrCall $\rightarrow$ Call
       & $\{$ Identifier $\}$ \\ \hline
   57  & ExprOrCall $\rightarrow$ Expr
-      & $\{$ IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  58  & CallOpt $\rightarrow$ ArgGroup
-      & $\{$ LParen $\}$ \\ \hline
-  59  & CallOpt $\rightarrow \varepsilon$
-      & $\{$ EOL, EOF, Semicolon $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, LParen $\}$ \\ \hline
+  58  & Call $\rightarrow$ Identifier ArgGroup
+      & $\{$ Identifier $\}$ \\ \hline
   60  & ArgGroup $\rightarrow$ LParen ArgListOpt RParen
       & $\{$ LParen $\}$ \\ \hline
   61  & ArgListOpt $\rightarrow$ ArgList
@@ -237,6 +235,16 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ Def $\}$ \\ \hline
 
 \end{xltabular}
+
+\noindent Rozhodnutí ExprOrCall používá dva tokeny výhledu:
+
+\begin{itemize}
+  \item pro dvojici Identifier LParen se zvolí pravidlo 56,
+  \item pro Identifier následovaný jiným tokenem pravidlo 57.
+\end{itemize}
+
+Překryv množin Predict v Identifier je tedy řešen druhým tokenem. V LL tabulce je tato volba označena 56/57.
+UnitLiteral je ve vstupu dvojice LParen RParen a rozpoznává jej PSA; proto v pravidlech vstupuje jako LParen. \\
 
 \noindent $\mathrm{checkLF}(token) \Longleftrightarrow token.type = RParen \wedge token.lf\_before\_rparen = true$ \\
 
@@ -293,14 +301,14 @@ analýzou zdola nahoru podle precedenční tabulky.
   IfStatement & & & & & & & & & & & & 51 & & & & & & & & & & & & & & & & & & & & & \\
   WhileStatement & & & & & & & & & & & & & & & 52 & & & & & & & & & & & & & & & & & & \\
   ReturnStatement & & & & & & & & & & & & & & & & & 53 & & & & & & & & & & & & & & & & \\
-  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 59 & & & & & & & & & & \\
+  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 60 & & & & & & & & & & \\
   ArgList & 63 & 63 & 63 & 63 & 63 & & & & & & & & & & & & & & & & & & 63 & & & & & & & & & & \\
   ArgListOpt & 61 & 61 & 61 & 61 & 61 & & & & & & & & & & & & & & & & & & 61 & 62 & & & & & & & & & \\
   ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 65 & & 64 & & & & & & & \\
   ArgListRestTail & 66 & 66 & 66 & 66 & 66 & & & & & & & & & & & & & & & & & & 66 & 67 & & & & & & & & & \\
-  ExprOrCall & 56 & 57 & 57 & 57 & 57 & & & & & & & & & & & & & & & & & & 57 & & & & & & & & & & \\
+  ExprOrCall & 56/57 & 57 & 57 & 57 & & & & & & & & & & & & & & & & & & & 57 & & & & & & & & & & \\
   ReturnExprOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & & & & 55 & & & & & 55 & \\
-  CallOpt & & & & & & & & & & & & & & & & & & & & & & & 58 & & & & 59 & & & & & 59 & 59 \\
+  Call & 58 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
   StatementAfterId & & & & & & & & & & & & & & & & & & & & & & 40 & 41 & & & & 42 & & & & & 42 & \\
   ExprNonId & & 43 & 44 & 45 & 46 & & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & \\

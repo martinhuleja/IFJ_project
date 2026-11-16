@@ -736,16 +736,14 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-  case TOKEN_IDENTIFIER: {
-    ASTNode *expression = ast_create_node(AST_IDENTIFIER);
-    RETURN_INTERNAL_ERROR_IF_NULL(expression, NULL);
-    RETURN_IF_ERROR(ast_add_child(parent, expression));
-    RETURN_IF_ERROR(ast_set_text(expression, parser->current_token->value));
-
-    RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_call_opt(parser, expression));
-    break;
-  }
+  case TOKEN_IDENTIFIER:
+    // Keep the identifier for PSA unless the next token starts a call
+    RETURN_IF_ERROR(look_up_next_token(parser));
+    if (token_matches_next_token(parser, TOKEN_LPAREN)) {
+      RETURN_IF_ERROR(parse_call(parser, parent));
+      break;
+    }
+    // fall through
   case TOKEN_INT_LITERAL:
     // fall through
   case TOKEN_DOUBLE_LITERAL:
@@ -762,20 +760,22 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   return ERROR_OK;
 } // parse_expr_or_call()
 
-ErrorCode parse_call_opt(Parser *parser, ASTNode *expression) {
-  RETURN_INTERNAL_ERROR_IF_NULL(expression, "Expression node in ASTree is NULL.");
+ErrorCode parse_call(Parser *parser, ASTNode *parent) {
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
+  RETURN_INTERNAL_ERROR_IF_NULL(parent, "Parent node in ASTree is NULL.");
 
-  if (tokens_matches(parser, TOKEN_LPAREN)) {
-    expression->type = AST_CALL;
-    RETURN_IF_ERROR(parse_arg_group(parser, expression));
-    return ERROR_OK;
-  } else if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF) ||
-             tokens_matches(parser, TOKEN_SEMICOLON)) {
-    return ERROR_OK;
-  } else {
-    RETURN_SYNTACTIC_ERROR(parser);
-  }
-} // parse_call_opt()
+
+  ASTNode *call = ast_create_node(AST_CALL);
+  RETURN_INTERNAL_ERROR_IF_NULL(call, NULL);
+  RETURN_IF_ERROR(ast_add_child(parent, call));
+  // Save the function name before consuming the identifier
+  RETURN_IF_ERROR(ast_set_text(call, parser->current_token->value));
+
+  RETURN_IF_ERROR(new_token(parser));
+  RETURN_IF_ERROR(parse_arg_group(parser, call));
+
+  return ERROR_OK;
+} // parse_call()
 
 ErrorCode parse_arg_group(Parser *parser, ASTNode *call) {
   ASTNode *arg_list = ast_create_node(AST_ARG_LIST);
