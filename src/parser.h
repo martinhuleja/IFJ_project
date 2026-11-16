@@ -349,7 +349,7 @@ ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block);
 ErrorCode parse_statement_end(Parser *parser);
 
 /**
- * @brief Parses Statement according to LL grammar rules
+ * @brief Parses Statement using the next token to distinguish an assignment from an expression or call
  * @param parser Ptr to struct parser
  * @param block Ptr to the block node receiving the statement
  * @return ErrorCode according to specification of IFJ26
@@ -357,12 +357,12 @@ ErrorCode parse_statement_end(Parser *parser);
 ErrorCode parse_statement(Parser *parser, ASTNode *block);
 
 /**
- * @brief Parses StatementAfterID according to LL grammar rules
+ * @brief Parses Assignment according to LL grammar rules
  * @param parser Ptr to struct parser
- * @param statement Ptr to the statement node holding the consumed identifier
+ * @param block Ptr to the block node receiving the assignment
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement);
+ErrorCode parse_assignment(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses ExprNonId according to LL grammar rules

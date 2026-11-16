@@ -80,7 +80,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
           FunctionBody, Block, StatementList, StatementListRest, Statement, StatementEnd,
           VarDef, VarKind, IfStatement, WhileStatement, ReturnStatement, ArgGroup, ArgList,
           ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, Call, EOLOrEOF,
-          StatementAfterId, ExprNonId, ExprTail, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
+          Assignment, ExprNonId, ExprTail, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
   \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, TypeInt,
           TypeDouble, TypeString, TypeUnit, Val, Var, If, Then, Else, While, Do, Return,
           AtMain, Def, IFJ26Id, Import, Assign, LParen, RParen, Colon, Comma, Semicolon,
@@ -171,16 +171,12 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ While $\}$ \\ \hline
   37  & Statement $\rightarrow$ ReturnStatement
       & $\{$ Return $\}$ \\ \hline
-  38  & Statement $\rightarrow$ Identifier StatementAfterId
+  38  & Statement $\rightarrow$ Assignment
       & $\{$ Identifier $\}$ \\ \hline
-  39  & Statement $\rightarrow$ ExprNonId
-      & $\{$ IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  40  & StatementAfterId $\rightarrow$ Assign ExprOrCall
-      & $\{$ Assign $\}$ \\ \hline
-  41  & StatementAfterId $\rightarrow$ ArgGroup
-      & $\{$ LParen $\}$ \\ \hline
-  42  & StatementAfterId $\rightarrow$ ExprTail
-      & $\{$ EOL, Semicolon $\}$ \\ \hline
+  39  & Statement $\rightarrow$ ExprOrCall
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, LParen $\}$ \\ \hline
+  40  & Assignment $\rightarrow$ Identifier Assign ExprOrCall
+      & $\{$ Identifier $\}$ \\ \hline
   43  & ExprNonId $\rightarrow$ IntLiteral ExprTail
       & $\{$ IntLiteral $\}$ \\ \hline
   44  & ExprNonId $\rightarrow$ DoubleLiteral ExprTail
@@ -236,15 +232,17 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
 
 \end{xltabular}
 
-\noindent Rozhodnutí ExprOrCall používá dva tokeny výhledu:
+\noindent Některé pravidla používají pro rozhodnutí dva tokeny výhledu:
 
 \begin{itemize}
-  \item pro dvojici Identifier LParen se zvolí pravidlo 56,
-  \item pro Identifier následovaný jiným tokenem pravidlo 57.
+  \item Statement: pro Identifier Assign se zvolí pravidlo 38, pro pro Identifier následovaný jiným tokenem pravidlo 39
+  \item ExprOrCall: pro Identifier LParen se zvolí pravidlo 56, pro Identifier následovaný jiným tokenem
+    pravidlo 57,
 \end{itemize}
 
-Překryv množin Predict v Identifier je tedy řešen druhým tokenem. V LL tabulce je tato volba označena 56/57.
-UnitLiteral je ve vstupu dvojice LParen RParen a rozpoznává jej PSA; proto v pravidlech vstupuje jako LParen. \\
+Překryv množin Predict v Identifier je tedy řešen druhým tokenem. V LL tabulce je tato volba označena 38/39 a 56/57.
+UnitLiteral je ve vstupu dvojice LParen RParen a rozpoznává jej precedenční syntatická analýza.
+Proto v pravidlech vstupuje jako LParen. \\
 
 \noindent $\mathrm{checkLF}(token) \Longleftrightarrow token.type = RParen \wedge token.lf\_before\_rparen = true$ \\
 
@@ -294,7 +292,7 @@ analýzou zdola nahoru podle precedenční tabulky.
   Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 28 & & & \\
   StatementList & 29 & 29 & 29 & 29 & 29 & & & & & 29 & 29 & 29 & & & 29 & & 29 & & & & & & 29 & & & & & & & & & & \\
   StatementListRest & 30 & 30 & 30 & 30 & 30 & & & & & 30 & 30 & 30 & & & 30 & & 30 & & & & & & 30 & & & & & & & & 31 & & \\
-  Statement & 38 & 39 & 39 & 39 & 39 & & & & & 34 & 34 & 35 & & & 36 & & 37 & & & & & & 39 & & & & & & & & & & \\
+  Statement & 38/39 & 39 & 39 & 39 & & & & & & 34 & 34 & 35 & & & 36 & & 37 & & & & & & 39 & & & & & & & & & & \\
   StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & & 32 & \\
   VarDef & & & & & & & & & & 48 & 48 & & & & & & & & & & & & & & & & & & & & & & \\
   VarKind & & & & & & & & & & 49 & 50 & & & & & & & & & & & & & & & & & & & & & & \\
@@ -310,7 +308,7 @@ analýzou zdola nahoru podle precedenční tabulky.
   ReturnExprOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & & & & 55 & & & & & 55 & \\
   Call & 58 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
-  StatementAfterId & & & & & & & & & & & & & & & & & & & & & & 40 & 41 & & & & 42 & & & & & 42 & \\
+  Assignment & 40 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   ExprNonId & & 43 & 44 & 45 & 46 & & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & \\
   EOLOpt & & & & & & & & & & & & & & & & & & & 69 & & & & & & & & & & & & & 68 & \\
   \bottomrule

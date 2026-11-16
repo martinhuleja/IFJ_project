@@ -68,15 +68,15 @@ typedef enum ast_data_type {
  * - AST_FUNCTION: text = name, is_main, declared_type; [AST_PARAM_LIST, AST_BLOCK].
  * - AST_PARAM_LIST: parameters in declaration order.
  * - AST_PARAM: text = name, declared_type; no children.
- * - AST_BLOCK: statements in source order; a one-line function body contains one expression or call directly.
+ * - AST_BLOCK: statements in source order; expressions and calls are stored directly, also in a one-line body.
  * - AST_VAR_DECLARATION: text = name, is_changeable, declared_type; [initializer].
- * - AST_ASSIGN: text = target name; [assigned expression or call].
+ * - AST_ASSIGN: text = target name (no identifier child); [assigned expression or call].
  * - AST_IF: [AST_EXPR condition, AST_BLOCK then, AST_BLOCK else].
  * - AST_WHILE: [AST_EXPR condition, AST_BLOCK body].
  * - AST_RETURN: explicit return only; [expression or call], or no children for a bare return.
  * - AST_CALL: text = function name; [AST_ARG_LIST], including for an empty call.
  * - AST_ARG_LIST: expressions in argument order.
- * - AST_EXPR: [expression], used for conditions and parenthesized statements.
+ * - AST_EXPR: [expression], used for conditions, parentheses in expressions do not create a wrapper.
  * - AST_IDENTIFIER: text = name; no children.
  * - Literals: int_value, double_value or text according to type; no children.
  *   AST_UNIT_LITERAL has no payload.

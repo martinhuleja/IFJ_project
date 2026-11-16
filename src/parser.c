@@ -503,16 +503,14 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
   case TOKEN_RETURN:
     RETURN_IF_ERROR(parse_return_statement(parser, block));
     break;
-  case TOKEN_IDENTIFIER: {
-    ASTNode *statement = ast_create_node(AST_IDENTIFIER);
-    RETURN_INTERNAL_ERROR_IF_NULL(statement, NULL);
-    RETURN_IF_ERROR(ast_add_child(block, statement));
-    RETURN_IF_ERROR(ast_set_text(statement, parser->current_token->value));
-
-    RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_statement_after_id(parser, statement));
-    break;
-  }
+  case TOKEN_IDENTIFIER:
+    // Keep the identifier until assignment or expression parsing consumes it
+    RETURN_IF_ERROR(look_up_next_token(parser));
+    if (token_matches_next_token(parser, TOKEN_ASSIGN)) {
+      RETURN_IF_ERROR(parse_assignment(parser, block));
+      break;
+    }
+    // fall through
   case TOKEN_INT_LITERAL:
     // fall through
   case TOKEN_DOUBLE_LITERAL:
@@ -520,7 +518,7 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
   case TOKEN_STRING_LITERAL:
     // fall through
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr_non_id(parser, block));
+    RETURN_IF_ERROR(parse_expr_or_call(parser, block));
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
@@ -529,32 +527,22 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
   return ERROR_OK;
 } // parse_statement()
 
-ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement) {
-  RETURN_INTERNAL_ERROR_IF_NULL(statement, "Statement node in ASTree is NULL.");
+ErrorCode parse_assignment(Parser *parser, ASTNode *block) {
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
+  RETURN_INTERNAL_ERROR_IF_NULL(block, "Block node in ASTree is NULL.");
 
-  RETURN_IF_ERROR(check_current_token(parser));
+  ASTNode *assignment = ast_create_node(AST_ASSIGN);
+  RETURN_INTERNAL_ERROR_IF_NULL(assignment, NULL);
+  RETURN_IF_ERROR(ast_add_child(block, assignment));
+  // Store the target name in the assignment node before consuming it
+  RETURN_IF_ERROR(ast_set_text(assignment, parser->current_token->value));
 
-  switch (parser->current_token->type) {
-  case TOKEN_ASSIGN:
-    statement->type = AST_ASSIGN;
-    RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_expr_or_call(parser, statement));
-    break;
-  case TOKEN_LPAREN:
-    statement->type = AST_CALL;
-    RETURN_IF_ERROR(parse_arg_group(parser, statement));
-    break;
-  case TOKEN_NEWLINE:
-    // fall through
-  case TOKEN_SEMICOLON:
-    RETURN_IF_ERROR(parse_expr_tail(parser, statement));
-    break;
-  default:
-    RETURN_SYNTACTIC_ERROR(parser);
-  }
+  RETURN_IF_ERROR(new_token(parser));
+  RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
+  RETURN_IF_ERROR(parse_expr_or_call(parser, assignment));
 
   return ERROR_OK;
-} // parse_statement_after_id()
+} // parse_assignment()
 
 ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
   RETURN_IF_ERROR(check_current_token(parser));
