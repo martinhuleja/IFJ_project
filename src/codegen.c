@@ -114,6 +114,45 @@ bool codegen_var_declaration(CodegenFrame frame, const ASTNode *node)
     return codegen_move_literal(frame, node->text, initializer);
 }
 
+static bool codegen_arithmetic_expression(CodegenFrame frame, const char *dest, const ASTNode *expr)
+{
+    if (expr == NULL || expr->type != AST_BINARY_OP || (expr->operator != AST_OP_ADD && expr->operator != AST_OP_SUB && expr->operator != AST_OP_MUL) || expr->children_count != 2 || expr->children == NULL) {
+        return false;
+    }
+    const ASTNode *left = expr->children[0];
+    const ASTNode *right = expr->children[1];
+    if (left == NULL || right == NULL || right->type != AST_INT_LITERAL) {
+        return false;
+    }
+    const char *source_name;
+    if (left->type == AST_IDENTIFIER) {
+        if (left->text == NULL) {
+            return false;
+        }
+        source_name = left->text;
+    }
+    else {
+        if (!codegen_arithmetic_expression(frame, dest, left)) {
+            return false;
+        }
+        source_name = dest;
+    }
+    switch (expr->operator) {
+    case AST_OP_ADD:
+        codegen_add_int(frame, dest, frame, source_name, right->int_value);
+        break;
+    case AST_OP_SUB:
+        codegen_sub_int(frame, dest, frame, source_name, right->int_value);
+        break;
+    case AST_OP_MUL:
+        codegen_mul_int(frame, dest, frame, source_name, right->int_value);
+        break;
+    default:
+        return false;
+    }
+    return true;
+}
+
 bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
 {
     if (node == NULL || node->type != AST_ASSIGN || node->text == NULL || node->children_count != 1 || node->children == NULL) {
@@ -128,16 +167,7 @@ bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
         return true;
     }
     if (value != NULL && value->type == AST_BINARY_OP) {
-        if (value->operator != AST_OP_ADD || value->children_count != 2 || value->children == NULL) {
-            return false;
-        }
-        const ASTNode *left = value->children[0];
-        const ASTNode *right = value->children[1];
-        if (left == NULL || left->type != AST_IDENTIFIER || left->text == NULL || right == NULL || right->type != AST_INT_LITERAL) {
-            return false;
-        }
-        codegen_add_int(frame, node->text, frame, left->text, right->int_value);
-        return true;
+        return codegen_arithmetic_expression(frame, node->text, value);
     }
     return codegen_move_literal(frame, node->text, value);
 }
@@ -174,6 +204,28 @@ bool codegen_block(CodegenFrame frame, const ASTNode *node)
 void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
 {
     printf("ADD ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_sub_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("SUB ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("MUL ");
     codegen_variable(dest_frame, dest_name);
     printf(" ");
     codegen_variable(source_frame, source_name);

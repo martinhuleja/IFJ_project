@@ -34,7 +34,8 @@ MOVE TF@zdroj int@42
 DEFVAR TF@cislo
 MOVE TF@cislo int@41
 MOVE TF@cislo TF@zdroj
-ADD TF@cislo TF@cislo int@1
+SUB TF@cislo TF@cislo int@1
+MUL TF@cislo TF@cislo int@2
 CALL vypis_cislo
 WRITE TF@cislo
 WRITE string@\010

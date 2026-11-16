@@ -107,14 +107,26 @@ int main(void)
         .int_value = 1
     };
     ASTNode *operands[] = {&left, &right};
-    ASTNode addition = {
+    ASTNode operation = {
         .type = AST_BINARY_OP,
-        .operator = AST_OP_ADD,
+        .operator = AST_OP_SUB,
         .children = operands,
         .children_count = 2,
         .children_capacity = 2
     };
-    ASTNode *increment_children[] = {&addition};
+    ASTNode two = {
+        .type = AST_INT_LITERAL,
+        .int_value = 2
+    };
+    ASTNode *outer_operands[] = {&operation, &two};
+    ASTNode outer_operation = {
+        .type = AST_BINARY_OP,
+        .operator = AST_OP_MUL,
+        .children = outer_operands,
+        .children_count = 2,
+        .children_capacity = 2
+    };
+    ASTNode *increment_children[] = {&outer_operation};
     ASTNode increment = {
         .type = AST_ASSIGN,
         .text = name,

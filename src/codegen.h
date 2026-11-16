@@ -37,7 +37,10 @@ bool codegen_block(CodegenFrame frame, const ASTNode *node);
 void codegen_move_int(CodegenFrame frame, const char *name, long long value);
 void codegen_move_var(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name);
 bool codegen_move_literal(CodegenFrame frame, const char *name, const ASTNode *node);
+
 void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
+void codegen_sub_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
+void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
 
 void codegen_write_var(CodegenFrame frame, const char *name);
 void codegen_label(const char *name);
