@@ -34,23 +34,21 @@ PrecStack *stack_init() {
     return NULL;
   }
 
-  stack->top = create_stack_item();
+  stack->top = create_stack_item(PREC_STACK_TERMINAL, PREC_END);
   if (stack->top == NULL) {
     free(stack);
     return NULL;
   }
-  stack->top->type = PREC_STACK_TERMINAL;
-  stack->top->symbol = PREC_END;
   return stack;
 } // stack_init()
 
-PrecStackItem *create_stack_item() {
+PrecStackItem *create_stack_item(PrecStackItemType type, PrecSymbol symbol) {
   PrecStackItem *new_item = (PrecStackItem *)malloc(sizeof(PrecStackItem));
   if (new_item == NULL) {
     print_err(ERROR_INTERNAL, "Couldn't allocate PrecStackItem.");
     return NULL;
   }
-  *new_item = (PrecStackItem){0};
+  *new_item = (PrecStackItem){.type = type, .symbol = symbol};
   return new_item;
 } // create_stack_item()
 
@@ -219,10 +217,93 @@ ErrorCode fill_operand_node(Parser *parser, ASTNode *node) {
  *******************************************************************/
 
 ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
-  (void)parser;
-  (void)parent;
-  return ERROR_OK;
-}
+  RETURN_IF_ERROR(check_current_token(parser));
+  RETURN_INTERNAL_ERROR_IF_NULL(parent, "Expression parent node is NULL.");
+
+  // Allocate the stack with its bottom terminal $ before processing operands
+  PrecStack *stack = stack_init();
+  RETURN_INTERNAL_ERROR_IF_NULL(stack, NULL);
+  ErrorCode return_value = ERROR_OK;
+
+  while (return_value == ERROR_OK) {
+    // Compare the nearest stack terminal with the current input symbol
+    PrecSymbol input_symbol = get_prec_symbol(parser->current_token->type);
+    PrecStackItem *terminal = stack_top_terminal(stack);
+    if (terminal == NULL) {
+      return_value = ERROR_INTERNAL;
+      break;
+    }
+
+    // Accept only $ E and leave the expression terminator unconsumed
+    if (input_symbol == PREC_END && stack->top->type == PREC_STACK_EXPRESSION && stack->top->next == terminal &&
+        terminal->symbol == PREC_END && terminal->next == NULL) {
+      ASTNode *expression = stack->top->node;
+      stack->top->node = NULL;
+      return_value = ast_add_child(parent, expression);
+      break;
+    }
+
+    PrecRelation relation = get_relation(terminal->symbol, input_symbol);
+    switch (relation) {
+    case PREC_SHIFT:
+      // Insert a handle marker only for '<'
+      return_value = stack_mark(stack);
+      if (return_value != ERROR_OK) {
+        break;
+      }
+      // fall through
+    case PREC_EQUAL: {
+      // Create the operand item only when it is shifted onto the stack
+      PrecStackItem *new_item = create_stack_item(PREC_STACK_TERMINAL, input_symbol);
+      if (new_item == NULL) {
+        return_value = ERROR_INTERNAL;
+        break;
+      }
+      new_item->node = ast_create_node(AST_EXPR); // fill_operand_node() sets the concrete operand type
+      if (new_item->node == NULL) {
+        free(new_item);
+        return_value = ERROR_INTERNAL;
+        break;
+      }
+
+      // Transfer ownership to the stack only after the operand is filled successfully
+      return_value = fill_operand_node(parser, new_item->node);
+      if (return_value == ERROR_OK) {
+        return_value = stack_push(stack, new_item);
+      }
+      if (return_value != ERROR_OK) {
+        ast_node_free(new_item->node);
+        free(new_item);
+      } else {
+        return_value = new_token(parser);
+      }
+      break;
+    }
+    case PREC_REDUCE: {
+      // Check the complete handle before reducing i to E
+      PrecStackItem *marker = stack->top->next;
+      if (stack->top->type != PREC_STACK_TERMINAL || stack->top->symbol != PREC_OPERAND || marker == NULL ||
+          marker->type != PREC_STACK_MARK) {
+        stack_free(stack);
+        RETURN_SYNTACTIC_ERROR(parser);
+      }
+      stack->top->type = PREC_STACK_EXPRESSION;
+      stack->top->next = marker->next;
+      free(marker);
+      // Keep the current input token for the next table lookup
+      break;
+    }
+    default:
+      // Free the stack's items before returning ERROR_SYNTACTIC
+      stack_free(stack);
+      RETURN_SYNTACTIC_ERROR(parser);
+    }
+  }
+
+  // Free the remaining stack items and the allocated stack object
+  stack_free(stack);
+  return return_value;
+} // parse_expr()
 
 ErrorCode parse_expr_tail(Parser *parser, ASTNode *expression) {
   (void)parser;

@@ -103,11 +103,15 @@ PrecRelation get_relation(PrecSymbol stack_symbol, PrecSymbol input_symbol);
 PrecStack *stack_init();
 
 /**
- * @brief Allocates and zero-initializes a PrecStackItem
+ * @brief Allocates PrecStackItem
  *
+ * Initializes type and symbol, other values sets to 0 or NULL
+ *
+ * @param type Type of allocated item
+ * @param symbol PrecSymbol of allocated item
  * @return Ptr to allocated PrecStackItem, or NULL
  */
-PrecStackItem *create_stack_item();
+PrecStackItem *create_stack_item(PrecStackItemType type, PrecSymbol symbol);
 
 /**
  * @brief Pushes an item onto the precedence stack
