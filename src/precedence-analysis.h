@@ -152,6 +152,8 @@ void stack_free(PrecStack *stack);
 /**
  * @brief Maps the current token type to a precedence table class
  *
+ * For TOKEN_MINUS returns the binary minus, parse_expr() resolves unary minus from its position.
+ *
  * @param type Type of the current token
  * @return Corresponding precedence class, or PREC_SYMBOL_COUNT for an unsupported token
  */
@@ -186,6 +188,16 @@ ErrorCode fill_operand_node(Parser *parser, ASTNode *node);
  */
 ErrorCode reduce_binary(PrecStack *stack);
 
+/**
+ * @brief Reduces the marked handle - E to one expression owning an AST_UNARY_OP subtree
+ *
+ * On failure the caller still owns the stack and must free it.
+ *
+ * @param stack Ptr to the initialized stack
+ * @return ERROR_OK on success, ERROR_SYNTACTIC for an invalid handle, or ERROR_INTERNAL for invalid pointers/allocation
+ */
+ErrorCode reduce_unary(PrecStack *stack);
+
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
  *******************************************************************/
@@ -194,6 +206,7 @@ ErrorCode reduce_binary(PrecStack *stack);
  * @brief Parses expression by bottom-up syntactic analysis
  *
  * Supports identifiers, numeric/string literals and binary arithmetic/comparison operators according to the table.
+ * Resolves unary minus from its position and builds AST_UNARY_OP nodes.
  * Appends one subtree on success and leaves its terminating token unconsumed.
  * On failure releases partial subtrees and leaves parent unchanged.
  *
