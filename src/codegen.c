@@ -93,6 +93,97 @@ void codegen_move_var(CodegenFrame dest_frame, const char *dest_name, CodegenFra
     printf("\n");
 }
 
+void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("ADD ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_sub_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("SUB ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("MUL ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_idiv_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("IDIV ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame lsource_frame, const char *lsource_name, CodegenFrame rsource_frame, const char *rsource_name)
+{
+    printf("ADD ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(lsource_frame, lsource_name);
+    printf(" ");
+    codegen_variable(rsource_frame, rsource_name);
+    printf("\n");
+}
+
+void codegen_write_var(CodegenFrame frame, const char *name)
+{
+    printf("WRITE ");
+    codegen_variable(frame, name);
+    printf("\n");
+}
+
+void codegen_label(const char *name)
+{
+    printf("LABEL %s\n", name);
+}
+
+void codegen_jump(const char *name)
+{
+    printf("JUMP %s\n", name);
+}
+
+void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *name, long long value)
+{
+    printf("JUMPIFEQ %s ", label);
+    codegen_variable(frame, name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_call(const char *label)
+{
+    printf("CALL %s\n", label);
+}
+
+void codegen_return()
+{
+    printf("RETURN\n");
+}
+
 bool codegen_move_literal(CodegenFrame frame, const char *name, const ASTNode *node)
 {
     if (node == NULL || node->type != AST_INT_LITERAL) {
@@ -227,6 +318,92 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
     return true;
 }
 
+static const ASTNode *codegen_int_equality(const ASTNode *condition) {
+    if (condition == NULL || condition->type != AST_EXPR) {
+        return NULL;
+    }
+    if (condition->children == NULL || condition->children_count != 1) {
+        return NULL;
+    }
+    const ASTNode *expression = condition->children[0];
+    if (expression == NULL || expression->type != AST_BINARY_OP || expression->operator != AST_OP_EQUAL) {
+        return NULL;
+    }
+    if (expression->children == NULL || expression->children_count != 2) {
+        return NULL;
+    }
+    const ASTNode *left = expression->children[0];
+    const ASTNode *right = expression->children[1];
+    if (left == NULL || left->type != AST_IDENTIFIER || left->text == NULL || right == NULL || right->type != AST_INT_LITERAL) {
+        return NULL;
+    }
+    return expression;
+}
+
+bool codegen_if(CodegenFrame frame, const ASTNode *node) {
+    if (node == NULL || node->type != AST_IF || node->children == NULL || node->children_count != 3) {
+        return false;
+    }
+    const ASTNode *condition = node->children[0];
+    const ASTNode *then_block = node->children[1];
+    const ASTNode *else_block = node->children[2];
+    const ASTNode *expression = codegen_int_equality(condition);
+    if (expression == NULL || then_block == NULL || then_block->type != AST_BLOCK || else_block == NULL || else_block->type != AST_BLOCK) {
+        return false;
+    }
+    const ASTNode *left = expression->children[0];
+    const ASTNode *right = expression->children[1];
+    static unsigned long next_if_id = 0;
+    const unsigned long id = next_if_id++;
+    char then_label[40];
+    char end_label[40];
+    snprintf(then_label, sizeof then_label, "if_then_%lu", id);
+    snprintf(end_label, sizeof end_label, "if_end_%lu", id);
+    codegen_jumpifeq_int(then_label, frame, left->text, right->int_value);
+    if (!codegen_block(frame, else_block)) {
+        return false;
+    }
+    codegen_jump(end_label);
+    codegen_label(then_label);
+    if (!codegen_block(frame, then_block)) {
+        return false;
+    }
+    codegen_label(end_label);
+    return true;
+}
+
+bool codegen_while(CodegenFrame frame, const ASTNode *node){
+    if (node == NULL || node->type != AST_WHILE || node->children == NULL || node->children_count != 2) {
+        return false;
+    }
+    const ASTNode *condition = node->children[0];
+    const ASTNode *block = node->children[1];
+    const ASTNode *expression = codegen_int_equality(condition);
+    if (expression == NULL || block == NULL || block->type != AST_BLOCK) {
+        return false;
+    }
+    const ASTNode *left = expression->children[0];
+    const ASTNode *right = expression->children[1];
+    static unsigned long next_while_id = 0;
+    const unsigned long id = next_while_id++;
+    char start_label[40];
+    char body_label[40];
+    char end_label[40];
+    snprintf(start_label, sizeof start_label, "while_start_%lu", id);
+    snprintf(body_label, sizeof body_label, "while_body_%lu", id);
+    snprintf(end_label, sizeof end_label, "while_end_%lu", id);
+    codegen_label(start_label);
+    codegen_jumpifeq_int(body_label, frame, left->text, right->int_value);
+    codegen_jump(end_label);
+    codegen_label(body_label);
+    if (!codegen_block(frame, block)) {
+        return false;
+    }
+    codegen_jump(start_label);
+    codegen_label(end_label);
+    return true;
+}
+
 bool codegen_block(CodegenFrame frame, const ASTNode *node)
 {
     if (node == NULL || node->type != AST_BLOCK || (node->children_count > 0 && node->children == NULL)) {
@@ -250,7 +427,17 @@ bool codegen_block(CodegenFrame frame, const ASTNode *node)
             }
             break;
         case AST_CALL:
-            if(!codegen_print(frame, statement)) {
+            if (!codegen_print(frame, statement)) {
+                return false;
+            }
+            break;
+        case AST_IF:
+            if (!codegen_if(frame, statement)) {
+                return false;
+            }
+            break;
+        case AST_WHILE:
+            if (!codegen_while(frame, statement)) {
                 return false;
             }
             break;
@@ -259,97 +446,6 @@ bool codegen_block(CodegenFrame frame, const ASTNode *node)
         }
     }
     return true;
-}
-
-void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
-{
-    printf("ADD ");
-    codegen_variable(dest_frame, dest_name);
-    printf(" ");
-    codegen_variable(source_frame, source_name);
-    printf(" ");
-    codegen_int(value);
-    printf("\n");
-}
-
-void codegen_sub_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
-{
-    printf("SUB ");
-    codegen_variable(dest_frame, dest_name);
-    printf(" ");
-    codegen_variable(source_frame, source_name);
-    printf(" ");
-    codegen_int(value);
-    printf("\n");
-}
-
-void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
-{
-    printf("MUL ");
-    codegen_variable(dest_frame, dest_name);
-    printf(" ");
-    codegen_variable(source_frame, source_name);
-    printf(" ");
-    codegen_int(value);
-    printf("\n");
-}
-
-void codegen_idiv_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
-{
-    printf("IDIV ");
-    codegen_variable(dest_frame, dest_name);
-    printf(" ");
-    codegen_variable(source_frame, source_name);
-    printf(" ");
-    codegen_int(value);
-    printf("\n");
-}
-
-void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame lsource_frame, const char *lsource_name, CodegenFrame rsource_frame, const char *rsource_name)
-{
-    printf("ADD ");
-    codegen_variable(dest_frame, dest_name);
-    printf(" ");
-    codegen_variable(lsource_frame, lsource_name);
-    printf(" ");
-    codegen_variable(rsource_frame, rsource_name);
-    printf("\n");
-}
-
-void codegen_write_var(CodegenFrame frame, const char *name)
-{
-    printf("WRITE ");
-    codegen_variable(frame, name);
-    printf("\n");
-}
-
-void codegen_label(const char *name)
-{
-    printf("LABEL %s\n", name);
-}
-
-void codegen_jump(const char *name)
-{
-    printf("JUMP %s\n", name);
-}
-
-void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *name, long long value)
-{
-    printf("JUMPIFEQ %s ", label);
-    codegen_variable(frame, name);
-    printf(" ");
-    codegen_int(value);
-    printf("\n");
-}
-
-void codegen_call(const char *label)
-{
-    printf("CALL %s\n", label);
-}
-
-void codegen_return()
-{
-    printf("RETURN\n");
 }
 
 bool codegen_program(const ASTree *tree)
