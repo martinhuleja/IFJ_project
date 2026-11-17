@@ -4,6 +4,10 @@
  * Maybe one file lexer-tests.c and one script to run all the tests.
  * Make sure to test every state's return token for start."
  * Follow-up prompt: "maybe on the write out have it more detailed"
+ * Follow-up prompt: "Negative tests only check the first token. Add more
+ * invalid-input cases: invalid numeric underscores, leading zeros, invalid
+ * string escapes, incorrect dedentation, and insufficient indentation inside
+ * parentheses."
  *
  * Scope: token returns from accepting FSM states, checked through the public
  * get_next_token() API. Comment states skip text; unfinished states return
@@ -247,7 +251,32 @@ static const TestCase tests[] = {
     {"leading_tab", "\tname", NULL, ERROR_LEXICAL},
     {"incomplete_exponent", "1e+", NULL, ERROR_LEXICAL},
     {"unfinished_bang", "!", NULL, ERROR_LEXICAL},
-    {"unfinished_identifier", "_", NULL, ERROR_LEXICAL}
+    {"unfinished_identifier", "_", NULL, ERROR_LEXICAL},
+    {"double_numeric_underscore", "1__2", NULL, ERROR_LEXICAL},
+    {"double_numeric_underscore_after_tokens", "val x = 1__2", NULL, ERROR_LEXICAL},
+    {"trailing_numeric_underscore", "val x = 1_", NULL, ERROR_LEXICAL},
+    {"double_fraction_underscore", "val x = 1.2__3", NULL, ERROR_LEXICAL},
+    {"underscore_after_exponent", "val x = 1e_2", NULL, ERROR_LEXICAL},
+    {"underscore_after_exponent_sign", "val x = 1e+_2", NULL, ERROR_LEXICAL},
+    {"double_exponent_underscore", "val x = 1e2__3", NULL, ERROR_LEXICAL},
+    {"leading_zero", "0123", NULL, ERROR_LEXICAL},
+    {"leading_zero_after_tokens", "val x = 0123", NULL, ERROR_LEXICAL},
+    {"repeated_leading_zero", "val x = 000", NULL, ERROR_LEXICAL},
+    {"invalid_string_escape", "\"hello\\q\"", NULL, ERROR_LEXICAL},
+    {"invalid_string_escape_after_tokens", "val s = \"hello\\q\"", NULL, ERROR_LEXICAL},
+    {"newline_in_ordinary_string", "val s = \"hello\nworld\"", NULL, ERROR_LEXICAL},
+    {"unfinished_string_after_tokens", "val s = \"unfinished", NULL, ERROR_LEXICAL},
+    {"unfinished_triple_string_after_tokens", "val s = \"\"\"unfinished", NULL, ERROR_LEXICAL},
+    {"unfinished_comment_after_tokens", "val x = 1 /* outer /* inner */", NULL, ERROR_LEXICAL},
+    {"incorrect_dedent", "a\n    b\n  c", NULL, ERROR_LEXICAL},
+    {"incorrect_nested_dedent", "a\n  b\n    c\n   d", NULL, ERROR_LEXICAL},
+    {"leading_tab_after_tokens", "a\n\tb", NULL, ERROR_LEXICAL},
+    {"insufficient_parenthesis_indentation", "f(\n1\n )", NULL, ERROR_LEXICAL},
+    {"insufficient_parenthesis_indentation_in_block", "a\n  f(\n  1\n    )", NULL, ERROR_LEXICAL},
+    {"insufficient_closing_parenthesis_indentation", "f(\n  1\n)", NULL, ERROR_LEXICAL},
+    {"tab_inside_parentheses", "f(\n\t1\n )", NULL, ERROR_LEXICAL},
+    {"invalid_main_suffix_after_tokens", "val x = 1\n@mainfoo", NULL, ERROR_LEXICAL},
+    {"invalid_character_after_tokens", "val x = $", NULL, ERROR_LEXICAL}
 };
 
 /* Each case runs in a new process so the lexer's static state starts fresh. */
@@ -353,6 +382,13 @@ static void print_text(const char *text) {
     putchar('"');
 }
 
+static void print_actual_token(const Token *token) {
+    printf("  actual:   %s, value=", token_name(token->type));
+    print_text(token->value);
+    printf(", position=%u:%u, lf_before_rparen=%s\n", token->line, token->column,
+           token->lf_before_rparen ? "true" : "false");
+}
+
 static bool check_token(const Token *actual, const ExpectedToken *expected, size_t index) {
     bool type_matches = actual->type == expected->type;
     bool value_matches = actual->value == NULL && expected->value == NULL;
@@ -382,10 +418,7 @@ static bool check_token(const Token *actual, const ExpectedToken *expected, size
     }
     printf(", lf_before_rparen=%s\n", expected->lf_before_rparen ? "true" : "false");
 
-    printf("  actual:   %s, value=", token_name(actual->type));
-    print_text(actual->value);
-    printf(", position=%u:%u, lf_before_rparen=%s\n", actual->line, actual->column,
-           actual->lf_before_rparen ? "true" : "false");
+    print_actual_token(actual);
 
     if (!type_matches) {
         puts("  Mismatch: token type");
@@ -410,14 +443,24 @@ static bool run_test(const TestCase *test) {
         return false;
     }
     if (test->error != ERROR_OK) {
-        Token token = {0};
-        ErrorCode error = get_next_token(&token);
-        free(token.value);
-        printf("Actual result:   %s (%d)\n", error_name(error), error);
-        if (error != test->error) {
-            return false;
+        for (size_t i = 0; ; i++) {
+            Token token = {0};
+            ErrorCode error = get_next_token(&token);
+            if (error != ERROR_OK) {
+                free(token.value);
+                printf("Actual result:   %s (%d) after %zu successful tokens\n",
+                       error_name(error), error, i);
+                return error == test->error;
+            }
+
+            printf("Token %zu: read before expected error\n", i + 1);
+            print_actual_token(&token);
+            free(token.value);
+            if (token.type == TOKEN_EOF) {
+                puts("FAIL: reached EOF without the expected error.");
+                return false;
+            }
         }
-        return true;
     }
 
     for (size_t i = 0; ; i++) {
