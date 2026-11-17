@@ -8,6 +8,9 @@
  * invalid-input cases: invalid numeric underscores, leading zeros, invalid
  * string escapes, incorrect dedentation, and insufficient indentation inside
  * parentheses."
+ * Follow-up prompt: "Add exact positions to selected tests, especially around
+ * comments and multiline strings, and check whether positions are checked
+ * correctly. You do not need an obscene number of them."
  *
  * Scope: token returns from accepting FSM states, checked through the public
  * get_next_token() API. Comment states skip text; unfinished states return
@@ -161,17 +164,17 @@ static const ExpectedToken number_tokens[] = {
 };
 
 static const ExpectedToken string_tokens[] = {
-    {.type = TOKEN_STRING_LITERAL, .value = ""},
-    {.type = TOKEN_STRING_LITERAL, .value = "A\nB\tC\rD\\E\"F"},
-    {.type = TOKEN_STRING_LITERAL, .value = "G\\nH\nI"},
+    {.type = TOKEN_STRING_LITERAL, .value = "", .line = 1, .column = 1},
+    {.type = TOKEN_STRING_LITERAL, .value = "A\nB\tC\rD\\E\"F", .line = 1, .column = 4},
+    {.type = TOKEN_STRING_LITERAL, .value = "G\\nH\nI", .line = 1, .column = 23},
     {.type = TOKEN_IDENTIFIER, .value = "x", .line = 2, .column = 5},
-    {.type = TOKEN_EOF}
+    {.type = TOKEN_EOF, .line = 2, .column = 6}
 };
 
 static const ExpectedToken line_comment_tokens[] = {
     {.type = TOKEN_IDENTIFIER, .value = "value", .line = 2, .column = 1},
     {.type = TOKEN_NEWLINE, .line = 2, .column = 14},
-    {.type = TOKEN_EOF}
+    {.type = TOKEN_EOF, .line = 3, .column = 9}
 };
 
 static const ExpectedToken triple_quote_tokens[] = {
@@ -181,10 +184,10 @@ static const ExpectedToken triple_quote_tokens[] = {
 };
 
 static const ExpectedToken adjacent_tokens[] = {
-    {.type = TOKEN_IDENTIFIER, .value = "a"},
-    {.type = TOKEN_EQUAL, .value = "=="},
-    {.type = TOKEN_IDENTIFIER, .value = "b"},
-    {.type = TOKEN_EOF}
+    {.type = TOKEN_IDENTIFIER, .value = "a", .line = 1, .column = 1},
+    {.type = TOKEN_EQUAL, .value = "==", .line = 1, .column = 2},
+    {.type = TOKEN_IDENTIFIER, .value = "b", .line = 1, .column = 4},
+    {.type = TOKEN_EOF, .line = 1, .column = 5}
 };
 
 static const ExpectedToken block_comment_tokens[] = {
@@ -200,18 +203,35 @@ static const ExpectedToken block_comment_tokens[] = {
 };
 
 static const ExpectedToken indentation_tokens[] = {
-    {.type = TOKEN_IDENTIFIER, .value = "a"},
-    {.type = TOKEN_NEWLINE},
-    {.type = TOKEN_INDENT},
-    {.type = TOKEN_IDENTIFIER, .value = "b"},
-    {.type = TOKEN_NEWLINE},
-    {.type = TOKEN_INDENT},
-    {.type = TOKEN_IDENTIFIER, .value = "c"},
-    {.type = TOKEN_NEWLINE},
-    {.type = TOKEN_DEDENT},
-    {.type = TOKEN_IDENTIFIER, .value = "d"},
-    {.type = TOKEN_DEDENT},
-    {.type = TOKEN_EOF}
+    {.type = TOKEN_IDENTIFIER, .value = "a", .line = 1, .column = 1},
+    {.type = TOKEN_NEWLINE, .line = 1, .column = 2},
+    {.type = TOKEN_INDENT, .line = 3, .column = 3},
+    {.type = TOKEN_IDENTIFIER, .value = "b", .line = 3, .column = 3},
+    {.type = TOKEN_NEWLINE, .line = 3, .column = 4},
+    {.type = TOKEN_INDENT, .line = 5, .column = 5},
+    {.type = TOKEN_IDENTIFIER, .value = "c", .line = 5, .column = 5},
+    {.type = TOKEN_NEWLINE, .line = 5, .column = 6},
+    {.type = TOKEN_DEDENT, .line = 6, .column = 3},
+    {.type = TOKEN_IDENTIFIER, .value = "d", .line = 6, .column = 3},
+    {.type = TOKEN_DEDENT, .line = 6, .column = 4},
+    {.type = TOKEN_EOF, .line = 6, .column = 4}
+};
+
+/* The newline token points to the first LF inside the outer comment. */
+static const ExpectedToken multiline_comment_position_tokens[] = {
+    {.type = TOKEN_IDENTIFIER, .value = "a", .line = 1, .column = 1},
+    {.type = TOKEN_NEWLINE, .line = 1, .column = 10},
+    {.type = TOKEN_IDENTIFIER, .value = "b", .line = 5, .column = 1},
+    {.type = TOKEN_EOF, .line = 5, .column = 2}
+};
+
+/* Internal quotes remain string content; only physical LF advances the line. */
+static const ExpectedToken multiline_string_position_tokens[] = {
+    {.type = TOKEN_STRING_LITERAL, .value = "one\n\"two\"\"\nthree", .line = 1, .column = 1},
+    {.type = TOKEN_IDENTIFIER, .value = "next", .line = 3, .column = 10},
+    {.type = TOKEN_NEWLINE, .line = 3, .column = 14},
+    {.type = TOKEN_IDENTIFIER, .value = "last", .line = 4, .column = 1},
+    {.type = TOKEN_EOF, .line = 4, .column = 5}
 };
 
 static const ExpectedToken parenthesis_tokens[] = {
@@ -246,6 +266,8 @@ static const TestCase tests[] = {
     {"block_comments", "a/* outer /* inner */ outer */b\n  /* comment */   c\n  d", block_comment_tokens, ERROR_OK},
     {"indentation", "a\n  // ignored\n  b\n\n    c\n  d", indentation_tokens, ERROR_OK},
     {"parenthesis_newlines", "f(\n  1, // comment\n  )\nf(\n  2,)", parenthesis_tokens, ERROR_OK},
+    {"multiline_comment_positions", "a/* outer\n /* inner\n */ outer\n */\nb", multiline_comment_position_tokens, ERROR_OK},
+    {"multiline_string_positions", "\"\"\"one\n\"two\"\"\nthree\"\"\" next\nlast", multiline_string_position_tokens, ERROR_OK},
     {"unfinished_string", "\"unfinished", NULL, ERROR_LEXICAL},
     {"unfinished_block_comment", "/* outer /* inner */", NULL, ERROR_LEXICAL},
     {"leading_tab", "\tname", NULL, ERROR_LEXICAL},
@@ -389,6 +411,46 @@ static void print_actual_token(const Token *token) {
            token->lf_before_rparen ? "true" : "false");
 }
 
+static bool positions_match(const Token *actual, const ExpectedToken *expected) {
+    /* Zero means the case does not check this position component. */
+    return (expected->line == 0 || actual->line == expected->line) &&
+           (expected->column == 0 || actual->column == expected->column);
+}
+
+/* Test the position comparison used by every token assertion. */
+static bool run_position_checker_test(void) {
+    const Token actual = {.line = 2, .column = 5};
+    const struct {
+        const char *name;
+        unsigned int line;
+        unsigned int column;
+        bool should_match;
+    } checks[] = {
+        {"exact match", 2, 5, true},
+        {"wrong line", 3, 5, false},
+        {"wrong column", 2, 6, false},
+        {"both positions unchecked", 0, 0, true},
+        {"line checked, column unchecked", 2, 0, true},
+        {"line unchecked, column checked", 0, 5, true},
+        {"wrong line with unchecked column", 3, 0, false},
+        {"wrong column with unchecked line", 0, 6, false}
+    };
+
+    puts("Checking the test framework's position comparison (0 means unchecked).");
+    for (size_t i = 0; i < sizeof(checks) / sizeof(checks[0]); i++) {
+        const ExpectedToken expected = {.line = checks[i].line, .column = checks[i].column};
+        bool matches = positions_match(&actual, &expected);
+        printf("%s: actual=2:5, expected=%u:%u, expected match=%s, actual match=%s\n",
+               checks[i].name, expected.line, expected.column,
+               checks[i].should_match ? "true" : "false", matches ? "true" : "false");
+        if (matches != checks[i].should_match) {
+            puts("FAIL: position comparison returned the wrong result.");
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool check_token(const Token *actual, const ExpectedToken *expected, size_t index) {
     bool type_matches = actual->type == expected->type;
     bool value_matches = actual->value == NULL && expected->value == NULL;
@@ -396,9 +458,7 @@ static bool check_token(const Token *actual, const ExpectedToken *expected, size
         value_matches = strcmp(actual->value, expected->value) == 0;
     }
     bool flag_matches = actual->lf_before_rparen == expected->lf_before_rparen;
-    /* Zero means the case does not check this position component. */
-    bool position_matches = (expected->line == 0 || actual->line == expected->line) &&
-                            (expected->column == 0 || actual->column == expected->column);
+    bool position_matches = positions_match(actual, expected);
     bool matches = type_matches && value_matches && flag_matches && position_matches;
 
     printf("Token %zu: %s\n", index + 1, matches ? "PASS" : "FAIL");
@@ -489,10 +549,17 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
     if (strcmp(argv[1], "--list") == 0) {
+        puts("position_checker");
         for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
             puts(tests[i].name);
         }
         return EXIT_SUCCESS;
+    }
+    if (strcmp(argv[1], "position_checker") == 0) {
+        if (run_position_checker_test()) {
+            return EXIT_SUCCESS;
+        }
+        return EXIT_FAILURE;
     }
     for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         if (strcmp(argv[1], tests[i].name) == 0) {
