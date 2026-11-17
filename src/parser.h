@@ -342,14 +342,14 @@ ErrorCode parse_statement_list(Parser *parser, ASTNode *block);
 ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block);
 
 /**
- * @brief Parses StatementEnd according to LL grammar rules
+ * @brief Consumes a statement separator, or leaves Dedent unconsumed at the end of a block
  * @param parser Ptr to struct parser
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode parse_statement_end(Parser *parser);
 
 /**
- * @brief Parses Statement using the next token to distinguish an assignment from an expression or call
+ * @brief Parses Statement, consuming the separator of a simple statement or the block of a compound statement
  * @param parser Ptr to struct parser
  * @param block Ptr to the block node receiving the statement
  * @return ErrorCode according to specification of IFJ26

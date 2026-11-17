@@ -153,9 +153,9 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ EOL $\}$ \\ \hline
   28  & Block $\rightarrow$ Indent StatementList Dedent
       & $\{$ Indent $\}$ \\ \hline
-  29  & StatementList $\rightarrow$ Statement StatementEnd StatementListRest
+  29  & StatementList $\rightarrow$ Statement StatementListRest
       & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
-  30  & StatementListRest $\rightarrow$ Statement StatementEnd StatementListRest
+  30  & StatementListRest $\rightarrow$ Statement StatementListRest
       & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   31  & StatementListRest $\rightarrow \varepsilon$
       & $\{$ Dedent $\}$ \\ \hline
@@ -163,17 +163,19 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ EOL $\}$ \\ \hline
   33  & StatementEnd $\rightarrow$ Semicolon
       & $\{$ Semicolon $\}$ \\ \hline
-  34  & Statement $\rightarrow$ VarDef
+  70  & StatementEnd $\rightarrow \varepsilon$
+      & $\{$ Dedent $\}$ \\ \hline
+  34  & Statement $\rightarrow$ VarDef StatementEnd
       & $\{$ Val, Var $\}$ \\ \hline
   35  & Statement $\rightarrow$ IfStatement
       & $\{$ If $\}$ \\ \hline
   36  & Statement $\rightarrow$ WhileStatement
       & $\{$ While $\}$ \\ \hline
-  37  & Statement $\rightarrow$ ReturnStatement
+  37  & Statement $\rightarrow$ ReturnStatement StatementEnd
       & $\{$ Return $\}$ \\ \hline
-  38  & Statement $\rightarrow$ Assignment
+  38  & Statement $\rightarrow$ Assignment StatementEnd
       & $\{$ Identifier $\}$ \\ \hline
-  39  & Statement $\rightarrow$ ExprOrCall
+  39  & Statement $\rightarrow$ ExprOrCall StatementEnd
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   40  & Assignment $\rightarrow$ Identifier Assign ExprOrCall
       & $\{$ Identifier $\}$ \\ \hline
@@ -183,7 +185,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ Val $\}$ \\ \hline
   50  & VarKind $\rightarrow$ Var
       & $\{$ Var $\}$ \\ \hline
-  51  & IfStatement $\rightarrow$ If Expr Then EOL Block EOL Else EOL Block
+  51  & IfStatement $\rightarrow$ If Expr Then EOL Block Else EOL Block
       & $\{$ If $\}$ \\ \hline
   52  & WhileStatement $\rightarrow$ While Expr Do EOL Block
       & $\{$ While $\}$ \\ \hline
@@ -192,7 +194,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
   54  & ReturnExprOpt $\rightarrow$ ExprOrCall
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   55  & ReturnExprOpt $\rightarrow \varepsilon$
-      & $\{$ EOL, Semicolon $\}$ \\ \hline
+      & $\{$ EOL, Semicolon, Dedent $\}$ \\ \hline
   56  & ExprOrCall $\rightarrow$ Call
       & $\{$ Identifier $\}$ \\ \hline
   57  & ExprOrCall $\rightarrow$ Expr
@@ -287,7 +289,7 @@ analýzou zdola nahoru podle precedenční tabulky.
   StatementList & 29 & 29 & 29 & 29 & 29 & & & & & 29 & 29 & 29 & & & 29 & & 29 & & & & & & 29 & & & & & & & & & & \\
   StatementListRest & 30 & 30 & 30 & 30 & 30 & & & & & 30 & 30 & 30 & & & 30 & & 30 & & & & & & 30 & & & & & & & & 31 & & \\
   Statement & 38/39 & 39 & 39 & 39 & 39 & & & & & 34 & 34 & 35 & & & 36 & & 37 & & & & & & 39 & & & & & & & & & & \\
-  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & & 32 & \\
+  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & 70 & 32 & \\
   VarDef & & & & & & & & & & 48 & 48 & & & & & & & & & & & & & & & & & & & & & & \\
   VarKind & & & & & & & & & & 49 & 50 & & & & & & & & & & & & & & & & & & & & & & \\
   IfStatement & & & & & & & & & & & & 51 & & & & & & & & & & & & & & & & & & & & & \\
@@ -299,7 +301,7 @@ analýzou zdola nahoru podle precedenční tabulky.
   ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 65 & & 64 & & & & & & & \\
   ArgListRestTail & 66 & 66 & 66 & 66 & 66 & & & & & & & & & & & & & & & & & & 66 & 67 & & & & & & & & & \\
   ExprOrCall & 56/57 & 57 & 57 & 57 & 57 & & & & & & & & & & & & & & & & & & 57 & & & & & & & & & & \\
-  ReturnExprOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & & & & 55 & & & & & 55 & \\
+  ReturnExprOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & & & & 55 & & & & 55 & 55 & \\
   Call & 58 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
   Assignment & 40 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
@@ -323,7 +325,7 @@ kde $T_{\textnormal{prec}} = \{ i, -_{\textnormal{un}}, \\ *, /, +, -_{\textnorm
 \begin{itemize}
     \item $i$ značí identifikátory a literály typů \texttt{Int}, \texttt{Double}, \texttt{String},
     \item $-_{\textnormal{un}}$ značí unární operátor minus, $-_{\textnormal{bi}}$ binární odčítání,
-    \item $\$$ značí ukončovač výrazu (\texttt{EOL}, \texttt{EOF}, \texttt{then}, \texttt{do}, \dots).
+    \item $\$$ značí ukončovač výrazu (\texttt{EOL}, \texttt{Dedent}, \texttt{EOF}, \texttt{then}, \texttt{do}, \dots).
 \end{itemize}
 
 \noindent Množina pravidel $P_{\textnormal{prec}}$ zahrnuje: \quad $E \rightarrow i, \qquad E \rightarrow (E),

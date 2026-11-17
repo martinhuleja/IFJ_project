@@ -147,6 +147,7 @@ PrecSymbol get_prec_symbol(TokenType type) {
   case TOKEN_RPAREN:
     return PREC_RPAREN;
   case TOKEN_NEWLINE:
+  case TOKEN_DEDENT:
   case TOKEN_EOF:
   case TOKEN_SEMICOLON:
   case TOKEN_THEN:

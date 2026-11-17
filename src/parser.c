@@ -434,7 +434,6 @@ ErrorCode parse_block(Parser *parser, ASTNode *parent) {
 
 ErrorCode parse_statement_list(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(parse_statement(parser, block));
-  RETURN_IF_ERROR(parse_statement_end(parser));
   RETURN_IF_ERROR(parse_statement_list_rest(parser, block));
 
   return ERROR_OK;
@@ -466,7 +465,6 @@ ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block) {
     // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_statement(parser, block));
-    RETURN_IF_ERROR(parse_statement_end(parser));
     RETURN_IF_ERROR(parse_statement_list_rest(parser, block));
     break;
   case TOKEN_DEDENT:
@@ -481,6 +479,9 @@ ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block) {
 ErrorCode parse_statement_end(Parser *parser) {
   if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_SEMICOLON)) {
     RETURN_IF_ERROR(new_token(parser));
+    return ERROR_OK;
+  } else if (tokens_matches(parser, TOKEN_DEDENT)) {
+    // The final statement needs no separator before the block ends
     return ERROR_OK;
   } else {
     RETURN_SYNTACTIC_ERROR(parser);
@@ -498,10 +499,10 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
     break;
   case TOKEN_IF:
     RETURN_IF_ERROR(parse_if_statement(parser, block));
-    break;
+    return ERROR_OK;
   case TOKEN_WHILE:
     RETURN_IF_ERROR(parse_while_statement(parser, block));
-    break;
+    return ERROR_OK;
   case TOKEN_RETURN:
     RETURN_IF_ERROR(parse_return_statement(parser, block));
     break;
@@ -527,6 +528,9 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
   default:
     RETURN_SYNTACTIC_ERROR(parser);
   }
+
+  // Simple statements consume their separator; compound statements end with their block
+  RETURN_IF_ERROR(parse_statement_end(parser));
 
   return ERROR_OK;
 } // parse_statement()
@@ -593,7 +597,6 @@ ErrorCode parse_if_statement(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(expect(parser, TOKEN_THEN));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(parse_block(parser, if_node));
-  RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(expect(parser, TOKEN_ELSE));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(parse_block(parser, if_node));
@@ -653,6 +656,8 @@ ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node) {
   case TOKEN_NEWLINE:
     // fall through
   case TOKEN_SEMICOLON:
+    // fall through
+  case TOKEN_DEDENT:
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
