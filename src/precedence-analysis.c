@@ -90,13 +90,9 @@ ErrorCode stack_mark(PrecStack *stack) {
 
   RETURN_INTERNAL_ERROR_IF_NULL(terminal, NULL);
 
-  // Alocate memory for a marker
-  PrecStackItem *marker = (PrecStackItem *)malloc(sizeof(PrecStackItem));
-  RETURN_INTERNAL_ERROR_IF_NULL(marker, "Couldn't allocate PrecStackItem");
-
-  // Set marker's atributes
-  marker->type = PREC_STACK_MARK;
-  marker->node = NULL;
+  // The marker's precedence symbol is unused; it owns no subtree
+  PrecStackItem *marker = create_stack_item(PREC_STACK_MARK, PREC_END);
+  RETURN_INTERNAL_ERROR_IF_NULL(marker, NULL);
   marker->next = terminal;
 
   // Connect the marker to the stack
@@ -239,6 +235,31 @@ ErrorCode fill_operand_node(Parser *parser, ASTNode *node) {
   return ERROR_OK;
 } // fill_operand_node()
 
+ErrorCode attach_stack_node(ASTNode *parent, PrecStackItem *item) {
+  RETURN_INTERNAL_ERROR_IF_NULL(item, "PrecStackItem is NULL.");
+
+  // ast_add_child() consumes the subtree even on failure
+  ErrorCode return_value = ast_add_child(parent, item->node);
+  item->node = NULL;
+  return return_value;
+} // attach_stack_node()
+
+void replace_handle(PrecStackItem *top, PrecStackItem *marker, ASTNode *node) {
+  // All owned subtrees have been transferred, only the consumed items remain
+  PrecStackItem *item = top->next;
+  PrecStackItem *next = marker->next;
+  while (item != next) {
+    PrecStackItem *item_to_remove = item;
+    item = item->next;
+    free(item_to_remove);
+  }
+
+  // Keep the top item as the expression owning the resulting subtree
+  top->type = PREC_STACK_EXPRESSION;
+  top->node = node;
+  top->next = next;
+} // replace_handle()
+
 ErrorCode reduce_binary(PrecStack *stack) {
   RETURN_INTERNAL_ERROR_IF_NULL(stack, "PrecStack is NULL.");
 
@@ -272,12 +293,10 @@ ErrorCode reduce_binary(PrecStack *stack) {
   RETURN_INTERNAL_ERROR_IF_NULL(node, NULL);
   node->operator = operator_item->operator;
 
-  ErrorCode return_value = ast_add_child(node, left->node);
-  left->node = NULL;
+  ErrorCode return_value = attach_stack_node(node, left);
 
   if (return_value == ERROR_OK) {
-    return_value = ast_add_child(node, right->node);
-    right->node = NULL;
+    return_value = attach_stack_node(node, right);
   }
 
   // Catch error
@@ -287,11 +306,7 @@ ErrorCode reduce_binary(PrecStack *stack) {
   }
 
   // Replace the complete handle with one E owning the new subtree
-  right->node = node;
-  right->next = marker->next;
-  free(operator_item);
-  free(left);
-  free(marker);
+  replace_handle(right, marker, node);
   return ERROR_OK;
 } // reduce_binary()
 
@@ -321,8 +336,7 @@ ErrorCode reduce_unary(PrecStack *stack) {
   RETURN_INTERNAL_ERROR_IF_NULL(node, NULL);
   node->operator = AST_OP_NEGATION;
 
-  ErrorCode return_value = ast_add_child(node, operand->node);
-  operand->node = NULL;
+  ErrorCode return_value = attach_stack_node(node, operand);
 
   if (return_value != ERROR_OK) {
     ast_node_free(node);
@@ -330,10 +344,7 @@ ErrorCode reduce_unary(PrecStack *stack) {
   }
 
   // Replace the marked handle with one E owning the unary subtree
-  operand->node = node;
-  operand->next = marker->next;
-  free(operator_item);
-  free(marker);
+  replace_handle(operand, marker, node);
   return ERROR_OK;
 } // reduce_unary()
 
@@ -371,17 +382,98 @@ ErrorCode reduce_parentheses(PrecStack *stack) {
     RETURN_INTERNAL_ERROR_IF_NULL(middle->node, "Parenthesized expression node is NULL.");
     node = middle->node;
     middle->node = NULL;
-    free(middle);
   }
 
   // Replace ( E ) or ( ) with one expression
-  right->type = PREC_STACK_EXPRESSION;
-  right->node = node;
-  right->next = marker->next;
-  free(left);
-  free(marker);
+  replace_handle(right, marker, node);
   return ERROR_OK;
 } // reduce_parentheses()
+
+ErrorCode execute_prec_equal(Parser *parser, PrecStack *stack, PrecSymbol input_symbol, bool *expect_operand,
+                             size_t *parenthesis_depth) {
+  RETURN_IF_ERROR(check_current_token(parser));
+  RETURN_INTERNAL_ERROR_IF_NULL(stack, "PrecStack is NULL.");
+  RETURN_INTERNAL_ERROR_IF_NULL(expect_operand, "Expected operand state is NULL.");
+  RETURN_INTERNAL_ERROR_IF_NULL(parenthesis_depth, "Parenthesis depth is NULL.");
+
+  ErrorCode return_value = ERROR_OK;
+
+  // Create an AST leaf for an operand, operators retain only their specific operation
+  PrecStackItem *new_item = create_stack_item(PREC_STACK_TERMINAL, input_symbol);
+  if (new_item == NULL) {
+    return ERROR_INTERNAL;
+  }
+
+  if (input_symbol == PREC_OPERAND) {
+    new_item->node = ast_create_node(AST_EXPR); // fill_operand_node() sets the specific operand type
+    if (new_item->node == NULL) {
+      free(new_item);
+      return ERROR_INTERNAL;
+    }
+    return_value = fill_operand_node(parser, new_item->node);
+  } else if (input_symbol != PREC_LPAREN && input_symbol != PREC_RPAREN) {
+    if (input_symbol == PREC_UNARY_MINUS) {
+      new_item->operator = AST_OP_NEGATION;
+    } else {
+      new_item->operator = get_ast_operator(parser->current_token->type);
+    }
+
+    if (new_item->operator == AST_OP_NONE) {
+      free(new_item);
+      RETURN_SYNTACTIC_ERROR(parser);
+    }
+  }
+
+  if (return_value == ERROR_OK) {
+    // Transfer ownership to the stack only after the item is filled successfully
+    return_value = stack_push(stack, new_item);
+  }
+
+  if (return_value == ERROR_OK) {
+    // Track only parentheses shifted by this call
+    if (input_symbol == PREC_LPAREN) {
+      (*parenthesis_depth)++;
+    } else if (input_symbol == PREC_RPAREN) {
+      (*parenthesis_depth)--;
+    }
+
+    // Only shifted tokens change whether the next token should be an operand
+    *expect_operand = input_symbol != PREC_OPERAND && input_symbol != PREC_RPAREN;
+    return_value = new_token(parser);
+  } else {
+    ast_node_free(new_item->node);
+    free(new_item);
+  }
+
+  return return_value;
+} // execute_prec_equal()
+
+ErrorCode execute_prec_reduce(PrecStack *stack) {
+  RETURN_INTERNAL_ERROR_IF_NULL(stack, "PrecStack is NULL.");
+  RETURN_INTERNAL_ERROR_IF_NULL(stack->top, "Top stack item is NULL.");
+
+  ErrorCode return_value = ERROR_OK;
+  PrecStackItem *second_item = stack->top->next;
+
+  // Reduce parentheses before handling operands and operators
+  if (stack->top->type == PREC_STACK_TERMINAL && stack->top->symbol == PREC_RPAREN) {
+    return_value = reduce_parentheses(stack);
+  } else if (stack->top->type == PREC_STACK_TERMINAL && stack->top->symbol == PREC_OPERAND) {
+    // Check the complete handle before reducing i to E
+    if (second_item == NULL || second_item->type != PREC_STACK_MARK) {
+      return_value = ERROR_SYNTACTIC;
+    } else {
+      replace_handle(stack->top, second_item, stack->top->node);
+    }
+  } else if (second_item != NULL && second_item->type == PREC_STACK_TERMINAL &&
+             second_item->symbol == PREC_UNARY_MINUS) {
+    return_value = reduce_unary(stack);
+  } else { // Reduce complete binary handle E op E
+    return_value = reduce_binary(stack);
+  }
+
+  return return_value;
+} // execute_perc_reduce()
 
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
@@ -421,9 +513,7 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
     // Accept only $ E and leave the expression terminator unconsumed
     if (input_symbol == PREC_END && stack->top->type == PREC_STACK_EXPRESSION && stack->top->next == terminal &&
         terminal->symbol == PREC_END && terminal->next == NULL) {
-      ASTNode *expression = stack->top->node;
-      stack->top->node = NULL;
-      return_value = ast_add_child(parent, expression);
+      return_value = attach_stack_node(parent, stack->top);
       break;
     }
 
@@ -436,79 +526,11 @@ ErrorCode parse_expr(Parser *parser, ASTNode *parent) {
         break;
       }
       // fall through
-    case PREC_EQUAL: {
-      // Create an AST leaf for an operand; operators retain only their specific operation
-      PrecStackItem *new_item = create_stack_item(PREC_STACK_TERMINAL, input_symbol);
-      if (new_item == NULL) {
-        return_value = ERROR_INTERNAL;
-        break;
-      }
-
-      if (input_symbol == PREC_OPERAND) {
-        new_item->node = ast_create_node(AST_EXPR); // fill_operand_node() sets the specific operand type
-        if (new_item->node == NULL) {
-          free(new_item);
-          return_value = ERROR_INTERNAL;
-          break;
-        }
-        return_value = fill_operand_node(parser, new_item->node);
-      } else if (input_symbol != PREC_LPAREN && input_symbol != PREC_RPAREN) {
-        if (input_symbol == PREC_UNARY_MINUS) {
-          new_item->operator = AST_OP_NEGATION;
-        } else {
-          new_item->operator = get_ast_operator(parser->current_token->type);
-        }
-
-        if (new_item->operator == AST_OP_NONE) {
-          free(new_item);
-          stack_free(stack);
-          RETURN_SYNTACTIC_ERROR(parser);
-        }
-      }
-
-      if (return_value == ERROR_OK) {
-        // Transfer ownership to the stack only after the item is filled successfully
-        return_value = stack_push(stack, new_item);
-      }
-
-      if (return_value == ERROR_OK) {
-        // Track only parentheses shifted by this call
-        if (input_symbol == PREC_LPAREN) {
-          parenthesis_depth++;
-        } else if (input_symbol == PREC_RPAREN) {
-          parenthesis_depth--;
-        }
-
-        // Only shifted tokens change whether the next token should be an operand
-        expect_operand = input_symbol != PREC_OPERAND && input_symbol != PREC_RPAREN;
-        return_value = new_token(parser);
-      } else {
-        ast_node_free(new_item->node);
-        free(new_item);
-      }
+    case PREC_EQUAL:
+      return_value = execute_prec_equal(parser, stack, input_symbol, &expect_operand, &parenthesis_depth);
       break;
-    }
     case PREC_REDUCE: {
-      PrecStackItem *second_item = stack->top->next;
-
-      // Reduce parentheses before handling operands and operators
-      if (stack->top->type == PREC_STACK_TERMINAL && stack->top->symbol == PREC_RPAREN) {
-        return_value = reduce_parentheses(stack);
-      } else if (stack->top->type == PREC_STACK_TERMINAL && stack->top->symbol == PREC_OPERAND) {
-        // Check the complete handle before reducing i to E
-        if (second_item == NULL || second_item->type != PREC_STACK_MARK) {
-          return_value = ERROR_SYNTACTIC;
-        } else {
-          stack->top->type = PREC_STACK_EXPRESSION;
-          stack->top->next = second_item->next;
-          free(second_item);
-        }
-      } else if (second_item != NULL && second_item->type == PREC_STACK_TERMINAL &&
-                 second_item->symbol == PREC_UNARY_MINUS) {
-        return_value = reduce_unary(stack);
-      } else { // Reduce complete binary handle E op E
-        return_value = reduce_binary(stack);
-      }
+      return_value = execute_prec_reduce(stack);
 
       if (return_value != ERROR_SYNTACTIC) {
         // Keep the current input token for the next table lookup

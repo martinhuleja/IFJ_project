@@ -179,6 +179,26 @@ ASTOperator get_ast_operator(TokenType type);
 ErrorCode fill_operand_node(Parser *parser, ASTNode *node);
 
 /**
+ * @brief Transfers a stack item's subtree to the parent, clearing item->node even on failure
+ *
+ * @param parent Ptr to the AST node receiving the subtree
+ * @param item Ptr to the stack item owning the subtree
+ * @return ERROR_OK on success, or ERROR_INTERNAL
+ */
+ErrorCode attach_stack_node(ASTNode *parent, PrecStackItem *item);
+
+/**
+ * @brief Replaces a validated handle with one expression, keeping its top item
+ *
+ * Removed items must no longer own subtrees; this function frees only their stack items.
+ *
+ * @param top Ptr to the handle's top item, whose node must be NULL or equal to node
+ * @param marker Ptr to the handle marker reachable from top->next
+ * @param node Ptr to the resulting subtree, transferred to top
+ */
+void replace_handle(PrecStackItem *top, PrecStackItem *marker, ASTNode *node);
+
+/**
  * @brief Reduces the marked handle E op E to one expression owning an AST_BINARY_OP subtree
  *
  * Preserves operand order. On failure the caller still owns the stack and must free it.
@@ -207,6 +227,31 @@ ErrorCode reduce_unary(PrecStack *stack);
  * @return ERROR_OK on success, ERROR_SYNTACTIC for an invalid handle, or ERROR_INTERNAL for invalid pointers/allocation
  */
 ErrorCode reduce_parentheses(PrecStack *stack);
+
+/**
+ * @brief Executes the token shift shared by PREC_EQUAL and PREC_SHIFT
+ *
+ * The caller owns the stack even on failure. Advances the token only after a successful push.
+ *
+ * @param parser Ptr to struct parser
+ * @param stack Ptr to the initialized stack receiving the current token
+ * @param input_symbol Precedence class of the current token, with unary minus already resolved
+ * @param expect_operand Ptr to the operand expectation, updated after a successful push
+ * @param parenthesis_depth Ptr to this expression's parenthesis depth, updated after a successful push
+ * @return ErrorCode according to specification of IFJ26
+ */
+ErrorCode execute_prec_equal(Parser *parser, PrecStack *stack, PrecSymbol input_symbol, bool *expect_operand,
+                             size_t *parenthesis_depth);
+
+/**
+ * @brief Executes PREC_REDUCE by selecting and reducing the current handle
+ *
+ * Does not consume an input token. The caller owns the stack even on failure.
+ *
+ * @param stack Ptr to the initialized nonempty stack
+ * @return ERROR_OK on success, ERROR_SYNTACTIC for an invalid handle, or ERROR_INTERNAL on failure
+ */
+ErrorCode execute_prec_reduce(PrecStack *stack);
 
 /********************************************************************
  ****************** PRECEDENCE ANALYSIS FUNCTIONS *******************
