@@ -1,0 +1,52 @@
+.IFJcode26
+WRITE string@A\032B\035\092\010
+WRITE int@1234567890123
+WRITE string@\010
+WRITE float@0x1.4p+1
+WRITE string@\010
+WRITE bool@true
+WRITE string@\010
+WRITE bool@false
+WRITE string@\010
+DEFVAR GF@x
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@y
+MOVE LF@y int@42
+MOVE GF@x LF@y
+ADD LF@y GF@x int@8
+JUMPIFEQ vypis_vysledok LF@y int@50
+WRITE int@999
+LABEL vypis_vysledok
+WRITE LF@y
+WRITE string@\010
+MOVE LF@y int@0
+LABEL zaciatok_cyklu
+JUMPIFEQ koniec_cyklu LF@y int@3
+ADD LF@y LF@y int@1
+JUMP zaciatok_cyklu
+LABEL koniec_cyklu
+WRITE LF@y
+WRITE string@\010
+CREATEFRAME
+DEFVAR TF@zdroj
+MOVE TF@zdroj int@42
+DEFVAR TF@cislo
+MOVE TF@cislo int@41
+MOVE TF@cislo TF@zdroj
+SUB TF@cislo TF@cislo int@1
+MUL TF@cislo TF@cislo int@2
+ADD TF@cislo TF@cislo TF@zdroj
+IDIV TF@cislo TF@cislo int@3
+CALL vypis_cislo
+WRITE TF@cislo
+WRITE string@\010
+WRITE int@8
+WRITE string@\010
+POPFRAME
+EXIT int@0
+LABEL vypis_cislo
+PUSHFRAME
+ADD LF@cislo LF@cislo int@1
+POPFRAME
+RETURN
