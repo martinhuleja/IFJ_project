@@ -134,12 +134,61 @@ int main(void)
         .children_count = 1,
         .children_capacity = 1
     };
-    ASTNode *statements[] = {&declaration, &update, &increment};
+    ASTNode sum_left = {
+        .type = AST_IDENTIFIER,
+        .text = name
+    };
+    ASTNode sum_right = {
+        .type = AST_IDENTIFIER,
+        .text = source
+    };
+    ASTNode *sum_operands[] = {&sum_left, &sum_right};
+    ASTNode sum = {
+        .type = AST_BINARY_OP,
+        .operator = AST_OP_ADD,
+        .children = sum_operands,
+        .children_count = 2,
+        .children_capacity = 2
+    };
+    ASTNode *sum_assignment_children[] = {&sum};
+    ASTNode sum_assignment = {
+        .type = AST_ASSIGN,
+        .text = name,
+        .children = sum_assignment_children,
+        .children_count = 1,
+        .children_capacity = 1
+    };
+    ASTNode div_left = {
+        .type = AST_IDENTIFIER,
+        .text = name
+    };
+    ASTNode div_right = {
+        .type = AST_INT_LITERAL,
+        .int_value = 3
+    };
+    ASTNode *div_operands[] = {&div_left, &div_right};
+    ASTNode division = {
+        .type = AST_BINARY_OP,
+        .operator = AST_OP_DIV,
+        .children = div_operands,
+        .children_count = 2,
+        .children_capacity = 2,
+    };
+
+    ASTNode *div_assignment_children[] = { &division };
+    ASTNode div_assignment = {
+        .type = AST_ASSIGN,
+        .text = name,
+        .children = div_assignment_children,
+        .children_count = 1,
+        .children_capacity = 1,
+    };
+    ASTNode *statements[] = {&declaration, &update, &increment, &sum_assignment, &div_assignment};
     const ASTNode block = {
         .type = AST_BLOCK,
         .children = statements,
-        .children_count = 3,
-        .children_capacity = 3
+        .children_count = 5,
+        .children_capacity = 5
     };
     if (!codegen_block(tf, &block)) {
         return 1;

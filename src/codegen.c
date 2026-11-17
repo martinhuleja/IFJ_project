@@ -116,15 +116,25 @@ bool codegen_var_declaration(CodegenFrame frame, const ASTNode *node)
 
 static bool codegen_arithmetic_expression(CodegenFrame frame, const char *dest, const ASTNode *expr)
 {
-    if (expr == NULL || expr->type != AST_BINARY_OP || (expr->operator != AST_OP_ADD && expr->operator != AST_OP_SUB && expr->operator != AST_OP_MUL) || expr->children_count != 2 || expr->children == NULL) {
+    if (expr == NULL || expr->type != AST_BINARY_OP || (expr->operator != AST_OP_ADD && expr->operator != AST_OP_SUB && expr->operator != AST_OP_MUL && expr->operator != AST_OP_DIV) || expr->children_count != 2 || expr->children == NULL) {
         return false;
     }
     const ASTNode *left = expr->children[0];
     const ASTNode *right = expr->children[1];
-    if (left == NULL || right == NULL || right->type != AST_INT_LITERAL) {
+    if (left == NULL || right == NULL) {
         return false;
     }
     const char *source_name;
+    if (right->type == AST_IDENTIFIER) {
+        if (left->type != AST_IDENTIFIER || left->text == NULL || right->text == NULL || expr->operator != AST_OP_ADD) {
+            return false;
+        }
+        codegen_add_vars(frame, dest, frame, left->text, frame, right->text);
+        return true;
+    }
+    if (right->type != AST_INT_LITERAL) {
+        return false;
+    }
     if (left->type == AST_IDENTIFIER) {
         if (left->text == NULL) {
             return false;
@@ -146,6 +156,9 @@ static bool codegen_arithmetic_expression(CodegenFrame frame, const char *dest, 
         break;
     case AST_OP_MUL:
         codegen_mul_int(frame, dest, frame, source_name, right->int_value);
+        break;
+    case AST_OP_DIV:
+        codegen_idiv_int(frame, dest, frame, source_name, right->int_value);
         break;
     default:
         return false;
@@ -231,6 +244,28 @@ void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFram
     codegen_variable(source_frame, source_name);
     printf(" ");
     codegen_int(value);
+    printf("\n");
+}
+
+void codegen_idiv_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("IDIV ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame lsource_frame, const char *lsource_name, CodegenFrame rsource_frame, const char *rsource_name)
+{
+    printf("ADD ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(lsource_frame, lsource_name);
+    printf(" ");
+    codegen_variable(rsource_frame, rsource_name);
     printf("\n");
 }
 
