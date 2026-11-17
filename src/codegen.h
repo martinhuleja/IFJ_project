@@ -52,4 +52,5 @@ void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *nam
 
 void codegen_call(const char *label);
 void codegen_return(void);
+bool codegen_program(const ASTree *tree);
 #endif
