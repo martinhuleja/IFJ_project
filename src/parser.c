@@ -374,15 +374,10 @@ ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
   switch (parser->current_token->type) {
   // One line function definition
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN: {
     // Represent one line function body in AST similar to multi line function body
     // Function -> Block -> ExprOrCall
@@ -444,25 +439,15 @@ ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block) {
 
   switch (parser->current_token->type) {
   case TOKEN_VAL:
-    // fall through
   case TOKEN_VAR:
-    // fall through
   case TOKEN_IF:
-    // fall through
   case TOKEN_WHILE:
-    // fall through
   case TOKEN_RETURN:
-    // fall through
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_statement(parser, block));
     RETURN_IF_ERROR(parse_statement_list_rest(parser, block));
@@ -493,7 +478,6 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
 
   switch (parser->current_token->type) {
   case TOKEN_VAL:
-    // fall through
   case TOKEN_VAR:
     RETURN_IF_ERROR(parse_var_def(parser, block));
     break;
@@ -515,13 +499,9 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
     }
     // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr_or_call(parser, block));
     break;
@@ -641,22 +621,15 @@ ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
     break;
   case TOKEN_NEWLINE:
-    // fall through
   case TOKEN_SEMICOLON:
-    // fall through
   case TOKEN_DEDENT:
     break;
   default:
@@ -679,13 +652,9 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
     }
     // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr(parser, parent));
     break;
@@ -730,15 +699,10 @@ ErrorCode parse_arg_list_opt(Parser *parser, ASTNode *arg_list) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
     break;
@@ -756,15 +720,10 @@ ErrorCode parse_arg_list(Parser *parser, ASTNode *arg_list) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr(parser, arg_list));
     RETURN_IF_ERROR(parse_arg_list_rest(parser, arg_list));
@@ -794,15 +753,10 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser, ASTNode *arg_list) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
   case TOKEN_MINUS:
-    // fall through
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
     break;
