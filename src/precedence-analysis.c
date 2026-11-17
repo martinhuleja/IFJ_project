@@ -1,7 +1,7 @@
 /**
  * @file   precedence-analysis.c
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-16
+ * @date   2026-11-17
  *
  * @brief  Implementation of bottom-up precedence syntactic analysis
  */

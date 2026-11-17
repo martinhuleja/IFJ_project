@@ -1,9 +1,9 @@
 /**
  * @file   precedence-analysis.h
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-16
+ * @date   2026-11-17
  *
- * @brief  Header file for precedence analysis functions
+ * @brief  Declaration of bottom-up precedence analysis functions
  *
  * Precedence analysis creates AST subtree for expressions as bottom-up syntactic analysis.
  * Allocates subtree, links in to given ASTNode pointer as children and fills it with data.

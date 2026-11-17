@@ -1,9 +1,9 @@
 /**
  * @file   parser.c
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-09
+ * @date   2026-11-17
  *
- * @brief  Implementation of parser functions as recursive descent
+ * @brief  Implementation of recursive descent parser
  */
 
 #include "parser.h"

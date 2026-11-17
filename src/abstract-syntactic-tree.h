@@ -1,9 +1,9 @@
 /**
  * @file   abstract-syntactic-tree.h
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-10
+ * @date   2026-11-17
  *
- * @brief  Header file for abstract syntactic tree
+ * @brief  Declaration of abstract syntactic tree functions
  */
 
 #ifndef ABSTRACT_SYNTACTIC_TREE_H
