@@ -1,9 +1,9 @@
 /**
  * @file   abstract-syntactic-tree.h
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-10
+ * @date   2026-11-17
  *
- * @brief  Header file for abstract syntactic tree
+ * @brief  Declaration of abstract syntactic tree functions
  */
 
 #ifndef ABSTRACT_SYNTACTIC_TREE_H
@@ -68,20 +68,32 @@ typedef enum ast_data_type {
  * - AST_FUNCTION: text = name, is_main, declared_type; [AST_PARAM_LIST, AST_BLOCK].
  * - AST_PARAM_LIST: parameters in declaration order.
  * - AST_PARAM: text = name, declared_type; no children.
- * - AST_BLOCK: statements in source order.
+ * - AST_BLOCK: statements in source order; expressions and calls are stored directly, also in a one-line body.
  * - AST_VAR_DECLARATION: text = name, is_changeable, declared_type; [initializer].
- * - AST_ASSIGN: text = target name; [assigned expression or call].
+ * - AST_ASSIGN: text = target name (no identifier child); [assigned expression or call].
  * - AST_IF: [AST_EXPR condition, AST_BLOCK then, AST_BLOCK else].
  * - AST_WHILE: [AST_EXPR condition, AST_BLOCK body].
- * - AST_RETURN: [expression or call], or no children for a bare return.
+ * - AST_RETURN: explicit return only; [expression or call], or no children for a bare return.
  * - AST_CALL: text = function name; [AST_ARG_LIST], including for an empty call.
  * - AST_ARG_LIST: expressions in argument order.
- * - AST_EXPR: [expression], used for conditions and parenthesized statements.
+ * - AST_EXPR: [expression], used for conditions, parentheses in expressions do not create a wrapper.
  * - AST_IDENTIFIER: text = name; no children.
  * - Literals: int_value, double_value or text according to type; no children.
- *   AST_UNIT_LITERAL has no payload.
- * The expression module supplies AST_BINARY_OP [left, right] and AST_UNARY_OP
- * [operand], with operator set. resolved_type is reserved for semantic analysis.
+ *   AST_UNIT_LITERAL is created by PSA for () and has no payload.
+ *
+ * Expression subtrees are recursive, not flat lists of operands and operators.
+ * When an AST_EXPR wrapper is used, children[0] is the single root of the entire expression:
+ * - A single operand is an AST_IDENTIFIER or a literal leaf, without children.
+ * - A unary operation is an AST_UNARY_OP root with operator set to AST_OP_NEGATION;
+ *   children[0] is the operand subtree.
+ * - A binary operation is an AST_BINARY_OP root with operator set to the specific operation;
+ *   children[0] is the left operand subtree and children[1] is the right operand subtree.
+ * Operand subtrees may themselves contain operations. Their nesting reflects precedence, associativity and grouping.
+ * For example, for a + b * c, the root is addition and its right child is multiplication.
+ * Grouping parentheses do not create nodes. Precedence syntactic analysis appends the expression root
+ * to its supplied parent. Initializers, return values, arguments and expression statements store this root
+ * directly, without an additional AST_EXPR wrapper.
+ * resolved_type is reserved for semantic analysis.
  */
 typedef struct ast_node {
   ASTNodeType type;

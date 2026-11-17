@@ -79,9 +79,9 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
           ParamGroup, ParamListOpt, ParamList, ParamListRest, Param, TypeOpt, Type,
           FunctionBody, Block, StatementList, StatementListRest, Statement, StatementEnd,
           VarDef, VarKind, IfStatement, WhileStatement, ReturnStatement, ArgGroup, ArgList,
-          ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, CallOpt, EOLOrEOF,
-          StatementAfterId, ExprNonId, ExprTail, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
-  \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, TypeInt,
+          ArgListOpt, ArgListRest, Expr, ExprOrCall, ReturnExprOpt, Call, EOLOrEOF,
+          Assignment, EOLOpt, ArgListRestTail, ParamListRestTail $\}$
+  \item $T = \{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, TypeInt,
           TypeDouble, TypeString, TypeUnit, Val, Var, If, Then, Else, While, Do, Return,
           AtMain, Def, IFJ26Id, Import, Assign, LParen, RParen, Colon, Comma, Semicolon,
           Dot, Star, Indent, Dedent, EOL, EOF  $\}$
@@ -144,7 +144,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
   23  & Type $\rightarrow$ TypeUnit
       & $\{$ TypeUnit $\}$ \\ \hline
   24  & FunctionBody $\rightarrow$ ExprOrCall EOLOrEOF
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   25  & EOLOrEOF $\rightarrow$ EOL
       & $\{$ EOL $\}$ \\ \hline
   26  & EOLOrEOF $\rightarrow$ EOF
@@ -153,94 +153,97 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ EOL $\}$ \\ \hline
   28  & Block $\rightarrow$ Indent StatementList Dedent
       & $\{$ Indent $\}$ \\ \hline
-  29  & StatementList $\rightarrow$ Statement StatementEnd StatementListRest
-      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  30  & StatementListRest $\rightarrow$ Statement StatementEnd StatementListRest
-      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
+  29  & StatementList $\rightarrow$ Statement StatementListRest
+      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
+  30  & StatementListRest $\rightarrow$ Statement StatementListRest
+      & $\{$ Val, Var, If, While, Return, Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
   31  & StatementListRest $\rightarrow \varepsilon$
       & $\{$ Dedent $\}$ \\ \hline
   32  & StatementEnd $\rightarrow$ EOL
       & $\{$ EOL $\}$ \\ \hline
   33  & StatementEnd $\rightarrow$ Semicolon
       & $\{$ Semicolon $\}$ \\ \hline
-  34  & Statement $\rightarrow$ VarDef
+  34  & StatementEnd $\rightarrow \varepsilon$
+      & $\{$ Dedent $\}$ \\ \hline
+  35  & Statement $\rightarrow$ VarDef StatementEnd
       & $\{$ Val, Var $\}$ \\ \hline
-  35  & Statement $\rightarrow$ IfStatement
+  36  & Statement $\rightarrow$ IfStatement
       & $\{$ If $\}$ \\ \hline
-  36  & Statement $\rightarrow$ WhileStatement
+  37  & Statement $\rightarrow$ WhileStatement
       & $\{$ While $\}$ \\ \hline
-  37  & Statement $\rightarrow$ ReturnStatement
+  38  & Statement $\rightarrow$ ReturnStatement StatementEnd
       & $\{$ Return $\}$ \\ \hline
-  38  & Statement $\rightarrow$ Identifier StatementAfterId
+  39  & Statement $\rightarrow$ Assignment StatementEnd
       & $\{$ Identifier $\}$ \\ \hline
-  39  & Statement $\rightarrow$ ExprNonId
-      & $\{$ IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  40  & StatementAfterId $\rightarrow$ Assign ExprOrCall
-      & $\{$ Assign $\}$ \\ \hline
-  41  & StatementAfterId $\rightarrow$ ArgGroup
-      & $\{$ LParen $\}$ \\ \hline
-  42  & StatementAfterId $\rightarrow$ ExprTail
-      & $\{$ EOL, Semicolon $\}$ \\ \hline
-  43  & ExprNonId $\rightarrow$ IntLiteral ExprTail
-      & $\{$ IntLiteral $\}$ \\ \hline
-  44  & ExprNonId $\rightarrow$ DoubleLiteral ExprTail
-      & $\{$ DoubleLiteral $\}$ \\ \hline
-  45  & ExprNonId $\rightarrow$ StringLiteral ExprTail
-      & $\{$ StringLiteral $\}$ \\ \hline
-  46  & ExprNonId $\rightarrow$ UnitLiteral ExprTail
-      & $\{$ UnitLiteral $\}$ \\ \hline
-  47  & ExprNonId $\rightarrow$ LParen Expr RParen ExprTail
-      & $\{$ LParen $\}$ \\ \hline
-  48  & VarDef $\rightarrow$ VarKind Identifier TypeOpt Assign ExprOrCall
+  40  & Statement $\rightarrow$ ExprOrCall StatementEnd
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
+  41  & Assignment $\rightarrow$ Identifier Assign ExprOrCall
+      & $\{$ Identifier $\}$ \\ \hline
+  42  & VarDef $\rightarrow$ VarKind Identifier TypeOpt Assign ExprOrCall
       & $\{$ Val, Var $\}$ \\ \hline
-  49  & VarKind $\rightarrow$ Val
+  43  & VarKind $\rightarrow$ Val
       & $\{$ Val $\}$ \\ \hline
-  50  & VarKind $\rightarrow$ Var
+  44  & VarKind $\rightarrow$ Var
       & $\{$ Var $\}$ \\ \hline
-  51  & IfStatement $\rightarrow$ If Expr Then EOL Block EOL Else EOL Block
+  45  & IfStatement $\rightarrow$ If Expr Then EOL Block Else EOL Block
       & $\{$ If $\}$ \\ \hline
-  52  & WhileStatement $\rightarrow$ While Expr Do EOL Block
+  46  & WhileStatement $\rightarrow$ While Expr Do EOL Block
       & $\{$ While $\}$ \\ \hline
-  53  & ReturnStatement $\rightarrow$ Return ReturnExprOpt
+  47  & ReturnStatement $\rightarrow$ Return ReturnExprOpt
       & $\{$ Return $\}$ \\ \hline
-  54  & ReturnExprOpt $\rightarrow$ ExprOrCall
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  55  & ReturnExprOpt $\rightarrow \varepsilon$
-      & $\{$ EOL, Semicolon $\}$ \\ \hline
-  56  & ExprOrCall $\rightarrow$ Identifier CallOpt
+  48  & ReturnExprOpt $\rightarrow$ ExprOrCall
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
+  49  & ReturnExprOpt $\rightarrow \varepsilon$
+      & $\{$ EOL, Semicolon, Dedent $\}$ \\ \hline
+  50  & ExprOrCall $\rightarrow$ Call
       & $\{$ Identifier $\}$ \\ \hline
-  57  & ExprOrCall $\rightarrow$ Expr
-      & $\{$ IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  58  & CallOpt $\rightarrow$ ArgGroup
+  51  & ExprOrCall $\rightarrow$ Expr
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
+  52  & Call $\rightarrow$ Identifier ArgGroup
+      & $\{$ Identifier $\}$ \\ \hline
+  53  & ArgGroup $\rightarrow$ LParen ArgListOpt RParen
       & $\{$ LParen $\}$ \\ \hline
-  59  & CallOpt $\rightarrow \varepsilon$
-      & $\{$ EOL, EOF, Semicolon $\}$ \\ \hline
-  60  & ArgGroup $\rightarrow$ LParen ArgListOpt RParen
-      & $\{$ LParen $\}$ \\ \hline
-  61  & ArgListOpt $\rightarrow$ ArgList
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  62  & ArgListOpt $\rightarrow \varepsilon$
+  54  & ArgListOpt $\rightarrow$ ArgList
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
+  55  & ArgListOpt $\rightarrow \varepsilon$
       & $\{$ RParen $\}$ \\ \hline
-  63  & ArgList $\rightarrow$ Expr ArgListRest
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  64  & ArgListRest $\rightarrow$ Comma ArgListRestTail
+  56  & ArgList $\rightarrow$ Expr ArgListRest
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
+  57  & ArgListRest $\rightarrow$ Comma ArgListRestTail
       & $\{$ Comma $\}$ \\ \hline
-  65  & ArgListRest $\rightarrow \varepsilon$
+  58  & ArgListRest $\rightarrow \varepsilon$
       & $\{$ RParen $\}$ \\ \hline
-  66  & ArgListRestTail $\rightarrow$ ArgList
-      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, UnitLiteral, LParen $\}$ \\ \hline
-  67  & ArgListRestTail $\rightarrow \varepsilon \quad \{\mathrm{checkLF}(RParen)\}$
+  59  & ArgListRestTail $\rightarrow$ ArgList
+      & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
+  60  & ArgListRestTail $\rightarrow \varepsilon \quad \{\mathrm{checkLF}(RParen)\}$
       & $\{$ RParen $\}$ \\ \hline
-  68  & EOLOpt $\rightarrow$ EOL
+  61  & EOLOpt $\rightarrow$ EOL
       & $\{$ EOL $\}$ \\ \hline
-  69  & EOLOpt $\rightarrow \varepsilon$
+  62  & EOLOpt $\rightarrow \varepsilon$
       & $\{$ Def $\}$ \\ \hline
 
 \end{xltabular}
 
+Některé pravidla používají pro rozhodnutí dva tokeny výhledu:
+
+\begin{itemize}
+  \item Statement: pro Identifier Assign se zvolí pravidlo 39, pro pro Identifier následovaný jiným tokenem pravidlo 40
+  \item ExprOrCall: pro Identifier LParen se zvolí pravidlo 50, pro Identifier následovaný jiným tokenem
+    pravidlo 51,
+\end{itemize}
+
+Překryv množin Predict v Identifier je tedy řešen druhým tokenem. V LL tabulce je tato volba označena 39/40 a 50/51.
+
+UnitLiteral je ve vstupu dvojice LParen RParen a rozpoznává jej precedenční syntatická analýza.
+Proto v pravidlech vstupuje jako LParen.
+
+Minus v množinách Predict označuje začátek výrazu s unárním mínusem. Rozlišení unárního a binárního mínusu provádí
+precedenční syntaktická analýza. \\
+
 \noindent $\mathrm{checkLF}(token) \Longleftrightarrow token.type = RParen \wedge token.lf\_before\_rparen = true$ \\
 
-\noindent Neterminály Expr a ExprTail jsou vyhodnocovány samostatnou precedenční syntaktickou analýzou zdola nahoru podle precedenční tabulky.
+\noindent Neterminál Expr je vyhodnocován samostatnou precedenční syntaktickou
+analýzou zdola nahoru podle precedenční tabulky.
 
 % ====================
 % ===== LL table =====
@@ -259,7 +262,7 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
 
   % === HEADER ===
   \textbf{Neterminál} & \rot{Identifier} & \rot{IntLiteral} & \rot{DoubleLiteral} &
-  \rot{StringLiteral} & \rot{UnitLiteral} & \rot{TypeInt} & \rot{TypeDouble} &
+  \rot{StringLiteral} & \rot{Minus} & \rot{TypeInt} & \rot{TypeDouble} &
   \rot{TypeString} & \rot{TypeUnit} & \rot{Val} & \rot{Var} & \rot{If} & \rot{Then} &
   \rot{Else} & \rot{While} & \rot{Do} & \rot{Return} & \rot{AtMain} & \rot{Def} &
   \rot{IFJ26Id} & \rot{Import} & \rot{Assign} & \rot{LParen} & \rot{RParen} &
@@ -285,25 +288,24 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
   Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 28 & & & \\
   StatementList & 29 & 29 & 29 & 29 & 29 & & & & & 29 & 29 & 29 & & & 29 & & 29 & & & & & & 29 & & & & & & & & & & \\
   StatementListRest & 30 & 30 & 30 & 30 & 30 & & & & & 30 & 30 & 30 & & & 30 & & 30 & & & & & & 30 & & & & & & & & 31 & & \\
-  Statement & 38 & 39 & 39 & 39 & 39 & & & & & 34 & 34 & 35 & & & 36 & & 37 & & & & & & 39 & & & & & & & & & & \\
-  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & & 32 & \\
-  VarDef & & & & & & & & & & 48 & 48 & & & & & & & & & & & & & & & & & & & & & & \\
-  VarKind & & & & & & & & & & 49 & 50 & & & & & & & & & & & & & & & & & & & & & & \\
-  IfStatement & & & & & & & & & & & & 51 & & & & & & & & & & & & & & & & & & & & & \\
-  WhileStatement & & & & & & & & & & & & & & & 52 & & & & & & & & & & & & & & & & & & \\
-  ReturnStatement & & & & & & & & & & & & & & & & & 53 & & & & & & & & & & & & & & & & \\
-  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 59 & & & & & & & & & & \\
-  ArgList & 63 & 63 & 63 & 63 & 63 & & & & & & & & & & & & & & & & & & 63 & & & & & & & & & & \\
-  ArgListOpt & 61 & 61 & 61 & 61 & 61 & & & & & & & & & & & & & & & & & & 61 & 62 & & & & & & & & & \\
-  ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 65 & & 64 & & & & & & & \\
-  ArgListRestTail & 66 & 66 & 66 & 66 & 66 & & & & & & & & & & & & & & & & & & 66 & 67 & & & & & & & & & \\
-  ExprOrCall & 56 & 57 & 57 & 57 & 57 & & & & & & & & & & & & & & & & & & 57 & & & & & & & & & & \\
-  ReturnExprOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & & & & 55 & & & & & 55 & \\
-  CallOpt & & & & & & & & & & & & & & & & & & & & & & & 58 & & & & 59 & & & & & 59 & 59 \\
+  Statement & 39/40 & 40 & 40 & 40 & 40 & & & & & 35 & 35 & 36 & & & 37 & & 38 & & & & & & 40 & & & & & & & & & & \\
+  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & 34 & 32 & \\
+  VarDef & & & & & & & & & & 42 & 42 & & & & & & & & & & & & & & & & & & & & & & \\
+  VarKind & & & & & & & & & & 43 & 44 & & & & & & & & & & & & & & & & & & & & & & \\
+  IfStatement & & & & & & & & & & & & 45 & & & & & & & & & & & & & & & & & & & & & \\
+  WhileStatement & & & & & & & & & & & & & & & 46 & & & & & & & & & & & & & & & & & & \\
+  ReturnStatement & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & & & & & & & \\
+  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 53 & & & & & & & & & & \\
+  ArgList & 56 & 56 & 56 & 56 & 56 & & & & & & & & & & & & & & & & & & 56 & & & & & & & & & & \\
+  ArgListOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & 55 & & & & & & & & & \\
+  ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 58 & & 57 & & & & & & & \\
+  ArgListRestTail & 59 & 59 & 59 & 59 & 59 & & & & & & & & & & & & & & & & & & 59 & 60 & & & & & & & & & \\
+  ExprOrCall & 50/51 & 51 & 51 & 51 & 51 & & & & & & & & & & & & & & & & & & 51 & & & & & & & & & & \\
+  ReturnExprOpt & 48 & 48 & 48 & 48 & 48 & & & & & & & & & & & & & & & & & & 48 & & & & 49 & & & & 49 & 49 & \\
+  Call & 52 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
-  StatementAfterId & & & & & & & & & & & & & & & & & & & & & & 40 & 41 & & & & 42 & & & & & 42 & \\
-  ExprNonId & & 43 & 44 & 45 & 46 & & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & \\
-  EOLOpt & & & & & & & & & & & & & & & & & & & 69 & & & & & & & & & & & & & 68 & \\
+  Assignment & 41 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  EOLOpt & & & & & & & & & & & & & & & & & & & 62 & & & & & & & & & & & & & 61 & \\
   \bottomrule
   \end{tabular}
   \end{table}
@@ -317,18 +319,19 @@ Pro vyhodnocování výrazů byla v souladu se zadáním využita precedenční 
 
 Gramatika zpracovávající výrazy je definována jako
 $G_{\textnormal{expr}} = (\{E\}, T_{\textnormal{prec}}, P_{\textnormal{prec}}, E)$,
-kde $T_{\textnormal{prec}} = \{ i, -_{\textnormal{un}}, *, /, +, -_{\textnormal{bi}},
+kde $T_{\textnormal{prec}} = \{ i, -_{\textnormal{un}}, \\ *, /, +, -_{\textnormal{bi}},
 <, <=, >, >=, ==, !=, (, ), \$ \}$
 
 \begin{itemize}
-    \item $i$ značí identifikátory a literály typů \texttt{Int}, \texttt{Double}, \texttt{String}, \texttt{Unit},
+    \item $i$ značí identifikátory a literály typů \texttt{Int}, \texttt{Double}, \texttt{String},
     \item $-_{\textnormal{un}}$ značí unární operátor minus, $-_{\textnormal{bi}}$ binární odčítání,
-    \item $\$$ značí ukončovač výrazu (\texttt{EOL}, \texttt{EOF}, \texttt{then}, \texttt{do}, \dots).
+    \item $\$$ značí ukončovač výrazu (\texttt{EOL}, \texttt{Dedent}, \texttt{EOF}, \texttt{then}, \texttt{do}, \dots).
 \end{itemize}
 
 \noindent Množina pravidel $P_{\textnormal{prec}}$ zahrnuje: \quad $E \rightarrow i, \qquad E \rightarrow (E),
-\qquad E \rightarrow -E, \qquad E \rightarrow E * E, \qquad E \rightarrow E / E, \qquad E \rightarrow E + E,
-\qquad E \rightarrow E - E, \qquad E \rightarrow E \ rel \ E$, kde $rel \in \{ <, <=, >, >=, ==, != \}.$
+\qquad E \rightarrow (), \qquad E \rightarrow -_{\textnormal{un}}E, \qquad E \rightarrow E * E,
+\qquad E \rightarrow E / E, \qquad E \rightarrow E + E, \qquad E \rightarrow E -_{\textnormal{bi}} E,
+\qquad E \rightarrow E \ rel \ E$, kde $rel \in \{ <, <=, >, >=, ==, != \}.$
 
 \subsection{Precedenční tabulka}
 Hierarchie operátorů vychází ze specifikace jazyka IFJ26.
@@ -348,8 +351,8 @@ Hierarchie operátorů vychází ze specifikace jazyka IFJ26.
   $-_{\textnormal{un}}$      & $<$ & $<$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
   $*$, $/$                   & $<$ & $<$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
   $+$, $-_{\textnormal{bi}}$ & $<$ & $<$ & $<$ & $>$ & $>$ & $>$ & $<$ & $>$ & $>$ \\
-  $<, <=, >, >=$             & $<$ & $<$ & $<$ & $<$ &     & $>$ & $<$ & $>$ & $>$ \\
-  $==, !=$                   & $<$ & $<$ & $<$ & $<$ & $<$ &     & $<$ & $>$ & $>$ \\
+  $<, <=, >, >=$             & $<$ & $<$ & $<$ & $<$ &     &     & $<$ & $>$ & $>$ \\
+  $==, !=$                   & $<$ & $<$ & $<$ & $<$ &     &     & $<$ & $>$ & $>$ \\
   $($                        & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $=$ &     \\
   $)$                        &     &     & $>$ & $>$ & $>$ & $>$ &     & $>$ & $>$ \\
   $\$$                       & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ &     &     \\

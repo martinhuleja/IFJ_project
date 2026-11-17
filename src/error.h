@@ -1,9 +1,9 @@
 /**
  * @file   error.h
  * @author Martin Huleja (xhulejm00)
- * @date   2026-10-28
+ * @date   2026-11-03
  *
- * @brief  Header file for error codes and error message
+ * @brief  Declaration of error codes and error message function
  */
 
 #ifndef ERROR_H
