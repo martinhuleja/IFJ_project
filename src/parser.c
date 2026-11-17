@@ -1,17 +1,15 @@
 /**
  * @file   parser.c
  * @author Martin Huleja (xhulejm00)
- * @date   2026-11-09
+ * @date   2026-11-17
  *
- * @brief  Implementation of parser functions as recursive descent
+ * @brief  Implementation of recursive descent parser
  */
 
 #include "parser.h"
 #include "error.h"
-#include "parser-missing-declarations.h"
+#include "precedence-analysis.h"
 #include "token.h"
-#include <errno.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,55 +17,6 @@
 /********************************************************************
  ************************ SUPPORT FUNCTIONS *************************
  *******************************************************************/
-
-/**
- * @brief Checks return value of given function
- *
- * If return value isn't ERROR_OK, returns with the error code.
- *
- * @param foo function returning an ErrorCode value
- */
-#define RETURN_IF_ERROR(foo)                                                                                           \
-  do {                                                                                                                 \
-    ErrorCode error_code = (foo);                                                                                      \
-    if (error_code != ERROR_OK) {                                                                                      \
-      return error_code;                                                                                               \
-    }                                                                                                                  \
-  } while (0)
-
-/**
- * @brief Prints error msg and return with syntactic ErrorCode
- * @param Ptr to struct parser
- */
-#define RETURN_SYNTACTIC_ERROR(parser)                                                                                 \
-  do {                                                                                                                 \
-    RETURN_IF_ERROR(check_current_token(parser));                                                                      \
-    if (parser->print_error_msg_and_return) {                                                                          \
-      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one (%s, line %u, column %u).",             \
-                parser->current_token->value != NULL ? parser->current_token->value : "<no value>",                    \
-                parser->current_token->line, parser->current_token->column);                                           \
-    }                                                                                                                  \
-    return ERROR_SYNTACTIC;                                                                                            \
-  } while (0)
-
-/**
- * @brief Returns ERROR_INTERNAL if the given pointer is NULL
- *
- * Prints the error message if it isn't NULL.
- *
- * @param ptr Ptr to check
- * @param message Error message, or NULL to return without printing
- */
-#define RETURN_INTERNAL_ERROR_IF_NULL(ptr, message)                                                                    \
-  do {                                                                                                                 \
-    if ((ptr) == NULL) {                                                                                               \
-      const char *error_msg = (message);                                                                               \
-      if (error_msg != NULL) {                                                                                         \
-        print_err(ERROR_INTERNAL, "%s", error_msg);                                                                    \
-      }                                                                                                                \
-      return ERROR_INTERNAL;                                                                                           \
-    }                                                                                                                  \
-  } while (0)
 
 Parser *parser_init() {
   Parser *parser = (Parser *)malloc(sizeof(Parser));
@@ -157,17 +106,22 @@ ErrorCode new_token(Parser *parser) {
   if (parser->current_token != NULL) {
     free(parser->current_token->value);
     free(parser->current_token);
+    parser->current_token = NULL;
   }
 
   if (parser->next_token != NULL) {
     parser->current_token = parser->next_token;
     parser->next_token = NULL;
   } else {
-    parser->current_token = get_next_token();
-    if (parser->current_token == NULL) {
-      print_err(ERROR_LEXICAL, "No more tokens to return.");
-      return ERROR_LEXICAL;
+    Token *token = (Token *)malloc(sizeof(Token));
+    RETURN_INTERNAL_ERROR_IF_NULL(token, "Couldn't allocate memory for token.");
+
+    ErrorCode lexer_return_value = get_next_token(token);
+    if (lexer_return_value != ERROR_OK) {
+      free(token);
+      return lexer_return_value;
     }
+    parser->current_token = token;
   }
 
   return ERROR_OK;
@@ -177,15 +131,19 @@ ErrorCode look_up_next_token(Parser *parser) {
   RETURN_INTERNAL_ERROR_IF_NULL(parser, "Parser is NULL.");
 
   if (parser->next_token == NULL) {
-    parser->next_token = get_next_token();
-    if (parser->next_token == NULL) {
-      print_err(ERROR_LEXICAL, "No more tokens to return.");
-      return ERROR_LEXICAL;
+    Token *token = (Token *)malloc(sizeof(Token));
+    RETURN_INTERNAL_ERROR_IF_NULL(token, "Couldn't allocate memory for token.");
+
+    ErrorCode lexer_return_value = get_next_token(token);
+    if (lexer_return_value != ERROR_OK) {
+      free(token);
+      return lexer_return_value;
     }
+    parser->next_token = token;
   }
 
   return ERROR_OK;
-} // look_up_next_token;
+} // look_up_next_token()
 
 ErrorCode expect(Parser *parser, TokenType expected_type) {
   RETURN_IF_ERROR(compare_tokens(parser, expected_type));
@@ -416,25 +374,18 @@ ErrorCode parse_function_body(Parser *parser, ASTNode *function) {
   switch (parser->current_token->type) {
   // One line function definition
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN: {
     // Represent one line function body in AST similar to multi line function body
-    // Function -> Block -> Return -> ExprOrCall
+    // Function -> Block -> ExprOrCall
     ASTNode *block = ast_create_node(AST_BLOCK);
     RETURN_INTERNAL_ERROR_IF_NULL(block, NULL);
     RETURN_IF_ERROR(ast_add_child(function, block));
 
-    ASTNode *return_node = ast_create_node(AST_RETURN);
-    RETURN_INTERNAL_ERROR_IF_NULL(return_node, NULL);
-    RETURN_IF_ERROR(ast_add_child(block, return_node));
-
-    RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
+    RETURN_IF_ERROR(parse_expr_or_call(parser, block));
     RETURN_IF_ERROR(parse_eol_or_eof(parser));
     break;
   }
@@ -478,7 +429,6 @@ ErrorCode parse_block(Parser *parser, ASTNode *parent) {
 
 ErrorCode parse_statement_list(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(parse_statement(parser, block));
-  RETURN_IF_ERROR(parse_statement_end(parser));
   RETURN_IF_ERROR(parse_statement_list_rest(parser, block));
 
   return ERROR_OK;
@@ -489,26 +439,17 @@ ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block) {
 
   switch (parser->current_token->type) {
   case TOKEN_VAL:
-    // fall through
   case TOKEN_VAR:
-    // fall through
   case TOKEN_IF:
-    // fall through
   case TOKEN_WHILE:
-    // fall through
   case TOKEN_RETURN:
-    // fall through
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_statement(parser, block));
-    RETURN_IF_ERROR(parse_statement_end(parser));
     RETURN_IF_ERROR(parse_statement_list_rest(parser, block));
     break;
   case TOKEN_DEDENT:
@@ -524,6 +465,9 @@ ErrorCode parse_statement_end(Parser *parser) {
   if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_SEMICOLON)) {
     RETURN_IF_ERROR(new_token(parser));
     return ERROR_OK;
+  } else if (tokens_matches(parser, TOKEN_DEDENT)) {
+    // The final statement needs no separator before the block ends
+    return ERROR_OK;
   } else {
     RETURN_SYNTACTIC_ERROR(parser);
   }
@@ -534,136 +478,59 @@ ErrorCode parse_statement(Parser *parser, ASTNode *block) {
 
   switch (parser->current_token->type) {
   case TOKEN_VAL:
-    // fall through
   case TOKEN_VAR:
     RETURN_IF_ERROR(parse_var_def(parser, block));
     break;
   case TOKEN_IF:
     RETURN_IF_ERROR(parse_if_statement(parser, block));
-    break;
+    return ERROR_OK;
   case TOKEN_WHILE:
     RETURN_IF_ERROR(parse_while_statement(parser, block));
-    break;
+    return ERROR_OK;
   case TOKEN_RETURN:
     RETURN_IF_ERROR(parse_return_statement(parser, block));
     break;
-  case TOKEN_IDENTIFIER: {
-    ASTNode *statement = ast_create_node(AST_IDENTIFIER);
-    RETURN_INTERNAL_ERROR_IF_NULL(statement, NULL);
-    RETURN_IF_ERROR(ast_add_child(block, statement));
-    RETURN_IF_ERROR(ast_set_text(statement, parser->current_token->value));
-
-    RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_statement_after_id(parser, statement));
-    break;
-  }
+  case TOKEN_IDENTIFIER:
+    // Keep the identifier until assignment or expression parsing consumes it
+    RETURN_IF_ERROR(look_up_next_token(parser));
+    if (token_matches_next_token(parser, TOKEN_ASSIGN)) {
+      RETURN_IF_ERROR(parse_assignment(parser, block));
+      break;
+    }
+    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN:
-    RETURN_IF_ERROR(parse_expr_non_id(parser, block));
+    RETURN_IF_ERROR(parse_expr_or_call(parser, block));
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
   }
+
+  // Simple statements consume their separator; compound statements end with their block
+  RETURN_IF_ERROR(parse_statement_end(parser));
 
   return ERROR_OK;
 } // parse_statement()
 
-ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement) {
-  RETURN_INTERNAL_ERROR_IF_NULL(statement, "Statement node in ASTree is NULL.");
+ErrorCode parse_assignment(Parser *parser, ASTNode *block) {
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
+  RETURN_INTERNAL_ERROR_IF_NULL(block, "Block node in ASTree is NULL.");
 
-  RETURN_IF_ERROR(check_current_token(parser));
-
-  switch (parser->current_token->type) {
-  case TOKEN_ASSIGN:
-    statement->type = AST_ASSIGN;
-    RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_expr_or_call(parser, statement));
-    break;
-  case TOKEN_LPAREN:
-    statement->type = AST_CALL;
-    RETURN_IF_ERROR(parse_arg_group(parser, statement));
-    break;
-  case TOKEN_NEWLINE:
-    // fall through
-  case TOKEN_SEMICOLON:
-    RETURN_IF_ERROR(parse_expr_tail(parser, statement));
-    break;
-  default:
-    RETURN_SYNTACTIC_ERROR(parser);
-  }
-
-  return ERROR_OK;
-} // parse_statement_after_id()
-
-ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent) {
-  RETURN_IF_ERROR(check_current_token(parser));
-
-  ASTNode *expression = ast_create_node(AST_EXPR);
-  RETURN_INTERNAL_ERROR_IF_NULL(expression, NULL);
-  RETURN_IF_ERROR(ast_add_child(parent, expression));
-
-  switch (parser->current_token->type) {
-  case TOKEN_LPAREN:
-    RETURN_IF_ERROR(new_token(parser));
-    if (!tokens_matches(parser, TOKEN_RPAREN)) {
-      // ExprNonId -> LParen Expr RParen ExprTail
-      RETURN_IF_ERROR(parse_expr(parser, expression));
-      RETURN_IF_ERROR(expect(parser, TOKEN_RPAREN));
-      RETURN_IF_ERROR(parse_expr_tail(parser, expression));
-      return ERROR_OK;
-    }
-    expression->type = AST_UNIT_LITERAL;
-    break;
-
-  case TOKEN_INT_LITERAL: {
-    expression->type = AST_INT_LITERAL;
-    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
-
-    char *end; // pointer to end of strtol() reading
-    errno = 0;
-    long value = strtol(parser->current_token->value, &end, 10);
-    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || value < INT32_MIN ||
-        value > INT32_MAX) {
-      print_err(ERROR_LEXICAL, "Invalid Int literal.");
-      return ERROR_LEXICAL;
-    }
-    expression->int_value = (int32_t)value;
-    break;
-  }
-  case TOKEN_DOUBLE_LITERAL: {
-    expression->type = AST_DOUBLE_LITERAL;
-    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
-
-    char *end; // pointer to end of strtod() reading
-    errno = 0;
-    double value = strtod(parser->current_token->value, &end);
-    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || !isfinite(value)) {
-      print_err(ERROR_LEXICAL, "Invalid Double literal.");
-      return ERROR_LEXICAL;
-    }
-    expression->double_value = value;
-    break;
-  }
-  case TOKEN_STRING_LITERAL:
-    expression->type = AST_STRING_LITERAL;
-    RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "Literal token value is NULL.");
-
-    RETURN_IF_ERROR(ast_set_text(expression, parser->current_token->value));
-    break;
-  default:
-    RETURN_SYNTACTIC_ERROR(parser);
-  }
+  ASTNode *assignment = ast_create_node(AST_ASSIGN);
+  RETURN_INTERNAL_ERROR_IF_NULL(assignment, NULL);
+  RETURN_IF_ERROR(ast_add_child(block, assignment));
+  // Store the target name in the assignment node before consuming it
+  RETURN_IF_ERROR(ast_set_text(assignment, parser->current_token->value));
 
   RETURN_IF_ERROR(new_token(parser));
-  RETURN_IF_ERROR(parse_expr_tail(parser, expression));
+  RETURN_IF_ERROR(expect(parser, TOKEN_ASSIGN));
+  RETURN_IF_ERROR(parse_expr_or_call(parser, assignment));
 
   return ERROR_OK;
-} // parse_expr_non_id()
+} // parse_assignment()
 
 ErrorCode parse_var_def(Parser *parser, ASTNode *block) {
   ASTNode *declaration = ast_create_node(AST_VAR_DECLARATION);
@@ -710,7 +577,6 @@ ErrorCode parse_if_statement(Parser *parser, ASTNode *block) {
   RETURN_IF_ERROR(expect(parser, TOKEN_THEN));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(parse_block(parser, if_node));
-  RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(expect(parser, TOKEN_ELSE));
   RETURN_IF_ERROR(expect(parser, TOKEN_NEWLINE));
   RETURN_IF_ERROR(parse_block(parser, if_node));
@@ -755,19 +621,16 @@ ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr_or_call(parser, return_node));
     break;
   case TOKEN_NEWLINE:
-    // fall through
   case TOKEN_SEMICOLON:
+  case TOKEN_DEDENT:
     break;
   default:
     RETURN_SYNTACTIC_ERROR(parser);
@@ -780,22 +643,18 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   RETURN_IF_ERROR(check_current_token(parser));
 
   switch (parser->current_token->type) {
-  case TOKEN_IDENTIFIER: {
-    ASTNode *expression = ast_create_node(AST_IDENTIFIER);
-    RETURN_INTERNAL_ERROR_IF_NULL(expression, NULL);
-    RETURN_IF_ERROR(ast_add_child(parent, expression));
-    RETURN_IF_ERROR(ast_set_text(expression, parser->current_token->value));
-
-    RETURN_IF_ERROR(new_token(parser));
-    RETURN_IF_ERROR(parse_call_opt(parser, expression));
-    break;
-  }
+  case TOKEN_IDENTIFIER:
+    // Keep the identifier for PSA unless the next token starts a call
+    RETURN_IF_ERROR(look_up_next_token(parser));
+    if (token_matches_next_token(parser, TOKEN_LPAREN)) {
+      RETURN_IF_ERROR(parse_call(parser, parent));
+      break;
+    }
+    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr(parser, parent));
     break;
@@ -806,20 +665,22 @@ ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent) {
   return ERROR_OK;
 } // parse_expr_or_call()
 
-ErrorCode parse_call_opt(Parser *parser, ASTNode *expression) {
-  RETURN_INTERNAL_ERROR_IF_NULL(expression, "Expression node in ASTree is NULL.");
+ErrorCode parse_call(Parser *parser, ASTNode *parent) {
+  RETURN_IF_ERROR(compare_tokens(parser, TOKEN_IDENTIFIER));
+  RETURN_INTERNAL_ERROR_IF_NULL(parent, "Parent node in ASTree is NULL.");
 
-  if (tokens_matches(parser, TOKEN_LPAREN)) {
-    expression->type = AST_CALL;
-    RETURN_IF_ERROR(parse_arg_group(parser, expression));
-    return ERROR_OK;
-  } else if (tokens_matches(parser, TOKEN_NEWLINE) || tokens_matches(parser, TOKEN_EOF) ||
-             tokens_matches(parser, TOKEN_SEMICOLON)) {
-    return ERROR_OK;
-  } else {
-    RETURN_SYNTACTIC_ERROR(parser);
-  }
-} // parse_call_opt()
+
+  ASTNode *call = ast_create_node(AST_CALL);
+  RETURN_INTERNAL_ERROR_IF_NULL(call, NULL);
+  RETURN_IF_ERROR(ast_add_child(parent, call));
+  // Save the function name before consuming the identifier
+  RETURN_IF_ERROR(ast_set_text(call, parser->current_token->value));
+
+  RETURN_IF_ERROR(new_token(parser));
+  RETURN_IF_ERROR(parse_arg_group(parser, call));
+
+  return ERROR_OK;
+} // parse_call()
 
 ErrorCode parse_arg_group(Parser *parser, ASTNode *call) {
   ASTNode *arg_list = ast_create_node(AST_ARG_LIST);
@@ -838,13 +699,10 @@ ErrorCode parse_arg_list_opt(Parser *parser, ASTNode *arg_list) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
     break;
@@ -862,13 +720,10 @@ ErrorCode parse_arg_list(Parser *parser, ASTNode *arg_list) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_expr(parser, arg_list));
     RETURN_IF_ERROR(parse_arg_list_rest(parser, arg_list));
@@ -898,13 +753,10 @@ ErrorCode parse_arg_list_rest_tail(Parser *parser, ASTNode *arg_list) {
 
   switch (parser->current_token->type) {
   case TOKEN_IDENTIFIER:
-    // fall through
   case TOKEN_INT_LITERAL:
-    // fall through
   case TOKEN_DOUBLE_LITERAL:
-    // fall through
   case TOKEN_STRING_LITERAL:
-    // fall through
+  case TOKEN_MINUS:
   case TOKEN_LPAREN:
     RETURN_IF_ERROR(parse_arg_list(parser, arg_list));
     break;
