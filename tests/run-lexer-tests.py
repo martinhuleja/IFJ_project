@@ -4,6 +4,7 @@
 Relevant prompt: "Generate me some unit tests for lexer part. Start small.
 Maybe one file lexer-tests.c and one script to run all the tests.
 Make sure to test every state's return token for start."
+Follow-up prompt: "maybe on the write out have it more detailed"
 
 Compile and run every case in lexer-tests.c using a fresh process per case.
 
@@ -40,7 +41,9 @@ def main():
             return 1
 
         failures = 0
-        for name in names:
+        print("Source positions marked * are not checked by that case.")
+        for index, name in enumerate(names, start=1):
+            print(f"\n[{index}/{len(names)}] {name}")
             try:
                 result = subprocess.run(
                     [str(executable), name], capture_output=True, text=True,
@@ -51,15 +54,17 @@ def main():
                 failures += 1
                 continue
 
+            if result.stdout:
+                for line in result.stdout.splitlines():
+                    print(f"  {line}")
+            if result.stderr:
+                for line in result.stderr.splitlines():
+                    print(f"  {line}")
             if result.returncode == 0:
                 print(f"PASS {name}")
             else:
                 failures += 1
                 print(f"FAIL {name}: exit code {result.returncode}")
-                if result.stdout:
-                    print(result.stdout.rstrip())
-                if result.stderr:
-                    print(result.stderr.rstrip())
 
         print(f"\n{len(names) - failures} passed, {failures} failed")
         return 1 if failures else 0

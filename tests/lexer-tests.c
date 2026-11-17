@@ -3,6 +3,7 @@
  * Relevant prompt: "Generate me some unit tests for lexer part. Start small.
  * Maybe one file lexer-tests.c and one script to run all the tests.
  * Make sure to test every state's return token for start."
+ * Follow-up prompt: "maybe on the write out have it more detailed"
  *
  * Scope: token returns from accepting FSM states, checked through the public
  * get_next_token() API. Comment states skip text; unfinished states return
@@ -271,34 +272,140 @@ static bool set_input(const char *source) {
     return true;
 }
 
+static const char *token_name(TokenType type) {
+    switch (type) {
+        case TOKEN_EOF: return "TOKEN_EOF";
+        case TOKEN_NEWLINE: return "TOKEN_NEWLINE";
+        case TOKEN_INDENT: return "TOKEN_INDENT";
+        case TOKEN_DEDENT: return "TOKEN_DEDENT";
+        case TOKEN_IDENTIFIER: return "TOKEN_IDENTIFIER";
+        case TOKEN_INT_LITERAL: return "TOKEN_INT_LITERAL";
+        case TOKEN_DOUBLE_LITERAL: return "TOKEN_DOUBLE_LITERAL";
+        case TOKEN_STRING_LITERAL: return "TOKEN_STRING_LITERAL";
+        case TOKEN_DEF: return "TOKEN_DEF";
+        case TOKEN_DO: return "TOKEN_DO";
+        case TOKEN_DOUBLE: return "TOKEN_DOUBLE";
+        case TOKEN_ELSE: return "TOKEN_ELSE";
+        case TOKEN_IF: return "TOKEN_IF";
+        case TOKEN_IMPORT: return "TOKEN_IMPORT";
+        case TOKEN_INT: return "TOKEN_INT";
+        case TOKEN_RETURN: return "TOKEN_RETURN";
+        case TOKEN_STRING: return "TOKEN_STRING";
+        case TOKEN_THEN: return "TOKEN_THEN";
+        case TOKEN_UNIT: return "TOKEN_UNIT";
+        case TOKEN_VAL: return "TOKEN_VAL";
+        case TOKEN_VAR: return "TOKEN_VAR";
+        case TOKEN_WHILE: return "TOKEN_WHILE";
+        case TOKEN_ASSIGN: return "TOKEN_ASSIGN";
+        case TOKEN_PLUS: return "TOKEN_PLUS";
+        case TOKEN_MINUS: return "TOKEN_MINUS";
+        case TOKEN_MULTIPLY: return "TOKEN_MULTIPLY";
+        case TOKEN_DIVIDE: return "TOKEN_DIVIDE";
+        case TOKEN_EQUAL: return "TOKEN_EQUAL";
+        case TOKEN_NOT_EQUAL: return "TOKEN_NOT_EQUAL";
+        case TOKEN_LESS: return "TOKEN_LESS";
+        case TOKEN_LESS_EQUAL: return "TOKEN_LESS_EQUAL";
+        case TOKEN_GREATER: return "TOKEN_GREATER";
+        case TOKEN_GREATER_EQUAL: return "TOKEN_GREATER_EQUAL";
+        case TOKEN_LPAREN: return "TOKEN_LPAREN";
+        case TOKEN_RPAREN: return "TOKEN_RPAREN";
+        case TOKEN_COLON: return "TOKEN_COLON";
+        case TOKEN_COMMA: return "TOKEN_COMMA";
+        case TOKEN_SEMICOLON: return "TOKEN_SEMICOLON";
+        case TOKEN_DOT: return "TOKEN_DOT";
+        case TOKEN_MAIN_ANNOTATION: return "TOKEN_MAIN_ANNOTATION";
+        default: return "UNKNOWN_TOKEN";
+    }
+}
+
+static const char *error_name(ErrorCode error) {
+    switch (error) {
+        case ERROR_OK: return "ERROR_OK";
+        case ERROR_LEXICAL: return "ERROR_LEXICAL";
+        case ERROR_INTERNAL: return "ERROR_INTERNAL";
+        default: return "UNEXPECTED_ERROR";
+    }
+}
+
+/* Keep newlines, tabs and quotes visible without breaking the report layout. */
+static void print_text(const char *text) {
+    if (text == NULL) {
+        fputs("NULL", stdout);
+        return;
+    }
+    putchar('"');
+    for (const unsigned char *p = (const unsigned char *)text; *p != '\0'; p++) {
+        switch (*p) {
+            case '\n': fputs("\\n", stdout); break;
+            case '\t': fputs("\\t", stdout); break;
+            case '\r': fputs("\\r", stdout); break;
+            case '\\': fputs("\\\\", stdout); break;
+            case '"': fputs("\\\"", stdout); break;
+            default:
+                if (*p >= 32 && *p <= 126) {
+                    putchar(*p);
+                } else {
+                    printf("\\x%02X", (unsigned int)*p);
+                }
+                break;
+        }
+    }
+    putchar('"');
+}
+
 static bool check_token(const Token *actual, const ExpectedToken *expected, size_t index) {
-    if (actual->type != expected->type) {
-        fprintf(stderr, "Token %zu: expected type %d, got %d\n",
-                index, expected->type, actual->type);
-        return false;
+    bool type_matches = actual->type == expected->type;
+    bool value_matches = actual->value == NULL && expected->value == NULL;
+    if (actual->value != NULL && expected->value != NULL) {
+        value_matches = strcmp(actual->value, expected->value) == 0;
     }
-    if ((actual->value == NULL) != (expected->value == NULL) ||
-        (actual->value != NULL && strcmp(actual->value, expected->value) != 0)) {
-        fprintf(stderr, "Token %zu: expected value [%s], got [%s]\n", index,
-                expected->value == NULL ? "NULL" : expected->value,
-                actual->value == NULL ? "NULL" : actual->value);
-        return false;
-    }
-    if (actual->lf_before_rparen != expected->lf_before_rparen) {
-        fprintf(stderr, "Token %zu: incorrect lf_before_rparen\n", index);
-        return false;
-    }
+    bool flag_matches = actual->lf_before_rparen == expected->lf_before_rparen;
     /* Zero means the case does not check this position component. */
-    if ((expected->line != 0 && actual->line != expected->line) ||
-        (expected->column != 0 && actual->column != expected->column)) {
-        fprintf(stderr, "Token %zu: expected position %u:%u, got %u:%u\n",
-                index, expected->line, expected->column, actual->line, actual->column);
-        return false;
+    bool position_matches = (expected->line == 0 || actual->line == expected->line) &&
+                            (expected->column == 0 || actual->column == expected->column);
+    bool matches = type_matches && value_matches && flag_matches && position_matches;
+
+    printf("Token %zu: %s\n", index + 1, matches ? "PASS" : "FAIL");
+    printf("  expected: %s, value=", token_name(expected->type));
+    print_text(expected->value);
+    fputs(", position=", stdout);
+    if (expected->line == 0) {
+        putchar('*');
+    } else {
+        printf("%u", expected->line);
     }
-    return true;
+    putchar(':');
+    if (expected->column == 0) {
+        putchar('*');
+    } else {
+        printf("%u", expected->column);
+    }
+    printf(", lf_before_rparen=%s\n", expected->lf_before_rparen ? "true" : "false");
+
+    printf("  actual:   %s, value=", token_name(actual->type));
+    print_text(actual->value);
+    printf(", position=%u:%u, lf_before_rparen=%s\n", actual->line, actual->column,
+           actual->lf_before_rparen ? "true" : "false");
+
+    if (!type_matches) {
+        puts("  Mismatch: token type");
+    }
+    if (!value_matches) {
+        puts("  Mismatch: token value");
+    }
+    if (!flag_matches) {
+        puts("  Mismatch: lf_before_rparen");
+    }
+    if (!position_matches) {
+        puts("  Mismatch: source position");
+    }
+    return matches;
 }
 
 static bool run_test(const TestCase *test) {
+    fputs("Input: ", stdout);
+    print_text(test->source);
+    printf("\nExpected result: %s (%d)\n", error_name(test->error), test->error);
     if (!set_input(test->source)) {
         return false;
     }
@@ -306,8 +413,8 @@ static bool run_test(const TestCase *test) {
         Token token = {0};
         ErrorCode error = get_next_token(&token);
         free(token.value);
+        printf("Actual result:   %s (%d)\n", error_name(error), error);
         if (error != test->error) {
-            fprintf(stderr, "Expected error %d, got %d\n", test->error, error);
             return false;
         }
         return true;
@@ -317,7 +424,7 @@ static bool run_test(const TestCase *test) {
         Token token = {0};
         ErrorCode error = get_next_token(&token);
         if (error != ERROR_OK) {
-            fprintf(stderr, "Token %zu: unexpected error %d\n", i, error);
+            printf("Token %zu: FAIL, unexpected %s (%d)\n", i + 1, error_name(error), error);
             free(token.value);
             return false;
         }
@@ -327,6 +434,7 @@ static bool run_test(const TestCase *test) {
             return false;
         }
         if (token.type == TOKEN_EOF) {
+            printf("Checked tokens: %zu (including EOF).\n", i + 1);
             return true;
         }
     }
