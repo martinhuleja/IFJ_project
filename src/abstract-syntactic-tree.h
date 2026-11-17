@@ -80,8 +80,20 @@ typedef enum ast_data_type {
  * - AST_IDENTIFIER: text = name; no children.
  * - Literals: int_value, double_value or text according to type; no children.
  *   AST_UNIT_LITERAL is created by PSA for () and has no payload.
- * The expression module supplies AST_BINARY_OP [left, right] and AST_UNARY_OP
- * [operand], with operator set. resolved_type is reserved for semantic analysis.
+ *
+ * Expression subtrees are recursive, not flat lists of operands and operators.
+ * When an AST_EXPR wrapper is used, children[0] is the single root of the entire expression:
+ * - A single operand is an AST_IDENTIFIER or a literal leaf, without children.
+ * - A unary operation is an AST_UNARY_OP root with operator set to AST_OP_NEGATION;
+ *   children[0] is the operand subtree.
+ * - A binary operation is an AST_BINARY_OP root with operator set to the specific operation;
+ *   children[0] is the left operand subtree and children[1] is the right operand subtree.
+ * Operand subtrees may themselves contain operations. Their nesting reflects precedence, associativity and grouping.
+ * For example, for a + b * c, the root is addition and its right child is multiplication.
+ * Grouping parentheses do not create nodes. Precedence syntactic analysis appends the expression root
+ * to its supplied parent. Initializers, return values, arguments and expression statements store this root
+ * directly, without an additional AST_EXPR wrapper.
+ * resolved_type is reserved for semantic analysis.
  */
 typedef struct ast_node {
   ASTNodeType type;
