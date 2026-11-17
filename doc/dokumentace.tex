@@ -163,63 +163,63 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
       & $\{$ EOL $\}$ \\ \hline
   33  & StatementEnd $\rightarrow$ Semicolon
       & $\{$ Semicolon $\}$ \\ \hline
-  70  & StatementEnd $\rightarrow \varepsilon$
+  34  & StatementEnd $\rightarrow \varepsilon$
       & $\{$ Dedent $\}$ \\ \hline
-  34  & Statement $\rightarrow$ VarDef StatementEnd
+  35  & Statement $\rightarrow$ VarDef StatementEnd
       & $\{$ Val, Var $\}$ \\ \hline
-  35  & Statement $\rightarrow$ IfStatement
+  36  & Statement $\rightarrow$ IfStatement
       & $\{$ If $\}$ \\ \hline
-  36  & Statement $\rightarrow$ WhileStatement
+  37  & Statement $\rightarrow$ WhileStatement
       & $\{$ While $\}$ \\ \hline
-  37  & Statement $\rightarrow$ ReturnStatement StatementEnd
+  38  & Statement $\rightarrow$ ReturnStatement StatementEnd
       & $\{$ Return $\}$ \\ \hline
-  38  & Statement $\rightarrow$ Assignment StatementEnd
+  39  & Statement $\rightarrow$ Assignment StatementEnd
       & $\{$ Identifier $\}$ \\ \hline
-  39  & Statement $\rightarrow$ ExprOrCall StatementEnd
+  40  & Statement $\rightarrow$ ExprOrCall StatementEnd
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
-  40  & Assignment $\rightarrow$ Identifier Assign ExprOrCall
+  41  & Assignment $\rightarrow$ Identifier Assign ExprOrCall
       & $\{$ Identifier $\}$ \\ \hline
-  48  & VarDef $\rightarrow$ VarKind Identifier TypeOpt Assign ExprOrCall
+  42  & VarDef $\rightarrow$ VarKind Identifier TypeOpt Assign ExprOrCall
       & $\{$ Val, Var $\}$ \\ \hline
-  49  & VarKind $\rightarrow$ Val
+  43  & VarKind $\rightarrow$ Val
       & $\{$ Val $\}$ \\ \hline
-  50  & VarKind $\rightarrow$ Var
+  44  & VarKind $\rightarrow$ Var
       & $\{$ Var $\}$ \\ \hline
-  51  & IfStatement $\rightarrow$ If Expr Then EOL Block Else EOL Block
+  45  & IfStatement $\rightarrow$ If Expr Then EOL Block Else EOL Block
       & $\{$ If $\}$ \\ \hline
-  52  & WhileStatement $\rightarrow$ While Expr Do EOL Block
+  46  & WhileStatement $\rightarrow$ While Expr Do EOL Block
       & $\{$ While $\}$ \\ \hline
-  53  & ReturnStatement $\rightarrow$ Return ReturnExprOpt
+  47  & ReturnStatement $\rightarrow$ Return ReturnExprOpt
       & $\{$ Return $\}$ \\ \hline
-  54  & ReturnExprOpt $\rightarrow$ ExprOrCall
+  48  & ReturnExprOpt $\rightarrow$ ExprOrCall
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
-  55  & ReturnExprOpt $\rightarrow \varepsilon$
+  49  & ReturnExprOpt $\rightarrow \varepsilon$
       & $\{$ EOL, Semicolon, Dedent $\}$ \\ \hline
-  56  & ExprOrCall $\rightarrow$ Call
+  50  & ExprOrCall $\rightarrow$ Call
       & $\{$ Identifier $\}$ \\ \hline
-  57  & ExprOrCall $\rightarrow$ Expr
+  51  & ExprOrCall $\rightarrow$ Expr
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
-  58  & Call $\rightarrow$ Identifier ArgGroup
+  52  & Call $\rightarrow$ Identifier ArgGroup
       & $\{$ Identifier $\}$ \\ \hline
-  60  & ArgGroup $\rightarrow$ LParen ArgListOpt RParen
+  53  & ArgGroup $\rightarrow$ LParen ArgListOpt RParen
       & $\{$ LParen $\}$ \\ \hline
-  61  & ArgListOpt $\rightarrow$ ArgList
+  54  & ArgListOpt $\rightarrow$ ArgList
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
-  62  & ArgListOpt $\rightarrow \varepsilon$
+  55  & ArgListOpt $\rightarrow \varepsilon$
       & $\{$ RParen $\}$ \\ \hline
-  63  & ArgList $\rightarrow$ Expr ArgListRest
+  56  & ArgList $\rightarrow$ Expr ArgListRest
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
-  64  & ArgListRest $\rightarrow$ Comma ArgListRestTail
+  57  & ArgListRest $\rightarrow$ Comma ArgListRestTail
       & $\{$ Comma $\}$ \\ \hline
-  65  & ArgListRest $\rightarrow \varepsilon$
+  58  & ArgListRest $\rightarrow \varepsilon$
       & $\{$ RParen $\}$ \\ \hline
-  66  & ArgListRestTail $\rightarrow$ ArgList
+  59  & ArgListRestTail $\rightarrow$ ArgList
       & $\{$ Identifier, IntLiteral, DoubleLiteral, StringLiteral, Minus, LParen $\}$ \\ \hline
-  67  & ArgListRestTail $\rightarrow \varepsilon \quad \{\mathrm{checkLF}(RParen)\}$
+  60  & ArgListRestTail $\rightarrow \varepsilon \quad \{\mathrm{checkLF}(RParen)\}$
       & $\{$ RParen $\}$ \\ \hline
-  68  & EOLOpt $\rightarrow$ EOL
+  61  & EOLOpt $\rightarrow$ EOL
       & $\{$ EOL $\}$ \\ \hline
-  69  & EOLOpt $\rightarrow \varepsilon$
+  62  & EOLOpt $\rightarrow \varepsilon$
       & $\{$ Def $\}$ \\ \hline
 
 \end{xltabular}
@@ -227,12 +227,12 @@ Pro syntaktickou analýzu shora dolů byla využita metoda rekurzivního sestupu
 Některé pravidla používají pro rozhodnutí dva tokeny výhledu:
 
 \begin{itemize}
-  \item Statement: pro Identifier Assign se zvolí pravidlo 38, pro pro Identifier následovaný jiným tokenem pravidlo 39
-  \item ExprOrCall: pro Identifier LParen se zvolí pravidlo 56, pro Identifier následovaný jiným tokenem
-    pravidlo 57,
+  \item Statement: pro Identifier Assign se zvolí pravidlo 39, pro pro Identifier následovaný jiným tokenem pravidlo 40
+  \item ExprOrCall: pro Identifier LParen se zvolí pravidlo 50, pro Identifier následovaný jiným tokenem
+    pravidlo 51,
 \end{itemize}
 
-Překryv množin Predict v Identifier je tedy řešen druhým tokenem. V LL tabulce je tato volba označena 38/39 a 56/57.
+Překryv množin Predict v Identifier je tedy řešen druhým tokenem. V LL tabulce je tato volba označena 39/40 a 50/51.
 
 UnitLiteral je ve vstupu dvojice LParen RParen a rozpoznává jej precedenční syntatická analýza.
 Proto v pravidlech vstupuje jako LParen.
@@ -288,24 +288,24 @@ analýzou zdola nahoru podle precedenční tabulky.
   Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 28 & & & \\
   StatementList & 29 & 29 & 29 & 29 & 29 & & & & & 29 & 29 & 29 & & & 29 & & 29 & & & & & & 29 & & & & & & & & & & \\
   StatementListRest & 30 & 30 & 30 & 30 & 30 & & & & & 30 & 30 & 30 & & & 30 & & 30 & & & & & & 30 & & & & & & & & 31 & & \\
-  Statement & 38/39 & 39 & 39 & 39 & 39 & & & & & 34 & 34 & 35 & & & 36 & & 37 & & & & & & 39 & & & & & & & & & & \\
-  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & 70 & 32 & \\
-  VarDef & & & & & & & & & & 48 & 48 & & & & & & & & & & & & & & & & & & & & & & \\
-  VarKind & & & & & & & & & & 49 & 50 & & & & & & & & & & & & & & & & & & & & & & \\
-  IfStatement & & & & & & & & & & & & 51 & & & & & & & & & & & & & & & & & & & & & \\
-  WhileStatement & & & & & & & & & & & & & & & 52 & & & & & & & & & & & & & & & & & & \\
-  ReturnStatement & & & & & & & & & & & & & & & & & 53 & & & & & & & & & & & & & & & & \\
-  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 60 & & & & & & & & & & \\
-  ArgList & 63 & 63 & 63 & 63 & 63 & & & & & & & & & & & & & & & & & & 63 & & & & & & & & & & \\
-  ArgListOpt & 61 & 61 & 61 & 61 & 61 & & & & & & & & & & & & & & & & & & 61 & 62 & & & & & & & & & \\
-  ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 65 & & 64 & & & & & & & \\
-  ArgListRestTail & 66 & 66 & 66 & 66 & 66 & & & & & & & & & & & & & & & & & & 66 & 67 & & & & & & & & & \\
-  ExprOrCall & 56/57 & 57 & 57 & 57 & 57 & & & & & & & & & & & & & & & & & & 57 & & & & & & & & & & \\
-  ReturnExprOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & & & & 55 & & & & 55 & 55 & \\
-  Call & 58 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  Statement & 39/40 & 40 & 40 & 40 & 40 & & & & & 35 & 35 & 36 & & & 37 & & 38 & & & & & & 40 & & & & & & & & & & \\
+  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & 34 & 32 & \\
+  VarDef & & & & & & & & & & 42 & 42 & & & & & & & & & & & & & & & & & & & & & & \\
+  VarKind & & & & & & & & & & 43 & 44 & & & & & & & & & & & & & & & & & & & & & & \\
+  IfStatement & & & & & & & & & & & & 45 & & & & & & & & & & & & & & & & & & & & & \\
+  WhileStatement & & & & & & & & & & & & & & & 46 & & & & & & & & & & & & & & & & & & \\
+  ReturnStatement & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & & & & & & & \\
+  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 53 & & & & & & & & & & \\
+  ArgList & 56 & 56 & 56 & 56 & 56 & & & & & & & & & & & & & & & & & & 56 & & & & & & & & & & \\
+  ArgListOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & 55 & & & & & & & & & \\
+  ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 58 & & 57 & & & & & & & \\
+  ArgListRestTail & 59 & 59 & 59 & 59 & 59 & & & & & & & & & & & & & & & & & & 59 & 60 & & & & & & & & & \\
+  ExprOrCall & 50/51 & 51 & 51 & 51 & 51 & & & & & & & & & & & & & & & & & & 51 & & & & & & & & & & \\
+  ReturnExprOpt & 48 & 48 & 48 & 48 & 48 & & & & & & & & & & & & & & & & & & 48 & & & & 49 & & & & 49 & 49 & \\
+  Call & 52 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
   EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
-  Assignment & 40 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
-  EOLOpt & & & & & & & & & & & & & & & & & & & 69 & & & & & & & & & & & & & 68 & \\
+  Assignment & 41 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+  EOLOpt & & & & & & & & & & & & & & & & & & & 62 & & & & & & & & & & & & & 61 & \\
   \bottomrule
   \end{tabular}
   \end{table}
