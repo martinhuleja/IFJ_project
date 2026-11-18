@@ -7,12 +7,15 @@
 \usepackage[left=2cm, text={17cm, 24cm}, top=3cm]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage[dvips, unicode, hidelinks, bookmarksopen]{hyperref}
+\usepackage[unicode, hidelinks, bookmarksopen]{hyperref}
 \usepackage{xltabular}
 \usepackage{pdflscape}
 \usepackage{graphicx}
+\usepackage{float}
 \usepackage{booktabs}
 \usepackage{amsmath}
+\usepackage{adjustbox}
+\usepackage{caption}
 
 % Command definitions
 \newcommand{\tableheader} {
@@ -67,6 +70,56 @@ mentovali syntaktický analyzátor;
 • stručný popis každého modulu (informačně obohacující věta na dvojici .c/.h);
 • bibliografické citace všech převzatých zdrojů (vč. kódu, algoritmů);
 • popis využití prostředků AI (viz sekci 4).
+
+\section{Lexikální analýza}
+
+\subsection{Lexikální Analyzátor}
+
+Lexikální analyzátor využívá konečný automat na identifikaci a tvorbu tokenu. Token je vlastní struktura skládajíci se z typu, který je tvořen vlastní datovou strukturou Enum obsahující všechny typy tokenu, ke kterým se dá dostat přes validní konečné stavy (s výjimkou indent, dedent, token\_newline, a token\_eof), jeho hodnotou ve formě řetězce. Token taktéž obsahuje pozici ve formě dvou integru (řádku a sloupce) a bool, který určuje zda se před závorkou nachází nový řádek.
+
+Lexikální analyzátor je spouštěn funkcí get\_next\_token(Token *token), kde daná funkce čte standardní input a vrací ErrorCode. Lexer nejdřív přečte znak pomocí peek\_char(), kde ho skontroluje a pokud to není znak pro daný stav explicitně zakázaný (tzv. vracející lexikální error) a zároveň je to znak povolený jako přechod pro daný stav tak daný stav spotřebuje a aktualizuje se pozice lexeru ( pomocí take\_char() ), do svého bufferu ( CharBuffer, vlastní struktura) se znak přidá pomocí funkce buffer\_append(). Pokud se analyzátor dostane do validního konečného stavu a další znak není jeden z jeho povolených znaku, Token se vráti a buffer lexer-u se stane hodnotou Tokenu.
+
+Bílé znaky mezi tokeny se zpracovávají ve stavu ST\_START. Mezery, tabulátory a \verb|\r| se spotřebují pomocí take\_char() a nevkládají se do bufferu. Na začátku řádku se mezery zároveň počítají do leading\_spaces. Po blokovém komentáři se následující mezery pouze přeskakují. Úvodní tabulátor nastaví příznak leading\_tab; lexikální chyba se ohlásí až při nalezení skutečného tokenu, takže prázdné a komentářové řádky nevadí.
+
+Při přečtení \verb|\n| se zvýší číslo řádku, sloupec se nastaví na 1 a počítání odsazení začne znovu. TOKEN\_NEWLINE vznikne pouze tehdy, když logický řádek obsahoval token a nejsme uvnitř závorek. Před prvním skutečným tokenem se odsazení porovná se zásobníkem: zvýšení vytvoří INDENT, snížení jeden nebo více DEDENT; návrat na neexistující úroveň je chyba. Uvnitř závorek tyto tokeny nevznikají, ale pokračovací řádek musí mít větší odsazení než začátek aktuální úroveň indentace na stack-u.
+
+Lexikální analyzátor také ukládá svuj stav, ve kterém sleduje i indentaci, hloubku závorek a hloubku blokových komentářu. Proměnná comment\_depth se při každém otevření /* zvýší a při uzavření */ sníží. Komentář skončí až při návratu proměnné na nulu. Díky tomu uzavření vnitřního komentáře neukončí zároveň vnější komentář. Samotné komentáře nevytvářejí tokeny. Pomocí parenthesis\_depth sledujeme počet otevřených závorek. Dokud je větší než nula, fyzické konce řádků nevytvářejí TOKEN\_NEWLINE, ale jejich pozice se stále zaznamenává. Bool lf\_before\_rparen u pravé (uzavírající) závorky informuje parser, zda mezi předchozím tokenem a touto závorkou existuje fyzický konec řádku, případně uvnitř komentáře.
+
+Běžné řetězce převádějí escape sekvence na odpovídající znaky, například \verb|\n| na znak nového řádku. Řetězce ohraničené trojitými uvozovkami zachovávají obsah doslovně, včetně zpětných lomítek a fyzických konců řádků. Ohraničující uvozovky nejsou součástí hodnoty tokenu.
+
+Číselné literály se ukládají jako řetězce bez oddělovacích podtržítek a případné přípony d nebo D. Zápis exponentu pomocí e či E zůstává zachován.
+
+Při dosažení EOF lexer nejprve vrátí zbývající tokeny TOKEN\_DEDENT, kterými uzavře uložené úrovně odsazení. Následně vrátí TOKEN\_EOF.
+
+Neplatný nebo nedokončený lexikální prvek způsobí návrat ERROR\_LEXICAL (1). Selhání alokace paměti se předává volajícímu jako ERROR\_INTERNAL (99). Úspěšné získání tokenu, včetně EOF, vrací ERROR\_OK (0).
+
+\subsection{Konečný automat}
+
+\clearpage
+
+\begin{figure}[p]
+    \centering
+    \rotatebox{-90}{%
+        \includegraphics[
+            width=0.95\textheight,
+            height=0.95\textwidth,
+            keepaspectratio
+        ]{FSM_pre_PROJEKT.jpg}%
+    }
+    \caption{Konečný stavový automat lexikálního analyzátoru}
+    \label{fig:lexer-fsm}
+\end{figure}
+
+\clearpage
+
+\subsubsection*{Poznámka k diagramu}
+letter = písmena a–z a A–Z, digit = číslice 0–9.
+
+Při použití přechodu letter platí, že pokud z výchozího stavu existuje také přechod pro konkrétní znak, který patří do množiny letter, má přechod pro konkrétní znak přednost před obecným přechodem letter.
+\subsubsection*{Vysvětlení označení literálů}
+Opakující se označení jako string literal, int literal nebo double literal nemusí představovat totožné stavy automatu. V diagramu jsou některé stavy označeny pouze obecným názvem výsledného literálu, nikoliv přesným názvem stavu. Jednotlivé stavy se mohou lišit svými povolenými přechody a způsobem zpracování. Stejné označení tedy neznamená, že jde o stejný stav nebo stejnou hodnotu tokenu.
+
+Důležité rozlišení: Dva různé stavy mohou vytvářet stejný typ tokenu, například \texttt{TOKEN\_\allowbreak DOUBLE\_\allowbreak LITERAL}, ale s různými hodnotami.
 
 \section{LL gramatika}
 
@@ -249,67 +302,87 @@ analýzou zdola nahoru podle precedenční tabulky.
 % ===== LL table =====
 % ====================
 
+
+\clearpage
 \subsection{LL tabulka}
 
-\begin{landscape}
-  \begin{table}[p]
-  \centering
-  \small
-  \setlength{\tabcolsep}{4pt}
+\vspace*{\fill}
 
-  \begin{tabular}{l *{33}{c}}
-  \toprule
+\begin{center}
+    \setlength{\tabcolsep}{2pt}
+    \renewcommand{\arraystretch}{1.0}
 
-  % === HEADER ===
-  \textbf{Neterminál} & \rot{Identifier} & \rot{IntLiteral} & \rot{DoubleLiteral} &
-  \rot{StringLiteral} & \rot{Minus} & \rot{TypeInt} & \rot{TypeDouble} &
-  \rot{TypeString} & \rot{TypeUnit} & \rot{Val} & \rot{Var} & \rot{If} & \rot{Then} &
-  \rot{Else} & \rot{While} & \rot{Do} & \rot{Return} & \rot{AtMain} & \rot{Def} &
-  \rot{IFJ26Id} & \rot{Import} & \rot{Assign} & \rot{LParen} & \rot{RParen} &
-  \rot{Colon} & \rot{Comma} & \rot{Semicolon} & \rot{Dot} & \rot{Star} &
-  \rot{Indent} & \rot{Dedent} & \rot{EOL} & \rot{EOF} \\
-  \midrule
-  % === TABLE CONTENT ===
-  Program & & & & & & & & & & & & & & & & & & & & & 1 & & & & & & & & & & & & \\
-  Prologue & & & & & & & & & & & & & & & & & & & & & 2 & & & & & & & & & & & & \\
-  FunctionList & & & & & & & & & & & & & & & & & & 3 & 3 & & & & & & & & & & & & & & \\
-  FunctionListRest & & & & & & & & & & & & & & & & & & 4 & 4 & & & & & & & & & & & & & & 5 \\
-  FunctionDef & & & & & & & & & & & & & & & & & & 6 & 6 & & & & & & & & & & & & & & \\
-  MainOpt & & & & & & & & & & & & & & & & & & 7 & 8 & & & & & & & & & & & & & & \\
-  ParamGroup & & & & & & & & & & & & & & & & & & & & & & & 9 & & & & & & & & & & \\
-  ParamListOpt & 10 & & & & & & & & & & & & & & & & & & & & & & & 11 & & & & & & & & & \\
-  ParamList & 12 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
-  ParamListRest & & & & & & & & & & & & & & & & & & & & & & & & 14 & & 13 & & & & & & & \\
-  ParamListRestTail & & 15 & & & & & & & & & & & & & & & & & & & & & & 16 & & & & & & & & & \\
-  Param & 17 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
-  TypeOpt & & & & & & & & & & & & & & & & & & & & & & 19 & & & 18 & & & & & & & & \\
-  Type & & & & & & 20 & 21 & 22 & 23 & & & & & & & & & & & & & & & & & & & & & & & & \\
-  FunctionBody & 24 & 24 & 24 & 24 & 24 & & & & & & & & & & & & & & & & & & 24 & & & & & & & 27 & & & \\
-  Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 28 & & & \\
-  StatementList & 29 & 29 & 29 & 29 & 29 & & & & & 29 & 29 & 29 & & & 29 & & 29 & & & & & & 29 & & & & & & & & & & \\
-  StatementListRest & 30 & 30 & 30 & 30 & 30 & & & & & 30 & 30 & 30 & & & 30 & & 30 & & & & & & 30 & & & & & & & & 31 & & \\
-  Statement & 39/40 & 40 & 40 & 40 & 40 & & & & & 35 & 35 & 36 & & & 37 & & 38 & & & & & & 40 & & & & & & & & & & \\
-  StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & 34 & 32 & \\
-  VarDef & & & & & & & & & & 42 & 42 & & & & & & & & & & & & & & & & & & & & & & \\
-  VarKind & & & & & & & & & & 43 & 44 & & & & & & & & & & & & & & & & & & & & & & \\
-  IfStatement & & & & & & & & & & & & 45 & & & & & & & & & & & & & & & & & & & & & \\
-  WhileStatement & & & & & & & & & & & & & & & 46 & & & & & & & & & & & & & & & & & & \\
-  ReturnStatement & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & & & & & & & \\
-  ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 53 & & & & & & & & & & \\
-  ArgList & 56 & 56 & 56 & 56 & 56 & & & & & & & & & & & & & & & & & & 56 & & & & & & & & & & \\
-  ArgListOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & 55 & & & & & & & & & \\
-  ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & 58 & & 57 & & & & & & & \\
-  ArgListRestTail & 59 & 59 & 59 & 59 & 59 & & & & & & & & & & & & & & & & & & 59 & 60 & & & & & & & & & \\
-  ExprOrCall & 50/51 & 51 & 51 & 51 & 51 & & & & & & & & & & & & & & & & & & 51 & & & & & & & & & & \\
-  ReturnExprOpt & 48 & 48 & 48 & 48 & 48 & & & & & & & & & & & & & & & & & & 48 & & & & 49 & & & & 49 & 49 & \\
-  Call & 52 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
-  EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
-  Assignment & 41 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
-  EOLOpt & & & & & & & & & & & & & & & & & & & 62 & & & & & & & & & & & & & 61 & \\
-  \bottomrule
-  \end{tabular}
-  \end{table}
-\end{landscape}
+    \begin{adjustbox}{
+        angle=-90,
+        width=\textwidth,
+        max totalheight=0.86\textheight,
+        center
+    }
+
+        \begin{tabular}{l *{33}{c}}
+            \toprule
+
+                % === HEADER ===
+                \textbf{Neterminál} & \rot{Identifier} & \rot{IntLiteral} & \rot{DoubleLiteral} &
+                \rot{StringLiteral} & \rot{Minus} & \rot{TypeInt} & \rot{TypeDouble} &
+                \rot{TypeString} & \rot{TypeUnit} & \rot{Val} & \rot{Var} & \rot{If} & \rot{Then} &
+                \rot{Else} & \rot{While} & \rot{Do} & \rot{Return} & \rot{AtMain} & \rot{Def} &
+                \rot{IFJ26Id} & \rot{Import} & \rot{Assign} & \rot{LParen} & \rot{RParen} &
+                \rot{Colon} & \rot{Comma} & \rot{Semicolon} & \rot{Dot} & \rot{Star} &
+                \rot{Indent} & \rot{Dedent} & \rot{EOL} & \rot{EOF} \\
+                \midrule
+                
+                % === TABLE CONTENT ===
+                Program & & & & & & & & & & & & & & & & & & & & & 1 & & & & & & & & & & & & \\
+                Prologue & & & & & & & & & & & & & & & & & & & & & 2 & & & & & & & & & & & & \\
+                FunctionList & & & & & & & & & & & & & & & & & & 3 & 3 & & & & & & & & & & & & & & \\
+                FunctionListRest & & & & & & & & & & & & & & & & & & 4 & 4 & & & & & & & & & & & & & & 5 \\
+                FunctionDef & & & & & & & & & & & & & & & & & & 6 & 6 & & & & & & & & & & & & & & \\
+                MainOpt & & & & & & & & & & & & & & & & & & 7 & 8 & & & & & & & & & & & & & & \\
+                ParamGroup & & & & & & & & & & & & & & & & & & & & & & & 9 & & & & & & & & & & \\
+                ParamListOpt & 10 & & & & & & & & & & & & & & & & & & & & & & & 11 & & & & & & & & & \\
+                ParamList & 12 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+                ParamListRest & & & & & & & & & & & & & & & & & & & & & & & & 14 & & 13 & & & & & & & \\
+                ParamListRestTail & & 15 & & & & & & & & & & & & & & & & & & & & & & 16 & & & & & & & & & \\
+                Param & 17 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+                TypeOpt & & & & & & & & & & & & & & & & & & & & & & 19 & & & 18 & & & & & & & & \\
+                Type & & & & & & 20 & 21 & 22 & 23 & & & & & & & & & & & & & & & & & & & & & & & & \\
+                FunctionBody & 24 & 24 & 24 & 24 & 24 & & & & & & & & & & & & & & & & & & 24 & & & & & & & 27 & & & \\
+                Block & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 28 & & & \\
+                StatementList & 29 & 29 & 29 & 29 & 29 & & & & & 29 & 29 & 29 & & & 29 & & 29 & & & & & & 29 & & & & & & & & & & \\
+                StatementListRest & 30 & 30 & 30 & 30 & 30 & & & & & 30 & 30 & 30 & & & 30 & & 30 & & & & & & 30 & & & & & & & & 31 & & \\
+                Statement & 39/40 & 40 & 40 & 40 & 40 & & & & & 35 & 35 & 36 & & & 37 & & 38 & & & & & & 40 & & & & & & & & & & \\
+                StatementEnd & & & & & & & & & & & & & & & & & & & & & & & & & & & 33 & & & & 34 & 32 & \\
+                VarDef & & & & & & & & & & 42 & 42 & & & & & & & & & & & & & & & & & & & & & & \\
+                VarKind & & & & & & & & & & 43 & 44 & & & & & & & & & & & & & & & & & & & & & & \\
+                IfStatement & & & & & & & & & & & 45 & & & & & & & & & & & & & & & & & & & & & \\
+                WhileStatement & & & & & & & & & & & & & & & 46 & & & & & & & & & & & & & & & & & & \\
+                ReturnStatement & & & & & & & & & & & & & & & & & 47 & & & & & & & & & & & & & & & & \\
+                ArgGroup & & & & & & & & & & & & & & & & & & & & & & & 53 & & & & & & & & & & \\
+                ArgList & 56 & 56 & 56 & 56 & 56 & & & & & & & & & & & & & & & & & & 56 & & & & & & & & & & \\
+                ArgListOpt & 54 & 54 & 54 & 54 & 54 & & & & & & & & & & & & & & & & & & 54 & 55 & & & & & & & & & \\
+                ArgListRest & & & & & & & & & & & & & & & & & & & & & & & & & 58 & & 57 & & & & & & & \\
+                ArgListRestTail & 59 & 59 & 59 & 59 & 59 & & & & & & & & & & & & & & & & & & & 59 & 60 & & & & & & & & \\
+                ExprOrCall & 50/51 & 51 & 51 & 51 & 51 & & & & & & & & & & & & & & & & & & 51 & & & & & & & & & & \\
+                ReturnExprOpt & 48 & 48 & 48 & 48 & 48 & & & & & & & & & & & & & & & & & & 48 & & & & 49 & & & & 49 & 49 & \\
+                Call & 52 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+                EOLOrEOF & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & 25 & 26 \\
+                Assignment & 41 & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & & \\
+                EOLOpt & & & & & & & & & & & & & & & & & & & 62 & & & & & & & & & & & & & 61 & \\
+                
+            \bottomrule
+        \end{tabular}
+
+    \end{adjustbox}
+
+    \captionof{table}{LL tabulka syntaktického analyzátoru}
+    \label{tab:ll}
+\end{center}
+
+\vspace*{\fill}
+
+\clearpage
+
 
 \section{Precedenční syntaktická analýza výrazů}
 
@@ -360,5 +433,31 @@ Hierarchie operátorů vychází ze specifikace jazyka IFJ26.
   \bottomrule
   \end{tabular}
 \end{table}
+
+\section{Moduly}
+
+\subsection{Lexer/Token}
+Modul token.h určuje parametre tokenu, definuje typy tokenov a definuje rozhranie na prácu s Tokenom. Modul lexer.c robí lexikálnu analýzu, pracuje s tokenom a komunikuje s parser.c.
+
+\subsection{Parser}
+Soubor \texttt{parser.h} definuje strukturu syntaktického analyzátoru a rozhraní jeho funkcí. Soubor \texttt{parser.c} pomocí rekurzivního sestupu kontroluje posloupnost tokenů podle gramatiky, vytváří abstraktní syntaktický strom a zpracování výrazů předává precedenční analýze.
+
+\subsection{Precedenční analýza}
+Soubor \texttt{precedence-analysis.h} definuje precedenční tabulku, zásobník a rozhraní pro syntaktickou analýzu výrazů. Soubor \texttt{precedence-analysis.c} zpracovává výrazy zdola nahoru a vytváří jejich podstromy AST se zohledněním priorit operátorů, závorek a unárního minus.
+
+\subsection{Abstraktní syntaktický strom}
+Soubor \texttt{abstract-syntactic-tree.h} definuje struktury \texttt{ASTree} a \texttt{ASTNode}, druhy uzlů, operátory a datové typy. Soubor \texttt{abstract-syntactic-tree.c} zajišťuje vytváření uzlů, připojování potomků, ukládání textových hodnot a uvolňování paměti celého stromu.
+
+\subsection{Tabulka symbolů}
+Soubory \texttt{symtable.h} a \texttt{symtable.c} definují a implementují tabulku symbolů využívající hashovací funkci BKDR a lineární prohledávání při kolizích; poskytují vkládání, vyhledávání, aktualizaci a mazání položek i zvětšování tabulky.
+
+\subsection{Generování cílového kódu}
+Soubor \texttt{codegen.h} definuje rozhraní pro generování instrukcí a zpracování uzlů AST. Soubor \texttt{codegen.c} převádí podporované části stromu na textový kód IFJcode26, který zapisuje na standardní výstup.
+
+\subsection{Zpracování chyb}
+Soubor \texttt{error.h} definuje výčtový typ \texttt{ErrorCode}, kterým komponenty předávají výsledky operací a chybové stavy. Soubor \texttt{error.c} implementuje funkci \texttt{print\_err()}, která vypisuje chybový kód a doprovodnou zprávu na standardní chybový výstup.
+
+\subsection{Řízení překladače}
+Soubor \texttt{translator.c} obsahuje vstupní funkci programu, řídí vytvoření AST, syntaktickou analýzu, generování kódu a následné uvolnění stromu a vrací výsledný chybový kód.
 
 \end{document}
