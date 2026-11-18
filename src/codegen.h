@@ -41,6 +41,7 @@ void codegen_label(const char *name);
 void codegen_jump(const char *name);
 void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *name, long long value);
 void codegen_jumpifeq_bool(const char *label, CodegenFrame frame, const char *name, bool value);
+void codegen_jumpifneq_int(const char *label, CodegenFrame frame, const char *name, long long value);
 
 void codegen_call(const char *label);
 void codegen_return(void);

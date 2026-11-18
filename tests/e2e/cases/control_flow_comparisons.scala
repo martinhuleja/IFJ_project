@@ -19,6 +19,10 @@ import ifj26.*
       print("LT ano\n")
     else
       print("LT nie\n")
+    if x != 3 then
+      print("NE ano\n")
+    else
+      print("NE nie\n")
     x = x + 1
 
   while x > 3 do
@@ -33,3 +37,15 @@ import ifj26.*
 
   print(x)
   print("\n")
+
+  while x != 3 do
+    print(x)
+    print("\n")
+    x = x + 1
+
+  print(x)
+  print("\n")
+
+  while x != 3 do
+    print("chyba\n")
+    x = x + 1
