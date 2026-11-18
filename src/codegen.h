@@ -33,10 +33,13 @@ void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFram
 void codegen_idiv_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
 void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame lsource_frame, const char *lsource_name, CodegenFrame rsource_frame, const char *rsource_name);
 
+void codegen_lt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
+
 void codegen_write_var(CodegenFrame frame, const char *name);
 void codegen_label(const char *name);
 void codegen_jump(const char *name);
 void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *name, long long value);
+void codegen_jumpifeq_bool(const char *label, CodegenFrame frame, const char *name, bool value);
 
 void codegen_call(const char *label);
 void codegen_return(void);

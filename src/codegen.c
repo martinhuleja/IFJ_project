@@ -148,6 +148,17 @@ void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFra
     printf("\n");
 }
 
+void codegen_lt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("LT ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
 void codegen_write_var(CodegenFrame frame, const char *name)
 {
     printf("WRITE ");
@@ -171,6 +182,15 @@ void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *nam
     codegen_variable(frame, name);
     printf(" ");
     codegen_int(value);
+    printf("\n");
+}
+
+void codegen_jumpifeq_bool(const char *label, CodegenFrame frame, const char *name, bool value)
+{
+    printf("JUMPIFEQ %s ", label);
+    codegen_variable(frame, name);
+    printf(" ");
+    codegen_bool(value);
     printf("\n");
 }
 
@@ -318,7 +338,7 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
     return true;
 }
 
-static const ASTNode *codegen_int_equality(const ASTNode *condition) {
+static const ASTNode *codegen_int_comparison(const ASTNode *condition) {
     if (condition == NULL || condition->type != AST_EXPR) {
         return NULL;
     }
@@ -326,7 +346,7 @@ static const ASTNode *codegen_int_equality(const ASTNode *condition) {
         return NULL;
     }
     const ASTNode *expression = condition->children[0];
-    if (expression == NULL || expression->type != AST_BINARY_OP || expression->operator != AST_OP_EQUAL) {
+    if (expression == NULL || expression->type != AST_BINARY_OP || (expression->operator != AST_OP_EQUAL && expression->operator != AST_OP_LESS)) {
         return NULL;
     }
     if (expression->children == NULL || expression->children_count != 2) {
@@ -347,7 +367,7 @@ bool codegen_if(CodegenFrame frame, const ASTNode *node) {
     const ASTNode *condition = node->children[0];
     const ASTNode *then_block = node->children[1];
     const ASTNode *else_block = node->children[2];
-    const ASTNode *expression = codegen_int_equality(condition);
+    const ASTNode *expression = codegen_int_comparison(condition);
     if (expression == NULL || then_block == NULL || then_block->type != AST_BLOCK || else_block == NULL || else_block->type != AST_BLOCK) {
         return false;
     }
@@ -359,7 +379,16 @@ bool codegen_if(CodegenFrame frame, const ASTNode *node) {
     char end_label[40];
     snprintf(then_label, sizeof then_label, "if_then_%lu", id);
     snprintf(end_label, sizeof end_label, "if_end_%lu", id);
-    codegen_jumpifeq_int(then_label, frame, left->text, right->int_value);
+    if (expression->operator == AST_OP_EQUAL) {
+        codegen_jumpifeq_int(then_label, frame, left->text, right->int_value);
+    }
+    else if (expression->operator == AST_OP_LESS) {
+        codegen_lt_int(frame, "%condition", frame, left->text, right->int_value);
+        codegen_jumpifeq_bool(then_label, frame, "%condition", true);
+    }
+    else {
+        return false;
+    }
     if (!codegen_block(frame, else_block)) {
         return false;
     }
@@ -378,7 +407,7 @@ bool codegen_while(CodegenFrame frame, const ASTNode *node){
     }
     const ASTNode *condition = node->children[0];
     const ASTNode *block = node->children[1];
-    const ASTNode *expression = codegen_int_equality(condition);
+    const ASTNode *expression = codegen_int_comparison(condition);
     if (expression == NULL || block == NULL || block->type != AST_BLOCK) {
         return false;
     }
@@ -393,7 +422,16 @@ bool codegen_while(CodegenFrame frame, const ASTNode *node){
     snprintf(body_label, sizeof body_label, "while_body_%lu", id);
     snprintf(end_label, sizeof end_label, "while_end_%lu", id);
     codegen_label(start_label);
-    codegen_jumpifeq_int(body_label, frame, left->text, right->int_value);
+    if (expression->operator == AST_OP_EQUAL) {
+        codegen_jumpifeq_int(body_label, frame, left->text, right->int_value);
+    }
+    else if (expression->operator == AST_OP_LESS) {
+        codegen_lt_int(frame, "%condition", frame, left->text, right->int_value);
+        codegen_jumpifeq_bool(body_label, frame, "%condition", true);
+    }
+    else {
+        return false;
+    }
     codegen_jump(end_label);
     codegen_label(body_label);
     if (!codegen_block(frame, block)) {
@@ -466,6 +504,7 @@ bool codegen_program(const ASTree *tree)
                 puts(".IFJcode26");
                 puts("CREATEFRAME");
                 puts("PUSHFRAME");
+                codegen_defvar(CODEGEN_LF, "%condition");
                 if (!codegen_block(CODEGEN_LF, body)) {
                     return false;
                 }
