@@ -49,3 +49,16 @@ import ifj26.*
   while x != 3 do
     print("chyba\n")
     x = x + 1
+
+  x = 0
+  var limit = 4
+  while x < limit do
+    print(x)
+    print("\n")
+    x = x + 1
+    limit = limit - 1
+
+  if x == limit then
+    print("rovnake\n")
+  else
+    print("rozne\n")

@@ -369,6 +369,23 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
     return true;
 }
 
+static bool codegen_int_operand(CodegenFrame frame, const ASTNode *node)
+{
+    if (node == NULL) {
+        return false;
+    }
+    if (node->type == AST_IDENTIFIER && node->text != NULL) {
+        codegen_variable(frame, node->text);
+    }
+    else if (node->type == AST_INT_LITERAL) {
+        codegen_int(node->int_value);
+    }
+    else {
+        return false;
+    }
+    return true;
+}
+
 static const ASTNode *codegen_int_comparison(const ASTNode *condition) {
     if (condition == NULL || condition->type != AST_EXPR) {
         return NULL;
@@ -385,7 +402,10 @@ static const ASTNode *codegen_int_comparison(const ASTNode *condition) {
     }
     const ASTNode *left = expression->children[0];
     const ASTNode *right = expression->children[1];
-    if (left == NULL || left->type != AST_IDENTIFIER || left->text == NULL || right == NULL || right->type != AST_INT_LITERAL) {
+    if (left == NULL || left->type != AST_IDENTIFIER || left->text == NULL || right == NULL || (right->type != AST_IDENTIFIER && right->type != AST_INT_LITERAL)) {
+        return NULL;
+    }
+    if (right->type == AST_IDENTIFIER && right->text == NULL) {
         return NULL;
     }
     return expression;
@@ -400,25 +420,81 @@ static bool codegen_jump_if_true(CodegenFrame frame, const ASTNode *condition, c
     const ASTNode *left = expression->children[0];
     const ASTNode *right = expression->children[1];
     if (expression->operator == AST_OP_EQUAL) {
-        codegen_jumpifeq_int(label, frame, left->text, right->int_value);
+        printf("JUMPIFEQ %s ", label);
+        if (!codegen_int_operand(frame, left)) {
+            return false;
+        }
+        printf(" ");
+        if (!codegen_int_operand(frame, right)) {
+            return false;
+        }
+        putchar('\n');
     }
     else if (expression->operator == AST_OP_NOT_EQUAL) {
-        codegen_jumpifneq_int(label, frame, left->text, right->int_value);
+        printf("JUMPIFNEQ %s ", label);
+        if (!codegen_int_operand(frame, left)) {
+            return false;
+        }
+        printf(" ");
+        if (!codegen_int_operand(frame, right)) {
+            return false;
+        }
+        putchar('\n');
     }
     else if (expression->operator == AST_OP_LESS) {
-        codegen_lt_int(frame, "%condition", frame, left->text, right->int_value);
+        printf("LT ");
+        codegen_variable(frame, "%condition");
+        printf(" ");
+        if (!codegen_int_operand(frame, left)) {
+            return false;
+        }
+        printf(" ");
+        if (!codegen_int_operand(frame, right)) {
+            return false;
+        }
+        putchar('\n');
         codegen_jumpifeq_bool(label, frame, "%condition", true);
     }
     else if (expression->operator == AST_OP_LESS_EQUAL) {
-        codegen_gt_int(frame, "%condition", frame, left->text, right->int_value);
+        printf("GT ");
+        codegen_variable(frame, "%condition");
+        printf(" ");
+        if (!codegen_int_operand(frame, left)) {
+            return false;
+        }
+        printf(" ");
+        if (!codegen_int_operand(frame, right)) {
+            return false;
+        }
+        putchar('\n');
         codegen_jumpifeq_bool(label, frame, "%condition", false);
     }
     else if (expression->operator == AST_OP_GREATER) {
-        codegen_gt_int(frame, "%condition", frame, left->text, right->int_value);
+        printf("GT ");
+        codegen_variable(frame, "%condition");
+        printf(" ");
+        if (!codegen_int_operand(frame, left)) {
+            return false;
+        }
+        printf(" ");
+        if (!codegen_int_operand(frame, right)) {
+            return false;
+        }
+        putchar('\n');
         codegen_jumpifeq_bool(label, frame, "%condition", true);
     }
     else if (expression->operator == AST_OP_GREATER_EQUAL) {
-        codegen_lt_int(frame, "%condition", frame, left->text, right->int_value);
+        printf("LT ");
+        codegen_variable(frame, "%condition");
+        printf(" ");
+        if (!codegen_int_operand(frame, left)) {
+            return false;
+        }
+        printf(" ");
+        if (!codegen_int_operand(frame, right)) {
+            return false;
+        }
+        putchar('\n');
         codegen_jumpifeq_bool(label, frame, "%condition", false);
     }
     else {
