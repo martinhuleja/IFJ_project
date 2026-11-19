@@ -1,0 +1,5 @@
+{
+    "description": "Integer negation of literals, variables and nested expressions",
+    "compiler_exit": 0,
+    "interpreter_exit": 0
+}

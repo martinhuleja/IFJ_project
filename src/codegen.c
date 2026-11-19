@@ -148,6 +148,28 @@ void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFra
     printf("\n");
 }
 
+void codegen_lt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("LT ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
+void codegen_gt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
+{
+    printf("GT ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
 void codegen_write_var(CodegenFrame frame, const char *name)
 {
     printf("WRITE ");
@@ -174,6 +196,24 @@ void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *nam
     printf("\n");
 }
 
+void codegen_jumpifeq_bool(const char *label, CodegenFrame frame, const char *name, bool value)
+{
+    printf("JUMPIFEQ %s ", label);
+    codegen_variable(frame, name);
+    printf(" ");
+    codegen_bool(value);
+    printf("\n");
+}
+
+void codegen_jumpifneq_int(const char *label, CodegenFrame frame, const char *name, long long value)
+{
+    printf("JUMPIFNEQ %s ", label);
+    codegen_variable(frame, name);
+    printf(" ");
+    codegen_int(value);
+    printf("\n");
+}
+
 void codegen_call(const char *label)
 {
     printf("CALL %s\n", label);
@@ -193,59 +233,93 @@ bool codegen_move_literal(CodegenFrame frame, const char *name, const ASTNode *n
     return true;
 }
 
-static bool codegen_arithmetic_expression(CodegenFrame frame, const char *dest, const ASTNode *expr)
+static bool codegen_int_operand(CodegenFrame frame, const ASTNode *node)
 {
-    if (expr == NULL || expr->type != AST_BINARY_OP || (expr->operator != AST_OP_ADD && expr->operator != AST_OP_SUB && expr->operator != AST_OP_MUL && expr->operator != AST_OP_DIV) || expr->children_count != 2 || expr->children == NULL) {
+    if (node == NULL) {
         return false;
     }
-    const ASTNode *left = expr->children[0];
-    const ASTNode *right = expr->children[1];
-    if (left == NULL || right == NULL) {
-        return false;
+    if (node->type == AST_IDENTIFIER && node->text != NULL) {
+        codegen_variable(frame, node->text);
     }
-    const char *source_name;
-    if (right->type == AST_IDENTIFIER) {
-        if (left->type != AST_IDENTIFIER || left->text == NULL || right->text == NULL || expr->operator != AST_OP_ADD) {
-            return false;
-        }
-        codegen_add_vars(frame, dest, frame, left->text, frame, right->text);
-        return true;
-    }
-    if (right->type != AST_INT_LITERAL) {
-        return false;
-    }
-    if (left->type == AST_IDENTIFIER) {
-        if (left->text == NULL) {
-            return false;
-        }
-        source_name = left->text;
-    }
-    else if (left->type == AST_INT_LITERAL) {
-        codegen_move_int(frame, dest, left->int_value);
-        source_name = dest;
+    else if (node->type == AST_INT_LITERAL) {
+        codegen_int(node->int_value);
     }
     else {
-        if (!codegen_arithmetic_expression(frame, dest, left)) {
-            return false;
-        }
-        source_name = dest;
-    }
-    switch (expr->operator) {
-    case AST_OP_ADD:
-        codegen_add_int(frame, dest, frame, source_name, right->int_value);
-        break;
-    case AST_OP_SUB:
-        codegen_sub_int(frame, dest, frame, source_name, right->int_value);
-        break;
-    case AST_OP_MUL:
-        codegen_mul_int(frame, dest, frame, source_name, right->int_value);
-        break;
-    case AST_OP_DIV:
-        codegen_idiv_int(frame, dest, frame, source_name, right->int_value);
-        break;
-    default:
         return false;
     }
+    return true;
+}
+
+static bool codegen_push_int_expression(CodegenFrame frame, const ASTNode *node)
+{
+    if (node == NULL) {
+        return false;
+    }
+    if ((node->type == AST_IDENTIFIER && node->text != NULL) || node->type == AST_INT_LITERAL) {
+        printf("PUSHS ");
+        if (!codegen_int_operand(frame, node)) {
+            return false;
+        }
+        putchar('\n');
+        return true;
+    }
+    else if (node->type == AST_BINARY_OP) {
+        if (node->children == NULL || node->children_count != 2) {
+            return false;
+        }
+        const char *instruction;
+        switch (node->operator) {
+        case AST_OP_ADD:
+            instruction = "ADDS";
+            break;
+        case AST_OP_SUB:
+            instruction = "SUBS";
+            break;
+        case AST_OP_MUL:
+            instruction = "MULS";
+            break;
+        case AST_OP_DIV:
+            instruction = "IDIVS";
+            break;
+        default:
+            return false;
+        }
+        const ASTNode *left = node->children[0];
+        const ASTNode *right = node->children[1];
+        if (!codegen_push_int_expression(frame, left)) {
+            return false;
+        }
+        if (!codegen_push_int_expression(frame, right)) {
+            return false;
+        }
+        puts(instruction);
+        return true;
+    }
+    else if (node->type == AST_UNARY_OP) {
+        if (node->operator != AST_OP_NEGATION || node->children == NULL || node->children_count != 1) {
+            return false;
+        }
+        puts("PUSHS int@0");
+        if (!codegen_push_int_expression(frame, node->children[0])) {
+            return false;
+        }
+        puts("SUBS");
+        return true;
+    }
+    return false;
+}
+
+static bool codegen_int_expression(CodegenFrame frame, const char *dest, const ASTNode *node)
+{
+    if (dest == NULL) {
+        return false;
+    }
+    if (!codegen_push_int_expression(frame, node)) {
+        return false;
+    }
+    printf("POPS ");
+    codegen_variable(frame, dest);
+    putchar('\n');
     return true;
 }
 
@@ -255,19 +329,11 @@ bool codegen_var_declaration(CodegenFrame frame, const ASTNode *node)
         return false;
     }
     const ASTNode *initializer = node->children[0];
-    if (initializer == NULL || (initializer->type != AST_INT_LITERAL && initializer->type != AST_BINARY_OP)) {
+    if (initializer == NULL || (initializer->type != AST_IDENTIFIER && initializer->type != AST_INT_LITERAL && initializer->type != AST_BINARY_OP && initializer->type != AST_UNARY_OP)) {
         return false;
     }
     codegen_defvar(frame, node->text);
-    if (initializer->type == AST_INT_LITERAL) {
-        return codegen_move_literal(frame, node->text, initializer);
-    }
-    else if (initializer->type == AST_BINARY_OP) {
-        return codegen_arithmetic_expression(frame, node->text, initializer);
-    }
-    else {
-        return false;
-    }
+    return codegen_int_expression(frame, node->text, initializer);
 }
 
 bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
@@ -275,18 +341,7 @@ bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
     if (node == NULL || node->type != AST_ASSIGN || node->text == NULL || node->children_count != 1 || node->children == NULL) {
         return false;
     }
-    const ASTNode *value = node->children[0];
-    if (value != NULL && value->type == AST_IDENTIFIER) {
-        if (value->text == NULL) {
-            return false;
-        }
-        codegen_move_var(frame, node->text, frame, value->text);
-        return true;
-    }
-    if (value != NULL && value->type == AST_BINARY_OP) {
-        return codegen_arithmetic_expression(frame, node->text, value);
-    }
-    return codegen_move_literal(frame, node->text, value);
+    return codegen_int_expression(frame, node->text, node->children[0]);
 }
 
 bool codegen_print(CodegenFrame frame, const ASTNode *node){
@@ -301,16 +356,30 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
         return false;
     }
     const ASTNode *arg = args->children[0];
-    if (arg == NULL || arg->text == NULL) {
+    if (arg == NULL) {
         return false;
     }
     if (arg->type == AST_IDENTIFIER) {
+        if (arg->text == NULL) {
+            return false;
+        }
         codegen_write_var(frame, arg->text);
     }
     else if (arg->type == AST_STRING_LITERAL) {
+        if (arg->text == NULL) {
+            return false;
+        }
         printf("WRITE ");
         codegen_string((const unsigned char *)arg->text, strlen(arg->text));
         putchar('\n');
+    }
+    else if (arg->type == AST_INT_LITERAL) {
+        printf("WRITE ");
+        codegen_int(arg->int_value);
+        putchar('\n');
+    }
+    else if (arg->type == AST_UNIT_LITERAL) {
+        puts("WRITE string@()");
     }
     else {
         return false;
@@ -318,7 +387,7 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
     return true;
 }
 
-static const ASTNode *codegen_int_equality(const ASTNode *condition) {
+static const ASTNode *codegen_int_comparison(const ASTNode *condition) {
     if (condition == NULL || condition->type != AST_EXPR) {
         return NULL;
     }
@@ -326,7 +395,7 @@ static const ASTNode *codegen_int_equality(const ASTNode *condition) {
         return NULL;
     }
     const ASTNode *expression = condition->children[0];
-    if (expression == NULL || expression->type != AST_BINARY_OP || expression->operator != AST_OP_EQUAL) {
+    if (expression == NULL || expression->type != AST_BINARY_OP || (expression->operator != AST_OP_EQUAL && expression->operator != AST_OP_NOT_EQUAL && expression->operator != AST_OP_LESS && expression->operator != AST_OP_LESS_EQUAL && expression->operator != AST_OP_GREATER && expression->operator != AST_OP_GREATER_EQUAL)) {
         return NULL;
     }
     if (expression->children == NULL || expression->children_count != 2) {
@@ -334,10 +403,65 @@ static const ASTNode *codegen_int_equality(const ASTNode *condition) {
     }
     const ASTNode *left = expression->children[0];
     const ASTNode *right = expression->children[1];
-    if (left == NULL || left->type != AST_IDENTIFIER || left->text == NULL || right == NULL || right->type != AST_INT_LITERAL) {
+    if (left == NULL || right == NULL) {
         return NULL;
     }
     return expression;
+}
+
+static bool codegen_jump_if_true(CodegenFrame frame, const ASTNode *condition, const char *label)
+{
+    const ASTNode *expression = codegen_int_comparison(condition);
+    if (expression == NULL || label == NULL) {
+        return false;
+    }
+    const ASTNode *left = expression->children[0];
+    const ASTNode *right = expression->children[1];
+    const char *instruction;
+    bool negate = false;
+    switch (expression->operator) {
+    case AST_OP_EQUAL:
+        instruction = "EQS";
+        negate = false;
+        break;
+    case AST_OP_NOT_EQUAL:
+        instruction = "EQS";
+        negate = true;
+        break;
+    case AST_OP_LESS:
+        instruction = "LTS";
+        negate = false;
+        break;
+    case AST_OP_LESS_EQUAL:
+        instruction = "GTS";
+        negate = true;
+        break;
+    case AST_OP_GREATER:
+        instruction = "GTS";
+        negate = false;
+        break;
+    case AST_OP_GREATER_EQUAL:
+        instruction = "LTS";
+        negate = true;
+        break;
+    default:
+        return false;
+    }
+    if (!codegen_push_int_expression(frame, left)) {
+        return false;
+    }
+    if (!codegen_push_int_expression(frame, right)) {
+        return false;
+    }
+    puts(instruction);
+    if (negate) {
+        puts("NOTS");
+    }
+    printf("POPS ");
+    codegen_variable(frame, "%condition");
+    putchar('\n');
+    codegen_jumpifeq_bool(label, frame, "%condition", true);
+    return true;
 }
 
 bool codegen_if(CodegenFrame frame, const ASTNode *node) {
@@ -347,19 +471,19 @@ bool codegen_if(CodegenFrame frame, const ASTNode *node) {
     const ASTNode *condition = node->children[0];
     const ASTNode *then_block = node->children[1];
     const ASTNode *else_block = node->children[2];
-    const ASTNode *expression = codegen_int_equality(condition);
+    const ASTNode *expression = codegen_int_comparison(condition);
     if (expression == NULL || then_block == NULL || then_block->type != AST_BLOCK || else_block == NULL || else_block->type != AST_BLOCK) {
         return false;
     }
-    const ASTNode *left = expression->children[0];
-    const ASTNode *right = expression->children[1];
     static unsigned long next_if_id = 0;
     const unsigned long id = next_if_id++;
     char then_label[40];
     char end_label[40];
     snprintf(then_label, sizeof then_label, "if_then_%lu", id);
     snprintf(end_label, sizeof end_label, "if_end_%lu", id);
-    codegen_jumpifeq_int(then_label, frame, left->text, right->int_value);
+    if (!codegen_jump_if_true(frame, condition, then_label)) {
+        return false;
+    }
     if (!codegen_block(frame, else_block)) {
         return false;
     }
@@ -378,12 +502,10 @@ bool codegen_while(CodegenFrame frame, const ASTNode *node){
     }
     const ASTNode *condition = node->children[0];
     const ASTNode *block = node->children[1];
-    const ASTNode *expression = codegen_int_equality(condition);
+    const ASTNode *expression = codegen_int_comparison(condition);
     if (expression == NULL || block == NULL || block->type != AST_BLOCK) {
         return false;
     }
-    const ASTNode *left = expression->children[0];
-    const ASTNode *right = expression->children[1];
     static unsigned long next_while_id = 0;
     const unsigned long id = next_while_id++;
     char start_label[40];
@@ -393,7 +515,9 @@ bool codegen_while(CodegenFrame frame, const ASTNode *node){
     snprintf(body_label, sizeof body_label, "while_body_%lu", id);
     snprintf(end_label, sizeof end_label, "while_end_%lu", id);
     codegen_label(start_label);
-    codegen_jumpifeq_int(body_label, frame, left->text, right->int_value);
+    if (!codegen_jump_if_true(frame, condition, body_label)) {
+        return false;
+    }
     codegen_jump(end_label);
     codegen_label(body_label);
     if (!codegen_block(frame, block)) {
@@ -441,6 +565,8 @@ bool codegen_block(CodegenFrame frame, const ASTNode *node)
                 return false;
             }
             break;
+        case AST_UNIT_LITERAL:
+            break;
         default:
             return false;
         }
@@ -466,6 +592,7 @@ bool codegen_program(const ASTree *tree)
                 puts(".IFJcode26");
                 puts("CREATEFRAME");
                 puts("PUSHFRAME");
+                codegen_defvar(CODEGEN_LF, "%condition");
                 if (!codegen_block(CODEGEN_LF, body)) {
                     return false;
                 }
