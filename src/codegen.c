@@ -378,6 +378,9 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
         codegen_int(arg->int_value);
         putchar('\n');
     }
+    else if (arg->type == AST_UNIT_LITERAL) {
+        puts("WRITE string@()");
+    }
     else {
         return false;
     }
@@ -561,6 +564,8 @@ bool codegen_block(CodegenFrame frame, const ASTNode *node)
             if (!codegen_while(frame, statement)) {
                 return false;
             }
+            break;
+        case AST_UNIT_LITERAL:
             break;
         default:
             return false;
