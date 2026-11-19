@@ -402,10 +402,10 @@ static const ASTNode *codegen_int_comparison(const ASTNode *condition) {
     }
     const ASTNode *left = expression->children[0];
     const ASTNode *right = expression->children[1];
-    if (left == NULL || left->type != AST_IDENTIFIER || left->text == NULL || right == NULL || (right->type != AST_IDENTIFIER && right->type != AST_INT_LITERAL)) {
+    if (left == NULL || (left->type != AST_IDENTIFIER && left->type != AST_INT_LITERAL) || right == NULL || (right->type != AST_IDENTIFIER && right->type != AST_INT_LITERAL)) {
         return NULL;
     }
-    if (right->type == AST_IDENTIFIER && right->text == NULL) {
+    if ((right->type == AST_IDENTIFIER && right->text == NULL) || (left->type == AST_IDENTIFIER && left->text == NULL)) {
         return NULL;
     }
     return expression;

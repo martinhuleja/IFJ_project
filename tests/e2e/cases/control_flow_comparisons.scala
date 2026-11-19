@@ -62,3 +62,13 @@ import ifj26.*
     print("rovnake\n")
   else
     print("rozne\n")
+
+  while 0 < limit do
+    print(limit)
+    print("\n")
+    limit = limit - 1
+
+  if 2 == 2 then
+    print("literaly\n")
+  else
+    print("chyba\n")
