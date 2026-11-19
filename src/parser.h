@@ -1,9 +1,9 @@
 /**
- * @file parser.h
+ * @file   parser.h
  * @author Martin Huleja (xhulejm00)
- * @date 2026-11-09
+ * @date   2026-11-17
  *
- * @brief Header file for parser functions
+ * @brief  Declaration of recursive descent parser functions
  */
 
 #ifndef PARSER_H
@@ -23,6 +23,55 @@ typedef struct parser {
 /********************************************************************
  ************************ SUPPORT FUNCTIONS *************************
  *******************************************************************/
+
+/**
+ * @brief Checks return value of given function
+ *
+ * If return value isn't ERROR_OK, returns with the error code.
+ *
+ * @param foo function returning an ErrorCode value
+ */
+#define RETURN_IF_ERROR(foo)                                                                                           \
+  do {                                                                                                                 \
+    ErrorCode error_code = (foo);                                                                                      \
+    if (error_code != ERROR_OK) {                                                                                      \
+      return error_code;                                                                                               \
+    }                                                                                                                  \
+  } while (0)
+
+/**
+ * @brief Prints error msg and return with syntactic ErrorCode
+ * @param Ptr to struct parser
+ */
+#define RETURN_SYNTACTIC_ERROR(parser)                                                                                 \
+  do {                                                                                                                 \
+    RETURN_IF_ERROR(check_current_token(parser));                                                                      \
+    if (parser->print_error_msg_and_return) {                                                                          \
+      print_err(ERROR_SYNTACTIC, "Expected token doesn't match the current one (%s, line %u, column %u).",             \
+                parser->current_token->value != NULL ? parser->current_token->value : "<no value>",                    \
+                parser->current_token->line, parser->current_token->column);                                           \
+    }                                                                                                                  \
+    return ERROR_SYNTACTIC;                                                                                            \
+  } while (0)
+
+/**
+ * @brief Returns ERROR_INTERNAL if the given pointer is NULL
+ *
+ * Prints the error message if it isn't NULL.
+ *
+ * @param ptr Ptr to check
+ * @param message Error message, or NULL to return without printing
+ */
+#define RETURN_INTERNAL_ERROR_IF_NULL(ptr, message)                                                                    \
+  do {                                                                                                                 \
+    if ((ptr) == NULL) {                                                                                               \
+      const char *error_msg = (message);                                                                               \
+      if (error_msg != NULL) {                                                                                         \
+        print_err(ERROR_INTERNAL, "%s", error_msg);                                                                    \
+      }                                                                                                                \
+      return ERROR_INTERNAL;                                                                                           \
+    }                                                                                                                  \
+  } while (0)
 
 /**
  * @brief Initialize struct parser
@@ -253,7 +302,7 @@ ErrorCode parse_type(Parser *parser, ASTNode *declaration);
 /**
  * @brief Parses FunctionBody according to LL grammar rules
  *
- * Stores the body in AST as AST_BLOCK. One-line bodies contain an implicit AST_RETURN.
+ * Stores the body in AST as AST_BLOCK. One-line bodies contain one expression or call directly.
  *
  * @param parser Ptr to struct parser
  * @param function Ptr to the function node receiving its body
@@ -293,14 +342,14 @@ ErrorCode parse_statement_list(Parser *parser, ASTNode *block);
 ErrorCode parse_statement_list_rest(Parser *parser, ASTNode *block);
 
 /**
- * @brief Parses StatementEnd according to LL grammar rules
+ * @brief Consumes a statement separator, or leaves Dedent unconsumed at the end of a block
  * @param parser Ptr to struct parser
  * @return ErrorCode according to specification of IFJ26
  */
 ErrorCode parse_statement_end(Parser *parser);
 
 /**
- * @brief Parses Statement according to LL grammar rules
+ * @brief Parses Statement, consuming the separator of a simple statement or the block of a compound statement
  * @param parser Ptr to struct parser
  * @param block Ptr to the block node receiving the statement
  * @return ErrorCode according to specification of IFJ26
@@ -308,23 +357,12 @@ ErrorCode parse_statement_end(Parser *parser);
 ErrorCode parse_statement(Parser *parser, ASTNode *block);
 
 /**
- * @brief Parses StatementAfterID according to LL grammar rules
+ * @brief Parses Assignment according to LL grammar rules
  * @param parser Ptr to struct parser
- * @param statement Ptr to the statement node holding the consumed identifier
+ * @param block Ptr to the block node receiving the assignment
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_statement_after_id(Parser *parser, ASTNode *statement);
-
-/**
- * @brief Parses ExprNonId according to LL grammar rules
- *
- * Creates a literal node or an AST_EXPR node for a parenthesized expression.
- *
- * @param parser Ptr to struct parser
- * @param parent Ptr to the parent node receiving the expression
- * @return ErrorCode according to specification of IFJ26
- */
-ErrorCode parse_expr_non_id(Parser *parser, ASTNode *parent);
+ErrorCode parse_assignment(Parser *parser, ASTNode *block);
 
 /**
  * @brief Parses VarDef according to LL grammar rules
@@ -384,7 +422,7 @@ ErrorCode parse_return_statement(Parser *parser, ASTNode *block);
 ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node);
 
 /**
- * @brief Parses ExprOrCall according to LL grammar rules
+ * @brief Parses ExprOrCall using the next token to distinguish a call from an expression
  * @param parser Ptr to struct parser
  * @param parent Ptr to the parent node receiving the expression or function call
  * @return ErrorCode according to specification of IFJ26
@@ -392,12 +430,12 @@ ErrorCode parse_return_expr_opt(Parser *parser, ASTNode *return_node);
 ErrorCode parse_expr_or_call(Parser *parser, ASTNode *parent);
 
 /**
- * @brief Parses CallOpt according to LL grammar rules
+ * @brief Parses Call according to LL grammar rules
  * @param parser Ptr to struct parser
- * @param expression Ptr to the expression node holding the consumed identifier
+ * @param parent Ptr to the parent node receiving the function call
  * @return ErrorCode according to specification of IFJ26
  */
-ErrorCode parse_call_opt(Parser *parser, ASTNode *expression);
+ErrorCode parse_call(Parser *parser, ASTNode *parent);
 
 /**
  * @brief Parses ArgGroup according to LL grammar rules

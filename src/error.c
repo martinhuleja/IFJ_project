@@ -1,7 +1,7 @@
 /**
  * @file   error.c
  * @author Martin Huleja (xhulejm00)
- * @date   2026-10-28
+ * @date   2026-11-03
  *
  * @brief  Implementation of error reporting function
  */

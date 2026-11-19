@@ -8,8 +8,7 @@
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic -g
 TARGET = translator
-SRC = src/translator.c src/symtable.c src/error.c src/semantic_check.c \
-      src/parser.c src/parser-missing-declarations.c src/abstract-syntactic-tree.c
+SRC = src/translator.c src/symtable.c src/error.c src/semantic_check.c src/parser.c src/precedence-analysis.c src/abstract-syntactic-tree.c src/lexer.c src/codegen.c
 # Clang-format configuration
 FORMAT = clang-format
 FORMAT_FLAGS = --dry-run -Werror
@@ -26,7 +25,7 @@ $(TARGET): $(SRC)
 
 # Runs check
 check:
-	$(FORMAT) $(FORMAT_FLAGS) $(SRC)
+	$(FORMAT) $(FORMAT_FLAGS) src/*
 	# tests/...
 
 # Runs check first then builds the binary
@@ -34,7 +33,7 @@ build-check: check build
 
 # Formats source files
 format:
-	$(FORMAT) -i $(SRC)
+	$(FORMAT) -i src/*
 
 clean:
 	rm -f $(TARGET) $(SYMTABLE_TEST) $(SEMANTIC_TEST)
