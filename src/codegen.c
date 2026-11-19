@@ -400,10 +400,7 @@ static const ASTNode *codegen_int_comparison(const ASTNode *condition) {
     }
     const ASTNode *left = expression->children[0];
     const ASTNode *right = expression->children[1];
-    if (left == NULL || (left->type != AST_IDENTIFIER && left->type != AST_INT_LITERAL) || right == NULL || (right->type != AST_IDENTIFIER && right->type != AST_INT_LITERAL)) {
-        return NULL;
-    }
-    if ((right->type == AST_IDENTIFIER && right->text == NULL) || (left->type == AST_IDENTIFIER && left->text == NULL)) {
+    if (left == NULL || right == NULL) {
         return NULL;
     }
     return expression;
@@ -417,87 +414,50 @@ static bool codegen_jump_if_true(CodegenFrame frame, const ASTNode *condition, c
     }
     const ASTNode *left = expression->children[0];
     const ASTNode *right = expression->children[1];
-    if (expression->operator == AST_OP_EQUAL) {
-        printf("JUMPIFEQ %s ", label);
-        if (!codegen_int_operand(frame, left)) {
-            return false;
-        }
-        printf(" ");
-        if (!codegen_int_operand(frame, right)) {
-            return false;
-        }
-        putchar('\n');
-    }
-    else if (expression->operator == AST_OP_NOT_EQUAL) {
-        printf("JUMPIFNEQ %s ", label);
-        if (!codegen_int_operand(frame, left)) {
-            return false;
-        }
-        printf(" ");
-        if (!codegen_int_operand(frame, right)) {
-            return false;
-        }
-        putchar('\n');
-    }
-    else if (expression->operator == AST_OP_LESS) {
-        printf("LT ");
-        codegen_variable(frame, "%condition");
-        printf(" ");
-        if (!codegen_int_operand(frame, left)) {
-            return false;
-        }
-        printf(" ");
-        if (!codegen_int_operand(frame, right)) {
-            return false;
-        }
-        putchar('\n');
-        codegen_jumpifeq_bool(label, frame, "%condition", true);
-    }
-    else if (expression->operator == AST_OP_LESS_EQUAL) {
-        printf("GT ");
-        codegen_variable(frame, "%condition");
-        printf(" ");
-        if (!codegen_int_operand(frame, left)) {
-            return false;
-        }
-        printf(" ");
-        if (!codegen_int_operand(frame, right)) {
-            return false;
-        }
-        putchar('\n');
-        codegen_jumpifeq_bool(label, frame, "%condition", false);
-    }
-    else if (expression->operator == AST_OP_GREATER) {
-        printf("GT ");
-        codegen_variable(frame, "%condition");
-        printf(" ");
-        if (!codegen_int_operand(frame, left)) {
-            return false;
-        }
-        printf(" ");
-        if (!codegen_int_operand(frame, right)) {
-            return false;
-        }
-        putchar('\n');
-        codegen_jumpifeq_bool(label, frame, "%condition", true);
-    }
-    else if (expression->operator == AST_OP_GREATER_EQUAL) {
-        printf("LT ");
-        codegen_variable(frame, "%condition");
-        printf(" ");
-        if (!codegen_int_operand(frame, left)) {
-            return false;
-        }
-        printf(" ");
-        if (!codegen_int_operand(frame, right)) {
-            return false;
-        }
-        putchar('\n');
-        codegen_jumpifeq_bool(label, frame, "%condition", false);
-    }
-    else {
+    const char *instruction;
+    bool negate = false;
+    switch (expression->operator) {
+    case AST_OP_EQUAL:
+        instruction = "EQS";
+        negate = false;
+        break;
+    case AST_OP_NOT_EQUAL:
+        instruction = "EQS";
+        negate = true;
+        break;
+    case AST_OP_LESS:
+        instruction = "LTS";
+        negate = false;
+        break;
+    case AST_OP_LESS_EQUAL:
+        instruction = "GTS";
+        negate = true;
+        break;
+    case AST_OP_GREATER:
+        instruction = "GTS";
+        negate = false;
+        break;
+    case AST_OP_GREATER_EQUAL:
+        instruction = "LTS";
+        negate = true;
+        break;
+    default:
         return false;
     }
+    if (!codegen_push_int_expression(frame, left)) {
+        return false;
+    }
+    if (!codegen_push_int_expression(frame, right)) {
+        return false;
+    }
+    puts(instruction);
+    if (negate) {
+        puts("NOTS");
+    }
+    printf("POPS ");
+    codegen_variable(frame, "%condition");
+    putchar('\n');
+    codegen_jumpifeq_bool(label, frame, "%condition", true);
     return true;
 }
 
