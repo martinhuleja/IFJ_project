@@ -14,7 +14,7 @@ ErrorCode built_in(scope *global_scope);
 ErrorCode allocate_params(data *function_data);
 ErrorCode second_run(scope *global_scope, ASTree *tree);
 ErrorCode insert_params(scope *function_scope,ASTNode *params);
-ErrorCode insert_block(scope *function_scope,ASTNode *block);
+ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function);
 ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated);
 
 
@@ -83,9 +83,9 @@ ErrorCode check_assign_variable(scope *current_scope, char *key,ASTDataType righ
 ErrorCode check_type(ASTDataType left_side, ASTDataType right_side);
 
 /**
- * @brief checks wether variable can be initialized
+ * @brief checks wether variable can be initialized and if yes, initializes it
  *
- * checks if variable hasnt been repeatedly declard, if right and left side are compatibile
+ * checks if variable hasnt been repeatedly declard, if right and left side are compatibile, if yes initializes it
  *
  * @param current_scope PTR to current_scope
  * @param key pointer to varaible key
@@ -118,12 +118,11 @@ ErrorCode register_function(scope *global_scope, char *key,data data);
  *
  * @param current_scope PTR to current scope
  * @param key pointer to function key
- * @param argument_types pointer to array of argument types
- * @param argument_count number of arguments
+ * @param arguments  AST_ARG_LIST Node
  * @return ERROR_OK on success, ERROR_INTERNAL if called with invalid scope,
  * ERROR_INTERNAL if argument array is invalid, ERROR_UNDEFINED if function
  * doesnt exist or symbol isnt a function, ERROR_FUNCTION_ARGS if argument
  * count or types
 */
-ErrorCode check_function_call(scope *current_scope, char *key, ASTDataType *argument_types,int argument_count);
+ErrorCode check_function_call(scope *current_scope, char *key, ASTNode *arguments);
 #endif

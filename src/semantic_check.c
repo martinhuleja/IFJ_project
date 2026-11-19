@@ -167,15 +167,28 @@ ErrorCode second_run(scope *global_scope, ASTree *tree)
                 break;
             }
         }
-        // going through block
-        if(block!= NULL) // nema byt error ak block je null ? neviem.
+        // going through block    
+
+
+        if (block != NULL)
         {
-            result = insert_block(function_scope,block);
+
+            result = insert_block(function_scope, block,node);
             if (result != ERROR_OK)
             {
                 free_scope(function_scope);
                 return result;
-            }              
+            }
+
+            if (block->always_returns == false && node->declared_type != AST_DATA_UNKNOWN && node->declared_type != AST_DATA_UNIT && block->resolved_type != AST_DATA_UNKNOWN)
+            {
+                result = check_type(node->declared_type, block->resolved_type);
+                if (result != ERROR_OK)
+                {
+                    free_scope(function_scope);
+                    return result;
+                }
+            }
         }
         free_scope(function_scope);
     }
@@ -211,11 +224,11 @@ ErrorCode insert_params(scope *function_scope,ASTNode *params)
 
 // inserts body of function into functions scope/hashtable
 // gets called once per funciton
-ErrorCode insert_block(scope *function_scope,ASTNode *block)
+ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
 {
     ErrorCode result = ERROR_OK;
     int position = 0; // neviem ako ju dostanem.
-
+    bool return_happened = false;
 
     for( size_t j = 0; j< block->children_count;j++)
     {
@@ -224,13 +237,13 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block)
 
         //variable declaration
         
-        if (block->children[j]->type == AST_VAR_DECLARATION)
+        if (block_symbol->type == AST_VAR_DECLARATION)
         {
             //init values
             block_symbol_data.position = position++;
             block_symbol_data.kind = SYMBOL_VARIABLE;
             block_symbol_data.type = block_symbol->declared_type;   
-            block_symbol_data.changeable = block->children[j]->is_changeable;
+            block_symbol_data.changeable = block_symbol->is_changeable;
         
         
             //right side gathering 
@@ -245,13 +258,195 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block)
                 return result;
             }
         }
-        //body similiar to insert_params? or like shit tons of ifs dependand on type of block->children[j] maybe
+        if (block_symbol->type == AST_ASSIGN)
+        {
+        
+            //right side gathering 
+            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+
+            result = check_assign_variable(function_scope,block_symbol->text,block_symbol->children[0]->resolved_type);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+
+        }
+        if (block_symbol->type == AST_CALL)
+        {
+            result = calculate_allocated(function_scope,block_symbol);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+        }
+        if(block_symbol->type == AST_EXPR)
+        {
+            result = calculate_allocated(function_scope,block_symbol);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+        }
+        if(block_symbol->type == AST_IF)
+        {
+            // if 
+
+
+
+            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+            if (block_symbol->children[0]->resolved_type != AST_DATA_BOOL)
+                return ERROR_TYPE_COMPATIBILITY;
+            //then
+            scope *inner_scope = new_scope(function_scope);
+            if (inner_scope == NULL)
+            {
+                return ERROR_INTERNAL;
+            }
+            result = insert_block(inner_scope,block_symbol->children[1],function);
+            if (result != ERROR_OK)
+            {
+                pop_scope(inner_scope);
+                return result;
+            }
+
+            pop_scope(inner_scope);
+
+
+            //else
+            inner_scope = new_scope(function_scope);
+            if (inner_scope == NULL)
+            {
+                return ERROR_INTERNAL;
+            }
+            result = insert_block(inner_scope,block_symbol->children[2],function);
+            if (result != ERROR_OK)
+            {
+                pop_scope(inner_scope);
+                return result;
+            }
+            pop_scope(inner_scope);
+            
+            if (block_symbol->children[1]->always_returns && block_symbol->children[2]->always_returns)
+            {
+                return_happened = true;
+            }
+        
+        }
+
+        if(block_symbol->type == AST_WHILE)
+        {
+             
+            //while
+            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+            if (block_symbol->children[0]->resolved_type != AST_DATA_BOOL)
+                return ERROR_TYPE_COMPATIBILITY;
+            //do
+            scope *inner_scope = new_scope(function_scope);
+            if (inner_scope == NULL)
+            {
+                return ERROR_INTERNAL;
+            }
+            result = insert_block(inner_scope,block_symbol->children[1],function);
+            if (result != ERROR_OK)
+            {
+                pop_scope(inner_scope);
+                return result;
+            }
+            pop_scope(inner_scope);
+        }
+        // lone symbol in block
+        if(block_symbol->type == AST_BINARY_OP || block_symbol->type == AST_UNARY_OP || block_symbol->type == AST_IDENTIFIER || block_symbol->type == AST_INT_LITERAL|| block_symbol->type == AST_DOUBLE_LITERAL || block_symbol->type == AST_STRING_LITERAL || block_symbol->type ==AST_UNIT_LITERAL)
+        {
+            result = calculate_allocated(function_scope,block_symbol);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+
+            // cant be a comaprasion
+            if (block_symbol->resolved_type == AST_DATA_BOOL)
+                return ERROR_TYPE_COMPATIBILITY;
+            
+        }
+
+        if(block_symbol->type == AST_RETURN)
+        {
+            if (function->declared_type == AST_DATA_UNKNOWN)
+                return ERROR_TYPE_COMPATIBILITY;
+            //naked returm
+            if(block_symbol->children_count == 0)
+            {
+        
+                if(function->declared_type != AST_DATA_UNIT)
+            
+                        return ERROR_TYPE_COMPATIBILITY;
+
+                block_symbol->resolved_type= AST_DATA_UNIT;
+            }
+            else
+            {
+                result = calculate_allocated(function_scope,block_symbol->children[0]);
+                if (result != ERROR_OK)
+                {
+                    return result;
+                }
+                block_symbol->resolved_type = block_symbol->children[0]->resolved_type;
+
+                if(block_symbol->children[0]->resolved_type == AST_DATA_BOOL)
+                    return ERROR_TYPE_COMPATIBILITY;
+
+                // check if corect:
+                if(function->declared_type != AST_DATA_UNIT)
+                {
+                    result = check_type(function->declared_type, block_symbol->resolved_type);
+                    if (result != ERROR_OK)
+                    {
+                        return result;
+                    }
+                }
+            }
+            return_happened = true;
+        }
     }
+    // end of function
+    if (block->children_count == 0)
+    return ERROR_INTERNAL;
+
+    if (return_happened == false)
+    {
+        ASTNode *last = block->children[block->children_count - 1];
+        //unit when declaration,while, assign
+        if (last->type == AST_VAR_DECLARATION || last->type == AST_ASSIGN || last->type == AST_WHILE)
+        {
+            block->resolved_type = AST_DATA_UNIT;
+        }
+        else
+        //keep true to type
+        {
+            block->resolved_type = last->resolved_type;
+        }
+    }
+
+    block->always_returns = return_happened;
+
     return ERROR_OK;
 }
 // checks type of expression assigned to a variable
 ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
 {
+    ErrorCode result;
     if (current_scope == NULL || allocated == NULL)
         return ERROR_INTERNAL;
 
@@ -273,6 +468,7 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
             allocated->resolved_type = AST_DATA_UNIT;
             break;
 
+        // cases such as int x = y
         case AST_IDENTIFIER:
         {
             data *symbol = lookup_symbol(current_scope, allocated->text);
@@ -285,11 +481,172 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
             allocated->resolved_type = symbol->type;
             break;        
         }
+        // unary operator going recursively
+        case AST_UNARY_OP:
+        {
+            result = calculate_allocated(current_scope, allocated->children[0]);
+            if (result != ERROR_OK)
+                return result;
 
+            
+            if (allocated->children[0]->resolved_type != AST_DATA_INT && allocated->children[0]->resolved_type != AST_DATA_DOUBLE)
+                return ERROR_TYPE_COMPATIBILITY;
+            allocated->resolved_type = allocated->children[0]->resolved_type;
+            break;
+        }
+        // binary operator going recursively
+        case AST_BINARY_OP:
+        {
+            result = calculate_allocated(current_scope, allocated->children[0]);
+            if (result != ERROR_OK)
+                return result;
+
+            result = calculate_allocated(current_scope, allocated->children[1]);
+            if (result != ERROR_OK)
+                return result;
+            
+            // figuring out final type:
+            // + includes strings, others  error  
+            if(allocated->operator == AST_OP_ADD)
+            {
+
+
+                if(allocated->children[0]->resolved_type == AST_DATA_INT)
+                {
+                    if(allocated->children[1]->resolved_type == AST_DATA_DOUBLE)
+                        allocated->resolved_type = AST_DATA_DOUBLE; 
+                    else if (allocated->children[1]->resolved_type == AST_DATA_INT)
+                        allocated->resolved_type = AST_DATA_INT;
+                    else 
+                        return ERROR_TYPE_COMPATIBILITY;
+                }
+                else if(allocated->children[0]->resolved_type == AST_DATA_DOUBLE) 
+                {
+                    if(allocated->children[1]->resolved_type == AST_DATA_DOUBLE)
+                        allocated->resolved_type = AST_DATA_DOUBLE; 
+                    else if (allocated->children[1]->resolved_type == AST_DATA_INT)
+                        allocated->resolved_type = AST_DATA_DOUBLE;
+                    else 
+                        return ERROR_TYPE_COMPATIBILITY;
+                }
+                else if(allocated->children[0]->resolved_type == AST_DATA_STRING) 
+                {
+                    if(allocated->children[1]->resolved_type == AST_DATA_STRING) 
+                        allocated->resolved_type = AST_DATA_STRING;
+                    else
+                        return ERROR_TYPE_COMPATIBILITY;
+                }
+                else
+                    return ERROR_TYPE_COMPATIBILITY;
+            }
+            // - / *  doesnt suport strings
+            else if(allocated->operator == AST_OP_SUB || allocated->operator == AST_OP_DIV || allocated->operator == AST_OP_MUL)
+            {
+                if(allocated->children[0]->resolved_type == AST_DATA_INT)
+                {
+                    if(allocated->children[1]->resolved_type == AST_DATA_DOUBLE)
+                        allocated->resolved_type = AST_DATA_DOUBLE; 
+                    else if (allocated->children[1]->resolved_type == AST_DATA_INT)
+                        allocated->resolved_type = AST_DATA_INT;
+                    else 
+                        return ERROR_TYPE_COMPATIBILITY;
+                }
+                else if(allocated->children[0]->resolved_type == AST_DATA_DOUBLE) 
+                {
+                    if(allocated->children[1]->resolved_type == AST_DATA_DOUBLE)
+                        allocated->resolved_type = AST_DATA_DOUBLE; 
+                    else if (allocated->children[1]->resolved_type == AST_DATA_INT)
+                        allocated->resolved_type = AST_DATA_DOUBLE;
+                    else
+                        return ERROR_TYPE_COMPATIBILITY;
+                }
+                else
+                    return ERROR_TYPE_COMPATIBILITY;
+                
+            }
+            //comparasions (< > <= >=) doesnt  include UNIT
+            if(allocated->operator == AST_OP_LESS || allocated->operator ==  AST_OP_GREATER || allocated->operator ==  AST_OP_LESS_EQUAL || allocated->operator == AST_OP_GREATER_EQUAL)
+            {
+                if(allocated->children[1]->resolved_type == AST_DATA_DOUBLE || allocated->children[1]->resolved_type == AST_DATA_STRING || allocated->children[1]->resolved_type == AST_DATA_INT)
+                {
+                    if(allocated->children[0]->resolved_type == AST_DATA_DOUBLE || allocated->children[0]->resolved_type == AST_DATA_STRING || allocated->children[0]->resolved_type == AST_DATA_INT)
+                    {                    
+                        if (check_type(allocated->children[0]->resolved_type,allocated->children[1]->resolved_type) != ERROR_OK && check_type(allocated->children[1]->resolved_type,allocated->children[0]->resolved_type) != ERROR_OK)
+                            return ERROR_TYPE_COMPATIBILITY;
+                    }
+                    else
+                    {
+                        return ERROR_TYPE_COMPATIBILITY;
+                    }
+                }
+                else
+                {
+                    return ERROR_TYPE_COMPATIBILITY;
+                }
+                allocated->resolved_type = AST_DATA_BOOL;
+            }
+
+            //comparasion ( == , != )
+            if(allocated->operator == AST_OP_EQUAL || allocated->operator == AST_OP_NOT_EQUAL)
+            {
+                if(allocated->children[1]->resolved_type == AST_DATA_DOUBLE || allocated->children[1]->resolved_type == AST_DATA_STRING || allocated->children[1]->resolved_type == AST_DATA_INT || allocated->children[1]->resolved_type == AST_DATA_UNIT)
+                {
+                    if(allocated->children[0]->resolved_type == AST_DATA_DOUBLE || allocated->children[0]->resolved_type == AST_DATA_STRING || allocated->children[0]->resolved_type == AST_DATA_INT || allocated->children[0]->resolved_type == AST_DATA_UNIT )
+                    {                    
+                        if (check_type(allocated->children[0]->resolved_type,allocated->children[1]->resolved_type) != ERROR_OK && check_type(allocated->children[1]->resolved_type,allocated->children[0]->resolved_type) != ERROR_OK)
+                            return ERROR_TYPE_COMPATIBILITY;
+                    }
+                    else
+                    {
+                        return ERROR_TYPE_COMPATIBILITY;
+                    }
+                }
+                else
+                {
+                    return ERROR_TYPE_COMPATIBILITY;
+                }
+                allocated->resolved_type = AST_DATA_BOOL;
+
+            }
+            break;
+        }
+
+        case AST_CALL:
+        {
+            ASTNode *arguments = allocated->children[0];
+
+            for(size_t i = 0; i<arguments->children_count;i++)
+            {
+                result = calculate_allocated(current_scope,arguments->children[i]);
+                if (result != ERROR_OK)
+                    return result;
+            }
+
+            result = check_function_call(current_scope,allocated->text,arguments);
+            if (result != ERROR_OK)
+                return result;
+
+            data *function_data = lookup_symbol(current_scope, allocated->text);
+            allocated->resolved_type = function_data->return_type;
+            break;
+
+        }
         default:
             return ERROR_INTERNAL;
-    }
+        
 
+        case AST_EXPR:
+        {
+        result = calculate_allocated(current_scope, allocated->children[0]);
+        if (result != ERROR_OK)
+            return result;
+
+        allocated->resolved_type = allocated->children[0]->resolved_type;
+        break;
+        
+        }
+
+    }
     return ERROR_OK;
 }
 // implementing built in functions first of all things
@@ -598,6 +955,12 @@ ErrorCode check_init_variable(scope *current_scope, char *key,data data,ASTDataT
         return ERROR_INTERNAL;
     }
 
+    // without extension we cant init variable with bool type
+    if(right_side == AST_DATA_BOOL)
+    {
+        return ERROR_TYPE_COMPATIBILITY;
+    }
+
     if(data.type != AST_DATA_UNKNOWN)
     {
         if(check_type(data.type,right_side) == ERROR_TYPE_COMPATIBILITY)
@@ -642,9 +1005,9 @@ ErrorCode register_function(scope *global_scope, char *key,data data)
 
 
 // checks if function called correctly
-ErrorCode check_function_call(scope *current_scope, char *key, ASTDataType *argument_types,int argument_count)
+ErrorCode check_function_call(scope *current_scope, char *key, ASTNode *arguments)
 {
-    if (current_scope == NULL)
+    if (current_scope == NULL || arguments == NULL)
     {
         //called with invalid scope, so returning 99
         return ERROR_INTERNAL;
@@ -655,19 +1018,16 @@ ErrorCode check_function_call(scope *current_scope, char *key, ASTDataType *argu
     if (function_data->kind != SYMBOL_FUNCTION)
         return ERROR_UNDEFINED;
     //comparasioning
-    if( function_data->parameter_count != argument_count)
+    if( (size_t)function_data->parameter_count != arguments->children_count)
         return ERROR_FUNCTION_ARGS;
-    if(argument_count >0 && argument_types == NULL)
-    //caller has wrong data
-        return ERROR_INTERNAL;
-    for(int i = 0;i<argument_count;i++)
+    for(size_t i = 0;i<arguments->children_count;i++)
     {
-        if (argument_types[i] == AST_DATA_UNKNOWN || argument_types[i] == AST_DATA_ANY)
+        if (arguments->children[i]->resolved_type == AST_DATA_UNKNOWN || arguments->children[i]->resolved_type == AST_DATA_ANY ||  arguments->children[i]->resolved_type  == AST_DATA_BOOL)
             return ERROR_FUNCTION_ARGS;
 
         if (function_data->parameter_types[i] == AST_DATA_ANY)
             continue;
-        if(check_type(function_data->parameter_types[i],argument_types[i]) != ERROR_OK)
+        if(check_type(function_data->parameter_types[i],arguments->children[i]->resolved_type ) != ERROR_OK)
             return ERROR_FUNCTION_ARGS;
     }
     return ERROR_OK;
