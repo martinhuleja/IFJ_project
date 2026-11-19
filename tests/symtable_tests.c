@@ -1,5 +1,5 @@
 #include <assert.h> //assert
-#include <symtable.h>
+#include "symtable.h"
 #include <stddef.h> // def null
 #include <stdbool.h>
 
@@ -14,10 +14,11 @@ void init_table_test()
 void insert_item_test()
 {
     table *hash_tab = init_table();
-    data hash_data;
+    data hash_data = {0};
+    hash_data.kind = SYMBOL_VARIABLE;
     hash_data.changeable = false;
     hash_data.position = 1;
-    hash_data.type = 'i';
+    hash_data.type = AST_DATA_INT;
     char* key = "test";
     data *tmp_data;
 
@@ -28,13 +29,13 @@ void insert_item_test()
     assert(tmp_data != NULL);
     assert(tmp_data->changeable == false);
     assert(tmp_data->position == 1 );
-    assert(tmp_data->type == 'i');
+    assert(tmp_data->type == AST_DATA_INT);
 
 
     // duplicit key insert, should replace old key
     hash_data.changeable = true;
     hash_data.position = 10;
-    hash_data.type ='d';
+    hash_data.type = AST_DATA_DOUBLE;
     hash_tab = insert_item(hash_tab,key,hash_data);
     assert(hash_tab != NULL);
     assert(search_table(hash_tab,key) != false);
@@ -42,7 +43,7 @@ void insert_item_test()
     assert(tmp_data != NULL);
     assert(tmp_data->changeable == true);
     assert(tmp_data->position == 10 );
-    assert(tmp_data->type == 'd');
+    assert(tmp_data->type == AST_DATA_DOUBLE);
 
     free_table(hash_tab);
 }
@@ -51,10 +52,11 @@ void get_data_test()
     table *hash_tab = init_table();
     assert(hash_tab != NULL);
 
-    data hash_data;
+    data hash_data = {0};
+    hash_data.kind = SYMBOL_VARIABLE;
     hash_data.changeable = false;
     hash_data.position = 1;
-    hash_data.type = 'i';
+    hash_data.type = AST_DATA_INT ;
     char* key = "test";
 
     data *tmp_data;
@@ -85,10 +87,11 @@ void delete_item_test()
     table *hash_tab = init_table();
     assert(hash_tab != NULL);
 
-    data hash_data;
+    data hash_data = {0};
+    hash_data.kind = SYMBOL_VARIABLE;
     hash_data.changeable = false;
     hash_data.position = 1;
-    hash_data.type = 'i';
+    hash_data.type = AST_DATA_INT;
 
     char* key = "test";
 
@@ -135,10 +138,11 @@ void delete_item_test()
 void search_table_test()
 {
     table *hash_tab = init_table();
-    data hash_data;
+    data hash_data = {0};
+    hash_data.kind = SYMBOL_VARIABLE;
     hash_data.changeable = false;
     hash_data.position = 1;
-    hash_data.type = 'i';
+    hash_data.type = AST_DATA_INT;
     char* key = "test";
 
     // testing empty table
@@ -159,10 +163,11 @@ void resize_table_test()
     table *hash_tab = init_table();
     assert(hash_tab != NULL);
 
-    data hash_data;
+    data hash_data = {0};
+    hash_data.kind = SYMBOL_VARIABLE;
     hash_data.changeable = false;
     hash_data.position = 1;
-    hash_data.type = 'i';
+    hash_data.type = AST_DATA_INT;
     char* key = "test";
 
     hash_tab = insert_item(hash_tab,key,hash_data);
@@ -194,7 +199,7 @@ void resize_table_test()
         assert(temp_data != NULL);
         assert(temp_data->changeable == false);
         assert(temp_data->position == hash_data.position);
-        assert(temp_data->type == 'i');
+        assert(temp_data->type == AST_DATA_INT);
         hash_data.position--;
 
     }
@@ -206,7 +211,7 @@ void resize_table_test()
     assert(temp_data != NULL);
     assert(temp_data->changeable == false);
     assert(temp_data->position == hash_data.position);
-    assert(temp_data->type == 'i');
+    assert(temp_data->type == AST_DATA_INT);
 
     free_table(hash_tab);
 }

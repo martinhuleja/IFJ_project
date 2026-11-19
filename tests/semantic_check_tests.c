@@ -224,13 +224,14 @@ void register_function_test(void)
     scope *global_scope = new_scope(NULL);
     assert(global_scope != NULL);
 
-    ASTDataType params[] = {AST_DATA_INT, AST_DATA_DOUBLE};
 
     data function_data = {0};
     function_data.kind = SYMBOL_FUNCTION;
     function_data.return_type = AST_DATA_INT;
     function_data.parameter_count = 2;
-    function_data.parameter_types = params;
+    assert(allocate_params(&function_data) == ERROR_OK);
+    function_data.parameter_types[0] = AST_DATA_INT;
+    function_data.parameter_types[1] = AST_DATA_DOUBLE;
     function_data.defined = true;
 
     char *key = "test_function";
@@ -256,13 +257,14 @@ void check_function_call_test(void)
     scope *global_scope = new_scope(NULL);
     assert(global_scope != NULL);
 
-    ASTDataType params[] = {AST_DATA_INT, AST_DATA_DOUBLE};
 
     data function_data = {0};
     function_data.kind = SYMBOL_FUNCTION;
     function_data.return_type = AST_DATA_INT;
     function_data.parameter_count = 2;
-    function_data.parameter_types = params;
+    assert(allocate_params(&function_data) == ERROR_OK);
+    function_data.parameter_types[0] = AST_DATA_INT;
+    function_data.parameter_types[1] = AST_DATA_DOUBLE;
     char *key = "test_function";
 
     assert(register_function(global_scope, key, function_data) == ERROR_OK);

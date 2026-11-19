@@ -5,7 +5,7 @@
 #include <string.h> //strlen
 
 
-// [DELETED ITEM] cannot be used as a key 
+//  cannot be used as a key
 
 typedef struct Sitem
 {
@@ -92,8 +92,16 @@ table *insert_item(table *hash_tab, char* key,data data)
     //linear probing if original item
     
     //allocating
+    if (key_in_use && hash_tab->items[position].data.kind == SYMBOL_FUNCTION)
+    {
+        ASTDataType *old_params = hash_tab->items[position].data.parameter_types;
+
+        if (data.kind != SYMBOL_FUNCTION || old_params != data.parameter_types)
+            free(old_params);
+    }
+
     hash_tab->items[position].taken = true;
-    hash_tab->items[position].data =data;
+    hash_tab->items[position].data = data;
     if(key_in_use == false)
     {
         hash_tab->table_size++;
@@ -120,7 +128,7 @@ table *resize_table(table *hash_tab)
     new_tab = malloc(sizeof(item)*(hash_tab->table_capacity)*2);
     if(new_tab == NULL)
     {
-        free_table(hash_tab);
+        //free_table(hash_tab);
         fprintf(stderr,"99");
         return NULL;
     } 
@@ -239,6 +247,12 @@ bool delete_item(table *hash_tab, char* key)
         {
             if(strcmp(hash_tab->items[position].key,key) == 0)
             {
+
+                if (hash_tab->items[position].data.kind == SYMBOL_FUNCTION)
+                {
+                    free(hash_tab->items[position].data.parameter_types);
+                    hash_tab->items[position].data.parameter_types = NULL;
+                }
                 hash_tab->items[position].key= "[DELETED ITEM]";
                 hash_tab->table_size--;
                 return true;
@@ -261,6 +275,15 @@ void free_table(table* hash_tab)
     {
         if(hash_tab->items != NULL)
         {
+            for (size_t i = 0; i < hash_tab->table_capacity; i++)
+            {
+                item *current = &hash_tab->items[i];
+
+                if (current->taken && strcmp(current->key, "[DELETED ITEM]") != 0 && current->data.kind == SYMBOL_FUNCTION)
+                {
+                    free(current->data.parameter_types);
+                }
+            }
             free(hash_tab->items);
         }
         free(hash_tab);

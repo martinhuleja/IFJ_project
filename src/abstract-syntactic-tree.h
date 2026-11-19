@@ -58,6 +58,7 @@ typedef enum ast_data_type {
   AST_DATA_DOUBLE,
   AST_DATA_STRING,
   AST_DATA_UNIT,
+  AST_DATA_ANY,
 } ASTDataType;
 
 /**
