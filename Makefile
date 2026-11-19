@@ -40,7 +40,7 @@ clean:
 
 # Builds and runs the symbol table unit tests
 SYMTABLE_TEST = tests/symtable_tests
-$(SYMTABLE_TEST): 	tests/symtable_tests.c src/symtable.c src/symtable.h src/abstract-syntactic-tree.h src/error.h
+$(SYMTABLE_TEST): tests/symtable_tests.c src/symtable.c src/symtable.h src/abstract-syntactic-tree.h src/error.h
 	$(CC) $(CFLAGS) -Isrc tests/symtable_tests.c src/symtable.c -o $@
 
 	
