@@ -289,13 +289,49 @@ static bool codegen_arithmetic_expression(CodegenFrame frame, const char *dest, 
     return true;
 }
 
+static bool codegen_unary_expression(CodegenFrame frame, const char *dest, const ASTNode *node)
+{
+    if (node == NULL || node->type != AST_UNARY_OP || node->operator != AST_OP_NEGATION || node->children == NULL || node->children_count != 1) {
+        return false;
+    }
+    const ASTNode *operand = node->children[0];
+    if (operand == NULL) {
+        return false;
+    }
+    if (operand->type == AST_IDENTIFIER && operand->text != NULL) {
+        codegen_move_var(frame, dest, frame, operand->text);
+    }
+    else if (operand->type == AST_INT_LITERAL) {
+        codegen_move_int(frame, dest, operand->int_value);
+    }
+    else if (operand->type == AST_BINARY_OP) {
+        if (!codegen_arithmetic_expression(frame, dest, operand)) {
+            return false;
+        }
+    }
+    else if (operand->type == AST_UNARY_OP) {
+        if (!codegen_unary_expression(frame, dest, operand)) {
+            return false;
+        }
+    }
+    else {
+        return false;
+    }
+    printf("SUB ");
+    codegen_variable(frame, dest);
+    printf(" int@0 ");
+    codegen_variable(frame, dest);
+    putchar('\n');
+    return true;
+}
+
 bool codegen_var_declaration(CodegenFrame frame, const ASTNode *node)
 {
     if (node == NULL || node->type != AST_VAR_DECLARATION || node->text == NULL || node->children_count != 1 || node->children == NULL){
         return false;
     }
     const ASTNode *initializer = node->children[0];
-    if (initializer == NULL || (initializer->type != AST_INT_LITERAL && initializer->type != AST_BINARY_OP)) {
+    if (initializer == NULL || (initializer->type != AST_INT_LITERAL && initializer->type != AST_BINARY_OP && initializer->type != AST_UNARY_OP)) {
         return false;
     }
     codegen_defvar(frame, node->text);
@@ -304,6 +340,9 @@ bool codegen_var_declaration(CodegenFrame frame, const ASTNode *node)
     }
     else if (initializer->type == AST_BINARY_OP) {
         return codegen_arithmetic_expression(frame, node->text, initializer);
+    }
+    else if (initializer->type == AST_UNARY_OP) {
+        return codegen_unary_expression(frame, node->text, initializer);
     }
     else {
         return false;
@@ -325,6 +364,9 @@ bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
     }
     if (value != NULL && value->type == AST_BINARY_OP) {
         return codegen_arithmetic_expression(frame, node->text, value);
+    }
+    if (value != NULL && value->type == AST_UNARY_OP) {
+        return codegen_unary_expression(frame, node->text, value);
     }
     return codegen_move_literal(frame, node->text, value);
 }
