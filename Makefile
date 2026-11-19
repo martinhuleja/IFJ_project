@@ -8,9 +8,7 @@
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic -g
 TARGET = translator
-
-SRC = src/translator.c src/symtable.c src/error.c src/parser.c src/precedence-analysis.c src/abstract-syntactic-tree.c src/lexer.c src/codegen.c
-
+SRC = src/translator.c src/symtable.c src/error.c src/semantic_check.c src/parser.c src/precedence-analysis.c src/abstract-syntactic-tree.c src/lexer.c src/codegen.c
 # Clang-format configuration
 FORMAT = clang-format
 FORMAT_FLAGS = --dry-run -Werror
@@ -38,15 +36,28 @@ format:
 	$(FORMAT) -i src/*
 
 clean:
-	rm -f $(TARGET) $(SYMTABLE_TEST)
+	rm -f $(TARGET) $(SYMTABLE_TEST) $(SEMANTIC_TEST)
 
 # Builds and runs the symbol table unit tests
 SYMTABLE_TEST = tests/symtable_tests
 $(SYMTABLE_TEST): tests/symtable_tests.c src/symtable.c src/symtable.h src/abstract-syntactic-tree.h src/error.h
 	$(CC) $(CFLAGS) -Isrc tests/symtable_tests.c src/symtable.c -o $@
 
+	
+
 test-symtable: $(SYMTABLE_TEST)
 	./$(SYMTABLE_TEST)
+
+# Builds and runs the semantic check unit tests
+SEMANTIC_TEST = tests/semantic_check_tests
+$(SEMANTIC_TEST): tests/semantic_check_tests.c src/semantic_check.c src/semantic_check.h src/symtable.c src/symtable.h src/token.h
+	$(CC) $(CFLAGS) -Isrc tests/semantic_check_tests.c src/semantic_check.c src/symtable.c -o $@
+
+test-semantic: $(SEMANTIC_TEST)
+	./$(SEMANTIC_TEST)
+
+# Runs all unit tests
+test: test-symtable test-semantic
 
 # === DOCUMENTATION ===
 

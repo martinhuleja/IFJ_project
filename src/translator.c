@@ -7,7 +7,7 @@
  *
  * Controls whole program and allocated memory for ASTree.
  */
-
+#include "semantic_check.h"
 #include "abstract-syntactic-tree.h"
 #include "error.h"
 #include "parser.h"
@@ -25,7 +25,7 @@ int main() {
   return_value = parse_program(tree);
 
   if (return_value == ERROR_OK) {
-    // semantic analysis
+    return_value = semantic_analysis(tree);
   }
   if (return_value == ERROR_OK && !codegen_program(tree)) {
     return_value = ERROR_INTERNAL;

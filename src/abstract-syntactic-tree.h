@@ -59,6 +59,7 @@ typedef enum ast_data_type {
   AST_DATA_STRING,
   AST_DATA_UNIT,
   AST_DATA_ANY,
+  AST_DATA_BOOL,
 } ASTDataType;
 
 /**
@@ -113,6 +114,8 @@ typedef struct ast_node {
   struct ast_node **children; // Owned nodes in the order of the source code
   size_t children_count;
   size_t children_capacity;
+
+  bool always_returns;
 } ASTNode;
 
 /**
