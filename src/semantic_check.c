@@ -124,13 +124,11 @@ ErrorCode second_run(scope *global_scope, ASTree *tree)
 {
     ErrorCode result = ERROR_OK;
     ASTNode *root = tree->root;
-    int position = 0;
     for (size_t i = 0; i < root->children_count; i++)
     {
-        position = 0;
-
         ASTNode *node = root->children[i];
         ASTNode *params = NULL;
+        ASTNode *block = NULL;
 
         if (node->type != AST_FUNCTION)
             continue;
@@ -151,33 +149,33 @@ ErrorCode second_run(scope *global_scope, ASTree *tree)
             }
         }
         // inserting params into local hashtable first
-        if (params != NULL)
+        if(params!= NULL)
         {
-            for( size_t j = 0; j< params->children_count;j++)
+            result = insert_params(function_scope,params);
+            if (result != ERROR_OK)
             {
-                ASTNode *param = params->children[j];
-                data param_data = {0};
-
-                param_data.position = position++;
-                param_data.kind = SYMBOL_VARIABLE;
-                param_data.type = param->declared_type;
-                param_data.changeable = false;
-                result = insert_symbol(function_scope,params->children[j]->text,param_data);
-                if (result != ERROR_OK)
-                {
-                    free_scope(function_scope);
-                    return result;
-                }
-            }
+                free_scope(function_scope);
+                return result;
+            }              
         }
         //find block
         for (size_t j = 0; j < node->children_count; j++)
         {
             if (node->children[j]->type == AST_BLOCK)
             {
-                //idk
+                block = node->children[j];
                 break;
             }
+        }
+        // going through block
+        if(block!= NULL) // nema byt error ak block je null ? neviem.
+        {
+            result = insert_block(function_scope,block);
+            if (result != ERROR_OK)
+            {
+                free_scope(function_scope);
+                return result;
+            }              
         }
         free_scope(function_scope);
     }
@@ -185,9 +183,118 @@ ErrorCode second_run(scope *global_scope, ASTree *tree)
     return ERROR_OK;
 }
 
+
+// inserts params from head of function into functions scope/hashtable
+ErrorCode insert_params(scope *function_scope,ASTNode *params)
+{
+    ErrorCode result = ERROR_OK;
+    int position = 0;
+
+    for( size_t j = 0; j< params->children_count;j++)
+    {
+        ASTNode *param = params->children[j];
+        data param_data = {0};
+
+        param_data.position = position++;
+        param_data.kind = SYMBOL_VARIABLE;
+        param_data.type = param->declared_type;
+        param_data.changeable = false;
+        result = insert_symbol(function_scope,params->children[j]->text,param_data);
+        if (result != ERROR_OK)
+        {
+            return result;
+        }
+    }
+    
+    return ERROR_OK;
+}
+
+// inserts body of function into functions scope/hashtable
+// gets called once per funciton
+ErrorCode insert_block(scope *function_scope,ASTNode *block)
+{
+    ErrorCode result = ERROR_OK;
+    int position = 0; // neviem ako ju dostanem.
+
+
+    for( size_t j = 0; j< block->children_count;j++)
+    {
+        ASTNode *block_symbol = block->children[j];
+        data block_symbol_data = {0};
+
+        //variable declaration
+        
+        if (block->children[j]->type == AST_VAR_DECLARATION)
+        {
+            //init values
+            block_symbol_data.position = position++;
+            block_symbol_data.kind = SYMBOL_VARIABLE;
+            block_symbol_data.type = block_symbol->declared_type;   
+            block_symbol_data.changeable = block->children[j]->is_changeable;
+        
+        
+            //right side gathering 
+            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+            result = check_init_variable(function_scope,block_symbol->text,block_symbol_data,block_symbol->children[0]->resolved_type);
+            if (result != ERROR_OK)
+            {
+                return result;
+            }
+        }
+        //body similiar to insert_params? or like shit tons of ifs dependand on type of block->children[j] maybe
+    }
+    return ERROR_OK;
+}
+// checks type of expression assigned to a variable
+ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
+{
+    if (current_scope == NULL || allocated == NULL)
+        return ERROR_INTERNAL;
+
+    switch (allocated->type)
+    {
+        case AST_INT_LITERAL:
+            allocated->resolved_type = AST_DATA_INT;
+            break;
+
+        case AST_DOUBLE_LITERAL:
+            allocated->resolved_type = AST_DATA_DOUBLE;
+            break;
+
+        case AST_STRING_LITERAL:
+            allocated->resolved_type = AST_DATA_STRING;
+            break;
+
+        case AST_UNIT_LITERAL:
+            allocated->resolved_type = AST_DATA_UNIT;
+            break;
+
+        case AST_IDENTIFIER:
+        {
+            data *symbol = lookup_symbol(current_scope, allocated->text);
+            if (symbol == NULL || symbol->kind != SYMBOL_VARIABLE)
+                return ERROR_UNDEFINED;
+
+            if (symbol->type == AST_DATA_UNKNOWN || symbol->type == AST_DATA_ANY)
+                return ERROR_TYPE_COMPATIBILITY;
+
+            allocated->resolved_type = symbol->type;
+            break;        
+        }
+
+        default:
+            return ERROR_INTERNAL;
+    }
+
+    return ERROR_OK;
+}
 // implementing built in functions first of all things
 // readInt() -> I ,readDouble() -> D, readLine -> S, print(Any) -> U, toStr(Any) -> S, toInt(D) -> I
-// strLength(S) -> I, subStr(S,I,I) -> S, ord(S,I) -> I, chr(I) -> S
+// strLength(S) -> I, subStr(S,I,I) -> S, ord   (S,I) -> I, chr(I) -> S
 ErrorCode built_in(scope *global_scope)
 {
     ErrorCode result = ERROR_OK;
