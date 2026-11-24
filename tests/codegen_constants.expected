@@ -20,8 +20,7 @@ WRITE int@999
 LABEL vypis_vysledok
 WRITE LF@y
 WRITE string@\010
-PUSHS int@0
-POPS LF@y
+MOVE LF@y int@0
 LABEL zaciatok_cyklu
 JUMPIFEQ koniec_cyklu LF@y int@3
 ADD LF@y LF@y int@1
@@ -33,24 +32,12 @@ CREATEFRAME
 DEFVAR TF@zdroj
 MOVE TF@zdroj int@42
 DEFVAR TF@cislo
-PUSHS int@41
-POPS TF@cislo
-PUSHS TF@zdroj
-POPS TF@cislo
-PUSHS TF@cislo
-PUSHS int@1
-SUBS
-PUSHS int@2
-MULS
-POPS TF@cislo
-PUSHS TF@cislo
-PUSHS TF@zdroj
-ADDS
-POPS TF@cislo
-PUSHS TF@cislo
-PUSHS int@3
-IDIVS
-POPS TF@cislo
+MOVE TF@cislo int@41
+MOVE TF@cislo TF@zdroj
+SUB TF@cislo TF@cislo int@1
+MUL TF@cislo TF@cislo int@2
+ADD TF@cislo TF@cislo TF@zdroj
+IDIV TF@cislo TF@cislo int@3
 CALL vypis_cislo
 WRITE TF@cislo
 WRITE string@\010
