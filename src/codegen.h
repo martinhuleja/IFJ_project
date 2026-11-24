@@ -54,6 +54,7 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node);
 bool codegen_if(CodegenFrame frame, const ASTNode *node);
 bool codegen_while(CodegenFrame frame, const ASTNode *node);
 bool codegen_block(CodegenFrame frame, const ASTNode *node);
+bool codegen_function(const ASTNode *node);
 bool codegen_program(const ASTree *tree);
 
 #endif
