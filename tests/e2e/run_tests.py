@@ -97,13 +97,17 @@ def run_test(source_path, compiler_path, interpreter_path):
 # Return 2 if any ERROR occurred, otherwise 1 for failures or 0 for success.
 # Treat an empty suite as an error.
 def main():
-    if len(sys.argv) != 2:
-        print("Použitie: python3 tests/e2e/run_tests.py CESTA_K_PREKLADACU")
+    if len(sys.argv) not in (2, 3):
+        print("Použitie: python3 tests/e2e/run_tests.py CESTA_K_PREKLADACU [CESTA_K_INTERPRETU]")
         return 2
 
     compiler_path = Path(sys.argv[1]).resolve()
     project_dir = Path(__file__).resolve().parents[2]
-    interpreter_path = project_dir / "ic26int"
+    interpreter_path = (
+        Path(sys.argv[2]).expanduser().resolve()
+        if len(sys.argv) == 3
+        else project_dir / "ic26int"
+    )
     cases_dir = Path(__file__).resolve().parent / "cases"
 
     if not compiler_path.is_file():
