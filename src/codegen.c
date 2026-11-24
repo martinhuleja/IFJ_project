@@ -127,7 +127,7 @@ void codegen_defvar(CodegenFrame frame, const char *name)
 {
     printf("DEFVAR ");
     codegen_variable(frame, name);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_move_int(CodegenFrame frame, const char *name, long long value)
@@ -136,7 +136,7 @@ void codegen_move_int(CodegenFrame frame, const char *name, long long value)
     codegen_variable(frame, name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_move_var(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name)
@@ -145,7 +145,7 @@ void codegen_move_var(CodegenFrame dest_frame, const char *dest_name, CodegenFra
     codegen_variable(dest_frame, dest_name);
     printf(" ");
     codegen_variable(source_frame, source_name);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
@@ -156,7 +156,7 @@ void codegen_add_int(CodegenFrame dest_frame, const char *dest_name, CodegenFram
     codegen_variable(source_frame, source_name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_sub_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
@@ -167,7 +167,7 @@ void codegen_sub_int(CodegenFrame dest_frame, const char *dest_name, CodegenFram
     codegen_variable(source_frame, source_name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
@@ -178,7 +178,7 @@ void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFram
     codegen_variable(source_frame, source_name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_idiv_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
@@ -189,7 +189,7 @@ void codegen_idiv_int(CodegenFrame dest_frame, const char *dest_name, CodegenFra
     codegen_variable(source_frame, source_name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame lsource_frame, const char *lsource_name, CodegenFrame rsource_frame, const char *rsource_name)
@@ -200,7 +200,18 @@ void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFra
     codegen_variable(lsource_frame, lsource_name);
     printf(" ");
     codegen_variable(rsource_frame, rsource_name);
-    printf("\n");
+    putchar('\n');
+}
+
+void codegen_concat_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame left_frame, const char *left_name, CodegenFrame right_frame, const char *right_name)
+{
+    printf("CONCAT ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(left_frame, left_name);
+    printf(" ");
+    codegen_variable(right_frame, right_name);
+    putchar('\n');
 }
 
 void codegen_lt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
@@ -211,7 +222,7 @@ void codegen_lt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame
     codegen_variable(source_frame, source_name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_gt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
@@ -222,14 +233,14 @@ void codegen_gt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame
     codegen_variable(source_frame, source_name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_write_var(CodegenFrame frame, const char *name)
 {
     printf("WRITE ");
     codegen_variable(frame, name);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_label(const char *name)
@@ -248,7 +259,7 @@ void codegen_jumpifeq_int(const char *label, CodegenFrame frame, const char *nam
     codegen_variable(frame, name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_jumpifeq_bool(const char *label, CodegenFrame frame, const char *name, bool value)
@@ -257,7 +268,7 @@ void codegen_jumpifeq_bool(const char *label, CodegenFrame frame, const char *na
     codegen_variable(frame, name);
     printf(" ");
     codegen_bool(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_jumpifneq_int(const char *label, CodegenFrame frame, const char *name, long long value)
@@ -266,7 +277,7 @@ void codegen_jumpifneq_int(const char *label, CodegenFrame frame, const char *na
     codegen_variable(frame, name);
     printf(" ");
     codegen_int(value);
-    printf("\n");
+    putchar('\n');
 }
 
 void codegen_call(const char *label)
@@ -367,6 +378,19 @@ static bool codegen_push_expression(CodegenFrame frame, const ASTNode *node)
         }
         if (node->resolved_type == AST_DATA_DOUBLE && right->resolved_type == AST_DATA_INT) {
             puts("INT2FLOATS");
+        }
+        if (node->operator == AST_OP_ADD && node->resolved_type == AST_DATA_STRING) {
+            printf("POPS ");
+            codegen_variable(frame, "%concat_right");
+            putchar('\n');
+            printf("POPS ");
+            codegen_variable(frame, "%concat_left");
+            putchar('\n');
+            codegen_concat_vars(frame, "%concat_left", frame, "%concat_left", frame, "%concat_right");
+            printf("PUSHS ");
+            codegen_variable(frame, "%concat_left");
+            putchar('\n');
+            return true;
         }
         puts(instruction);
         return true;
@@ -490,6 +514,12 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
     }
     else if (arg->type == AST_UNIT_LITERAL) {
         puts("WRITE string@()");
+    }
+    else if (arg->type == AST_BINARY_OP || arg->type == AST_UNARY_OP) {
+        if (!codegen_expression(frame, "%print", arg, arg->resolved_type)) {
+            return false;
+        }
+        codegen_write_var(frame, "%print");
     }
     else {
         return false;
@@ -748,6 +778,9 @@ bool codegen_program(const ASTree *tree)
                 puts("CREATEFRAME");
                 puts("PUSHFRAME");
                 codegen_defvar(CODEGEN_LF, "%condition");
+                codegen_defvar(CODEGEN_LF, "%concat_left");
+                codegen_defvar(CODEGEN_LF, "%concat_right");
+                codegen_defvar(CODEGEN_LF, "%print");
                 if (!codegen_block(CODEGEN_LF, body)) {
                     return false;
                 }

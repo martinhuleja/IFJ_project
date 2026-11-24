@@ -32,6 +32,7 @@ void codegen_sub_int(CodegenFrame dest_frame, const char *dest_name, CodegenFram
 void codegen_mul_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
 void codegen_idiv_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
 void codegen_add_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame lsource_frame, const char *lsource_name, CodegenFrame rsource_frame, const char *rsource_name);
+void codegen_concat_vars(CodegenFrame dest_frame, const char *dest_name, CodegenFrame left_frame, const char *left_name, CodegenFrame right_frame, const char *right_name);
 
 void codegen_lt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
 void codegen_gt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value);
