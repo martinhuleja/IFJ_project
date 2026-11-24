@@ -6,6 +6,59 @@
 #include "codegen.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+
+typedef struct CodegenVariable {
+    const char *source_name;
+    char target_name[40];
+    struct CodegenVariable *next;
+} CodegenVariable;
+
+typedef struct {
+    CodegenVariable *variables;
+    unsigned long next_variable_id;
+    size_t block_depth;
+} CodegenContext;
+
+static CodegenContext codegen_context = {0};
+
+static const char *codegen_find_variable(const CodegenVariable *variables, const char *name)
+{
+    if (name == NULL) {
+        return NULL;
+    }
+    while (variables != NULL) {
+        if (strcmp(variables->source_name, name) == 0) {
+            return variables->target_name;
+        }
+        variables = variables->next;
+    }
+    return NULL;
+}
+
+static CodegenVariable *codegen_create_variable(const char *name, unsigned long id)
+{
+    if (name == NULL) {
+        return NULL;
+    }
+    CodegenVariable *variable = malloc(sizeof *variable);
+    if (variable == NULL) {
+        return NULL;
+    }
+    variable->source_name = name;
+    snprintf(variable->target_name, sizeof variable->target_name, "%%var_%lu", id);
+    variable->next = NULL;
+    return variable;
+}
+
+static void codegen_free_variables_until(CodegenVariable *variables, const CodegenVariable *stop)
+{
+    while (variables != stop) {
+        CodegenVariable *next = variables->next;
+        free(variables);
+        variables = next;
+    }
+}
 
 void codegen_string(const unsigned char *text, size_t length)
 {
@@ -239,7 +292,11 @@ static bool codegen_int_operand(CodegenFrame frame, const ASTNode *node)
         return false;
     }
     if (node->type == AST_IDENTIFIER && node->text != NULL) {
-        codegen_variable(frame, node->text);
+        const char *target_name = codegen_find_variable(codegen_context.variables, node->text);
+        if (target_name == NULL) {
+            return false;
+        }
+        codegen_variable(frame, target_name);
     }
     else if (node->type == AST_INT_LITERAL) {
         codegen_int(node->int_value);
@@ -332,8 +389,17 @@ bool codegen_var_declaration(CodegenFrame frame, const ASTNode *node)
     if (initializer == NULL || (initializer->type != AST_IDENTIFIER && initializer->type != AST_INT_LITERAL && initializer->type != AST_BINARY_OP && initializer->type != AST_UNARY_OP)) {
         return false;
     }
-    codegen_defvar(frame, node->text);
-    return codegen_int_expression(frame, node->text, initializer);
+    CodegenVariable *variable = codegen_create_variable(node->text, codegen_context.next_variable_id++);
+    if (variable == NULL) {
+        return false;
+    }
+    if (!codegen_int_expression(frame, variable->target_name, initializer)) {
+        free(variable);
+        return false;
+    }
+    variable->next = codegen_context.variables;
+    codegen_context.variables = variable;
+    return true;
 }
 
 bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
@@ -341,7 +407,11 @@ bool codegen_assignment(CodegenFrame frame, const ASTNode *node)
     if (node == NULL || node->type != AST_ASSIGN || node->text == NULL || node->children_count != 1 || node->children == NULL) {
         return false;
     }
-    return codegen_int_expression(frame, node->text, node->children[0]);
+    const char *target_name = codegen_find_variable(codegen_context.variables, node->text);
+    if (target_name == NULL) {
+        return false;
+    }
+    return codegen_int_expression(frame, target_name, node->children[0]);
 }
 
 bool codegen_print(CodegenFrame frame, const ASTNode *node){
@@ -363,7 +433,11 @@ bool codegen_print(CodegenFrame frame, const ASTNode *node){
         if (arg->text == NULL) {
             return false;
         }
-        codegen_write_var(frame, arg->text);
+        const char *target_name = codegen_find_variable(codegen_context.variables, arg->text);
+        if (target_name == NULL) {
+            return false;
+        }
+        codegen_write_var(frame, target_name);
     }
     else if (arg->type == AST_STRING_LITERAL) {
         if (arg->text == NULL) {
@@ -528,7 +602,25 @@ bool codegen_while(CodegenFrame frame, const ASTNode *node){
     return true;
 }
 
-bool codegen_block(CodegenFrame frame, const ASTNode *node)
+static bool codegen_declare_variables(CodegenFrame frame, const ASTNode *node)
+{
+    if (node == NULL || (node->children_count > 0 && node->children == NULL)) {
+        return false;
+    }
+    if (node->type == AST_VAR_DECLARATION) {
+        char target_name[40];
+        snprintf(target_name, sizeof(target_name), "%%var_%lu", codegen_context.next_variable_id++);
+        codegen_defvar(frame, target_name);
+    }
+    for (size_t i = 0; i < node->children_count; i++) {
+        if (!codegen_declare_variables(frame, node->children[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool codegen_block_statements(CodegenFrame frame, const ASTNode *node)
 {
     if (node == NULL || node->type != AST_BLOCK || (node->children_count > 0 && node->children == NULL)) {
         return false;
@@ -572,6 +664,26 @@ bool codegen_block(CodegenFrame frame, const ASTNode *node)
         }
     }
     return true;
+}
+
+bool codegen_block(CodegenFrame frame, const ASTNode *node)
+{
+    if (codegen_context.block_depth == 0) {
+        codegen_context.next_variable_id = 0;
+        if (!codegen_declare_variables(frame, node)) {
+            return false;
+        }
+        codegen_context.next_variable_id = 0;
+    }
+    CodegenVariable *saved_variables = codegen_context.variables;
+    codegen_context.block_depth++;
+
+    bool result = codegen_block_statements(frame, node);
+    codegen_free_variables_until(codegen_context.variables, saved_variables);
+    codegen_context.variables = saved_variables;
+    codegen_context.block_depth--;
+
+    return result;
 }
 
 bool codegen_program(const ASTree *tree)

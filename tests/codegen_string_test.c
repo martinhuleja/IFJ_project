@@ -44,22 +44,7 @@ int main(void)
     codegen_write_var(lf, "y");
     puts("WRITE string@\\010");
 
-    ASTNode zero = {
-        .type = AST_INT_LITERAL,
-        .int_value = 0
-    };
-    ASTNode *assignment_children[] = {&zero};
-    char target[] = "y";
-    const ASTNode assignment = {
-        .type = AST_ASSIGN,
-        .text = target,
-        .children = assignment_children,
-        .children_count = 1,
-        .children_capacity = 1
-    };
-    if (!codegen_assignment(lf, &assignment)) {
-        return 1;
-    }
+    codegen_move_int(lf, "y", 0);
     codegen_label("zaciatok_cyklu");
     codegen_jumpifeq_int("koniec_cyklu", lf, "y", 3);
     codegen_add_int(lf, "y", lf, "y", 1);
@@ -71,128 +56,13 @@ int main(void)
     puts("CREATEFRAME");
     codegen_defvar(tf, "zdroj");
     codegen_move_int(tf, "zdroj", 42);
-    ASTNode initializer = {
-        .type = AST_INT_LITERAL,
-        .int_value = 41
-    };
-    ASTNode *children[] = {&initializer};
-    char name[] = "cislo";
-
-    ASTNode declaration = {
-        .type = AST_VAR_DECLARATION,
-        .text = name,
-        .children = children,
-        .children_count = 1,
-        .children_capacity = 1
-    };
-    char source[] = "zdroj";
-    ASTNode value = {
-        .type = AST_IDENTIFIER,
-        .text = source
-    };
-    ASTNode *update_children[] = {&value};
-    ASTNode update = {
-        .type = AST_ASSIGN,
-        .text = name,
-        .children = update_children,
-        .children_count = 1,
-        .children_capacity = 1
-    };
-    ASTNode left = {
-        .type = AST_IDENTIFIER,
-        .text = name
-    };
-    ASTNode right = {
-        .type = AST_INT_LITERAL,
-        .int_value = 1
-    };
-    ASTNode *operands[] = {&left, &right};
-    ASTNode operation = {
-        .type = AST_BINARY_OP,
-        .operator = AST_OP_SUB,
-        .children = operands,
-        .children_count = 2,
-        .children_capacity = 2
-    };
-    ASTNode two = {
-        .type = AST_INT_LITERAL,
-        .int_value = 2
-    };
-    ASTNode *outer_operands[] = {&operation, &two};
-    ASTNode outer_operation = {
-        .type = AST_BINARY_OP,
-        .operator = AST_OP_MUL,
-        .children = outer_operands,
-        .children_count = 2,
-        .children_capacity = 2
-    };
-    ASTNode *increment_children[] = {&outer_operation};
-    ASTNode increment = {
-        .type = AST_ASSIGN,
-        .text = name,
-        .children = increment_children,
-        .children_count = 1,
-        .children_capacity = 1
-    };
-    ASTNode sum_left = {
-        .type = AST_IDENTIFIER,
-        .text = name
-    };
-    ASTNode sum_right = {
-        .type = AST_IDENTIFIER,
-        .text = source
-    };
-    ASTNode *sum_operands[] = {&sum_left, &sum_right};
-    ASTNode sum = {
-        .type = AST_BINARY_OP,
-        .operator = AST_OP_ADD,
-        .children = sum_operands,
-        .children_count = 2,
-        .children_capacity = 2
-    };
-    ASTNode *sum_assignment_children[] = {&sum};
-    ASTNode sum_assignment = {
-        .type = AST_ASSIGN,
-        .text = name,
-        .children = sum_assignment_children,
-        .children_count = 1,
-        .children_capacity = 1
-    };
-    ASTNode div_left = {
-        .type = AST_IDENTIFIER,
-        .text = name
-    };
-    ASTNode div_right = {
-        .type = AST_INT_LITERAL,
-        .int_value = 3
-    };
-    ASTNode *div_operands[] = {&div_left, &div_right};
-    ASTNode division = {
-        .type = AST_BINARY_OP,
-        .operator = AST_OP_DIV,
-        .children = div_operands,
-        .children_count = 2,
-        .children_capacity = 2,
-    };
-
-    ASTNode *div_assignment_children[] = { &division };
-    ASTNode div_assignment = {
-        .type = AST_ASSIGN,
-        .text = name,
-        .children = div_assignment_children,
-        .children_count = 1,
-        .children_capacity = 1,
-    };
-    ASTNode *statements[] = {&declaration, &update, &increment, &sum_assignment, &div_assignment};
-    const ASTNode block = {
-        .type = AST_BLOCK,
-        .children = statements,
-        .children_count = 5,
-        .children_capacity = 5
-    };
-    if (!codegen_block(tf, &block)) {
-        return 1;
-    }
+    codegen_defvar(tf, "cislo");
+    codegen_move_int(tf, "cislo", 41);
+    codegen_move_var(tf, "cislo", tf, "zdroj");
+    codegen_sub_int(tf, "cislo", tf, "cislo", 1);
+    codegen_mul_int(tf, "cislo", tf, "cislo", 2);
+    codegen_add_vars(tf, "cislo", tf, "cislo", tf, "zdroj");
+    codegen_idiv_int(tf, "cislo", tf, "cislo", 3);
     codegen_call("vypis_cislo");
     codegen_write_var(tf, "cislo");
     puts("WRITE string@\\010");
