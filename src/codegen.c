@@ -771,6 +771,44 @@ static bool codegen_str_length(CodegenFrame frame, const ASTNode *node, bool kee
     return true;
 }
 
+static bool codegen_to_str(CodegenFrame frame, const ASTNode *node, bool keep_result)
+{
+    if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
+        return false;
+    }
+    const ASTNode *args = node->children[0];
+    if (args == NULL || args->type != AST_ARG_LIST || args->children == NULL || args->children_count != 1) {
+        return false;
+    }
+    const ASTNode *arg = args->children[0];
+    if (arg == NULL) {
+        return false;
+    }
+    if (!codegen_push_expression(frame, arg)) {
+        return false;
+    }
+    switch (arg->resolved_type) {
+    case AST_DATA_INT:
+        puts("INT2STRS");
+        break;
+    case AST_DATA_DOUBLE:
+        puts("FLOAT2STRS");
+        break;
+    case AST_DATA_STRING:
+        break;
+    case AST_DATA_UNIT:
+        break;
+    default:
+        return false;
+    }
+    if (!keep_result) {
+        printf("POPS ");
+        codegen_variable(frame, "%print");
+        putchar('\n');
+    }
+    return true;
+}
+
 static bool codegen_to_int(CodegenFrame frame, const ASTNode *node, bool keep_result)
 {
     if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
@@ -805,6 +843,9 @@ static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool 
     }
     if (strcmp(node->text, "strLength") == 0) {
         return codegen_str_length(frame, node, keep_result);
+    }
+    if (strcmp(node->text, "toStr") == 0) {
+        return codegen_to_str(frame, node, keep_result);
     }
     if (strcmp(node->text, "toInt") == 0) {
         return codegen_to_int(frame, node, keep_result);
