@@ -6,7 +6,7 @@
 # Enzo Štětina (xstetie00)
 
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic -g
+CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic
 TARGET = translator
 SRC = src/translator.c src/symtable.c src/error.c src/semantic_check.c src/parser.c src/precedence-analysis.c src/abstract-syntactic-tree.c src/lexer.c src/codegen.c
 # Clang-format configuration
