@@ -1,7 +1,8 @@
 /**
  * @file   precedence-analysis.c
- * @author Martin Huleja (xhulejm00)
+ * @author Martin Huleja (xhulejm00), FIT VUT
  * @date   2026-11-17
+ * @note   IFJ + IAL project 2026/2027
  *
  * @brief  Implementation of bottom-up precedence syntactic analysis
  */
@@ -12,6 +13,7 @@
 #include "parser.h"
 #include "token.h"
 #include <errno.h>
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -221,7 +223,9 @@ ErrorCode fill_operand_node(Parser *parser, ASTNode *node) {
     char *end; // pointer to end of strtod() reading
     errno = 0;
     double value = strtod(parser->current_token->value, &end);
-    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || !isfinite(value)) {
+
+    bool invalid_range = errno == ERANGE && (value == 0.0 || fabs(value) >= DBL_MAX);
+    if (invalid_range || end == parser->current_token->value || *end != '\0' || !isfinite(value)) {
       print_err(ERROR_LEXICAL, "Invalid Double literal.");
       return ERROR_LEXICAL;
     }
