@@ -809,6 +809,27 @@ static bool codegen_to_str(CodegenFrame frame, const ASTNode *node, bool keep_re
     return true;
 }
 
+static bool codegen_chr(CodegenFrame frame, const ASTNode *node, bool keep_result)
+{
+    if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
+        return false;
+    }
+    const ASTNode *args = node->children[0];
+    if (args == NULL || args->type != AST_ARG_LIST || args->children == NULL || args->children_count != 1) {
+        return false;
+    }
+    if (!codegen_push_expression(frame, args->children[0])) {
+        return false;
+    }
+    puts("INT2CHARS");
+    if (!keep_result) {
+        printf("POPS ");
+        codegen_variable(frame, "%print");
+        putchar('\n');
+    }
+    return true;
+}
+
 static bool codegen_to_int(CodegenFrame frame, const ASTNode *node, bool keep_result)
 {
     if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
@@ -846,6 +867,9 @@ static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool 
     }
     if (strcmp(node->text, "toStr") == 0) {
         return codegen_to_str(frame, node, keep_result);
+    }
+    if (strcmp(node->text, "chr") == 0) {
+        return codegen_chr(frame, node, keep_result);
     }
     if (strcmp(node->text, "toInt") == 0) {
         return codegen_to_int(frame, node, keep_result);
