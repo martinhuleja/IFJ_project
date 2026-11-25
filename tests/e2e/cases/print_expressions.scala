@@ -14,16 +14,21 @@ import ifj26.*
   print(result)
   print("\n")
   val x = 7
-  print(2 + 3)
+  val sum = 2 + 3
+  print(sum)
   print("\n")
-  print("Ahoj " + "svet")
+  val greeting = "Ahoj " + "svet"
+  print(greeting)
   print("\n")
-  print(-(2.5 + 0.5))
+  val negative = -(2.5 + 0.5)
+  print(negative)
   print("\n")
-  print((x - 2) * (x + 1))
+  val product = (x - 2) * (x + 1)
+  print(product)
   print("\n")
   var i = 0
   while i < 3 do
-    print(i + 10)
+    val current = i + 10
+    print(current)
     print("\n")
     i = i + 1

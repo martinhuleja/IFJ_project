@@ -27,7 +27,7 @@ typedef struct {
 static CodegenContext codegen_context = {0};
 
 /* Calls and expression generation are mutually recursive. */
-static bool codegen_user_call(CodegenFrame frame, const ASTNode *node, bool keep_result);
+static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool keep_result);
 static bool codegen_block_mode(CodegenFrame frame, const ASTNode *node, bool return_value);
 
 static const CodegenVariable *codegen_find_variable(const CodegenVariable *variables, const char *name)
@@ -221,6 +221,15 @@ void codegen_concat_vars(CodegenFrame dest_frame, const char *dest_name, Codegen
     putchar('\n');
 }
 
+void codegen_strlen_var(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name)
+{
+    printf("STRLEN ");
+    codegen_variable(dest_frame, dest_name);
+    printf(" ");
+    codegen_variable(source_frame, source_name);
+    putchar('\n');
+}
+
 void codegen_lt_int(CodegenFrame dest_frame, const char *dest_name, CodegenFrame source_frame, const char *source_name, long long value)
 {
     printf("LT ");
@@ -363,7 +372,7 @@ static bool codegen_push_expression(CodegenFrame frame, const ASTNode *node)
             puts("PUSHS string@()");
             return true;
         }
-        return codegen_user_call(frame, node, true);
+        return codegen_function_call(frame, node, true);
     }
     else if (node->type == AST_BINARY_OP) {
         if (node->children == NULL || node->children_count != 2) {
@@ -738,13 +747,40 @@ static const ASTNode *codegen_find_function(const ASTNode *program, const char *
     return NULL;
 }
 
-static bool codegen_user_call(CodegenFrame frame, const ASTNode *node, bool keep_result)
+static bool codegen_str_length(CodegenFrame frame, const ASTNode *node, bool keep_result)
+{
+    if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
+        return false;
+    }
+    const ASTNode *args = node->children[0];
+    if (args == NULL || args->type != AST_ARG_LIST || args->children == NULL || args->children_count != 1) {
+        return false;
+    }
+    if (!codegen_push_expression(frame, args->children[0])) {
+        return false;
+    }
+    printf("POPS ");
+    codegen_variable(frame, "%print");
+    putchar('\n');
+    codegen_strlen_var(frame, "%print", frame, "%print");
+    if (keep_result) {
+        printf("PUSHS ");
+        codegen_variable(frame, "%print");
+        putchar('\n');
+    }
+    return true;
+}
+
+static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool keep_result)
 {
     if (node == NULL || node->type != AST_CALL || node->text == NULL) {
         return false;
     }
     if (node->children == NULL || node->children_count != 1) {
         return false;
+    }
+    if (strcmp(node->text, "strLength") == 0) {
+        return codegen_str_length(frame, node, keep_result);
     }
     const ASTNode *function = codegen_find_function(codegen_context.program, node->text);
     if (function == NULL || function->children == NULL || function->children_count != 2) {
@@ -868,7 +904,7 @@ static bool codegen_block_statements(CodegenFrame frame, const ASTNode *node, bo
                 }
             }
             else {
-                if (!codegen_user_call(frame, statement, false)) {
+                if (!codegen_function_call(frame, statement, false)) {
                     return false;
                 }
             }

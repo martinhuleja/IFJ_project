@@ -4,16 +4,19 @@ def factorial(n: Int): Int =
   if n == 0 then
     return 1
   else
-    val smaller = factorial(n - 1)
+    val next = n - 1
+    val smaller = factorial(next)
     return n * smaller
 
 def fibonacci(n: Int): Int =
   if n < 2 then
-    n
+    return n
   else
-    val first = fibonacci(n - 1)
-    val second = fibonacci(n - 2)
-    first + second
+    val firstArgument = n - 1
+    val secondArgument = n - 2
+    val first = fibonacci(firstArgument)
+    val second = fibonacci(secondArgument)
+    return first + second
 
 def sumTo(n: Int): Int =
   var total = 0

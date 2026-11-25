@@ -1,5 +1,5 @@
 {
-    "description": "Explicit and implicit scalar returns, forwarding, tail conditionals, ignored results and numeric promotion",
+    "description": "Explicit and implicit scalar returns, forwarding, explicit branch returns, ignored results and numeric promotion",
     "compiler_exit": 0,
     "interpreter_exit": 0
 }

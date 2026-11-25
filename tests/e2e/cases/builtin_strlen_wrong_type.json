@@ -1,0 +1,4 @@
+{
+    "description": "strLength rejects a non-String argument",
+    "compiler_exit": 5
+}
