@@ -74,3 +74,11 @@ clean-doc:
 # === CLEAN ===
 clean-all: clean clean-doc
 	rm -f $(SRC_DOC_PATH).pdf
+
+# === COMPRESS PROJECT INTO ZIP ===
+zip:
+	make clean-all
+	rm -f ./dokumentace.pdf ./xhulejm00.zip
+	make doc && make clean-doc
+	mv doc/dokumentace.pdf .
+	zip -r xhulejm00.zip src/* tests/* Makefile rozdeleni rozsireni dokumentace.pdf
