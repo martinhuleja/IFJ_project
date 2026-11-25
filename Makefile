@@ -43,8 +43,6 @@ SYMTABLE_TEST = tests/symtable_tests
 $(SYMTABLE_TEST): tests/symtable_tests.c src/symtable.c src/symtable.h src/abstract-syntactic-tree.h src/error.h
 	$(CC) $(CFLAGS) -Isrc tests/symtable_tests.c src/symtable.c -o $@
 
-	
-
 test-symtable: $(SYMTABLE_TEST)
 	./$(SYMTABLE_TEST)
 
@@ -66,12 +64,9 @@ SRC_DOC_PATH=doc/$(SRC_DOC)
 
 doc: $(SRC_DOC_PATH).pdf
 
-$(SRC_DOC_PATH).pdf: $(SRC_DOC_PATH).tex
-	latex $(SRC_DOC_PATH).tex
-	latex $(SRC_DOC_PATH).tex
-	dvips -t a4 $(SRC_DOC).dvi
-	ps2pdf -sPAPERSIZE=a4 $(SRC_DOC).ps
-	mv $(SRC_DOC).* doc/
+$(SRC_DOC_PATH).pdf: $(SRC_DOC_PATH).tex doc/FSM_pre_PROJEKT.jpg Makefile
+	cd doc && pdflatex -interaction=nonstopmode -halt-on-error $(SRC_DOC).tex
+	cd doc && pdflatex -interaction=nonstopmode -halt-on-error $(SRC_DOC).tex
 
 clean-doc:
 	rm -f $(SRC_DOC_PATH).aux $(SRC_DOC_PATH).dvi $(SRC_DOC_PATH).log $(SRC_DOC_PATH).out $(SRC_DOC_PATH).ps
