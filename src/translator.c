@@ -1,7 +1,10 @@
 /**
  * @file   translator.c
  * @author Martin Huleja (xhulejm00)
+ * @author Richard Komora (xkomorr00)
+ * @author Adam Havier (xhaviea00)
  * @date   2026-11-10
+ * @note   IFJ + IAL project 2026/2027
  *
  * @brief  Main file for IFJ26 translator
  *
