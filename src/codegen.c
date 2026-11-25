@@ -830,6 +830,72 @@ static bool codegen_chr(CodegenFrame frame, const ASTNode *node, bool keep_resul
     return true;
 }
 
+static bool codegen_ord(CodegenFrame frame, const ASTNode *node, bool keep_result)
+{
+    if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
+        return false;
+    }
+    const ASTNode *args = node->children[0];
+    if (args == NULL || args->type != AST_ARG_LIST || args->children == NULL || args->children_count != 2) {
+        return false;
+    }
+    const ASTNode *text = args->children[0];
+    const ASTNode *index = args->children[1];
+    if (text == NULL || index == NULL) {
+        return false;
+    }
+    if (!codegen_push_expression(frame, text)) {
+        return false;
+    }
+    if (!codegen_push_expression(frame, index)) {
+        return false;
+    }
+    printf("POPS ");
+    codegen_variable(frame, "%ord_index");
+    putchar('\n');
+    printf("POPS ");
+    codegen_variable(frame, "%ord_text");
+    putchar('\n');
+    codegen_strlen_var(frame, "%ord_length", frame, "%ord_text");
+    static unsigned long next_ord_id = 0;
+    const unsigned long id = next_ord_id++;
+    char invalid_label[40];
+    char end_label[40];
+    snprintf(invalid_label, sizeof invalid_label, "ord_invalid_%lu", id);
+    snprintf(end_label, sizeof end_label, "ord_end_%lu", id);
+
+    codegen_lt_int(frame, "%condition", frame, "%ord_index", 0);
+    codegen_jumpifeq_bool(invalid_label, frame, "%condition", true);
+
+    printf("LT ");
+    codegen_variable(frame, "%condition");
+    printf(" ");
+    codegen_variable(frame, "%ord_index");
+    printf(" ");
+    codegen_variable(frame, "%ord_length");
+    putchar('\n');
+    codegen_jumpifeq_bool(invalid_label, frame, "%condition", false);
+
+    printf("STRI2INT ");
+    codegen_variable(frame, "%print");
+    printf(" ");
+    codegen_variable(frame, "%ord_text");
+    printf(" ");
+    codegen_variable(frame, "%ord_index");
+    putchar('\n');
+    codegen_jump(end_label);
+
+    codegen_label(invalid_label);
+    codegen_move_int(frame, "%print", -1);
+    codegen_label(end_label);
+    if (keep_result) {
+        printf("PUSHS ");
+        codegen_variable(frame, "%print");
+        putchar('\n');
+    }
+    return true;
+}
+
 static bool codegen_to_int(CodegenFrame frame, const ASTNode *node, bool keep_result)
 {
     if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
@@ -870,6 +936,9 @@ static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool 
     }
     if (strcmp(node->text, "chr") == 0) {
         return codegen_chr(frame, node, keep_result);
+    }
+    if (strcmp(node->text, "ord") == 0) {
+        return codegen_ord(frame, node, keep_result);
     }
     if (strcmp(node->text, "toInt") == 0) {
         return codegen_to_int(frame, node, keep_result);
@@ -1069,6 +1138,9 @@ static void codegen_frame_setup(void)
     codegen_defvar(CODEGEN_LF, "%concat_left");
     codegen_defvar(CODEGEN_LF, "%concat_right");
     codegen_defvar(CODEGEN_LF, "%print");
+    codegen_defvar(CODEGEN_LF, "%ord_text");
+    codegen_defvar(CODEGEN_LF, "%ord_index");
+    codegen_defvar(CODEGEN_LF, "%ord_length");
 }
 
 static bool codegen_parameter(CodegenFrame frame, const ASTNode *param, size_t index)
