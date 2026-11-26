@@ -1,0 +1,5 @@
+{
+    "description": "strLength on empty, literal, variable and escaped strings, reassignment, numeric promotion and discarded results",
+    "compiler_exit": 0,
+    "interpreter_exit": 0
+}

@@ -1,0 +1,27 @@
+import ifj26.*
+
+@main def main(): Unit =
+  val first = chr(65)
+  val last = chr(122)
+  val newline = chr(10)
+  var changed = chr(66)
+  changed = chr(67)
+  val combined = "[" + first + "]"
+  val zero = chr(0)
+  val boundary = chr(127)
+  val zeroLength = strLength(zero)
+  val boundaryLength = strLength(boundary)
+  print(first)
+  print(newline)
+  print(last)
+  print(newline)
+  print(changed)
+  print(newline)
+  print(combined)
+  print(newline)
+  print(zeroLength)
+  print(newline)
+  print(boundaryLength)
+  print(newline)
+  chr(90)
+  print("koniec\n")

@@ -16,19 +16,19 @@ def greeting(name: String): String =
 
 def maximum(a: Int, b: Int): Int =
   if a > b then
-    a
+    return a
   else
-    b
+    return b
 
 def nested(n: Int): Double =
   if n < 0 then
     if n < -2 then
-      1
+      return 1
     else
-      2.5
+      return 2.5
   else
     val base = 2
-    base * 2
+    return base * 2
 
 @main def main(): Unit =
   val first = sum(2, 3)
@@ -56,8 +56,10 @@ def nested(n: Int): Double =
   print("\n")
   print(right)
   print("\n")
-  val below = nested(-3)
-  val middle = nested(-1)
+  val negativeThree = -3
+  val negativeOne = -1
+  val below = nested(negativeThree)
+  val middle = nested(negativeOne)
   val above = nested(0)
   print(below)
   print("\n")
