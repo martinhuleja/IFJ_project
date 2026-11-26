@@ -1,3 +1,7 @@
+/**
+ * @author Richard Komora (xkomorr00), FIT VUT
+ * @note   IFJ + IAL project 2026/2027
+ */
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
 #include <stdbool.h>

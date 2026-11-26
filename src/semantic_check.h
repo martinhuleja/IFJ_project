@@ -1,3 +1,7 @@
+/**
+ * @author Richard Komora (xkomorr00), FIT VUT
+ * @note   IFJ + IAL project 2026/2027
+ */
 #ifndef SEMANTIC_CHECK_H
 #define SEMANTIC_CHECK_H
 #include "symtable.h"
@@ -15,8 +19,8 @@ ErrorCode allocate_params(data *function_data);
 ErrorCode second_run(scope *global_scope, ASTree *tree);
 ErrorCode insert_params(scope *function_scope,ASTNode *params);
 ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function);
-ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated);
-
+ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated,ASTNode *caller_function);
+ErrorCode check_function(scope *global_scope,ASTNode *node,ASTNode *caller_function);
 
 /**
  * @brief Creates a new scope and puts it on top of stack

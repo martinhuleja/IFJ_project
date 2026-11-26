@@ -1,3 +1,7 @@
+/**
+ * @author Richard Komora (xkomorr00), FIT VUT
+ * @note   IFJ + IAL project 2026/2027
+ */
 #include "symtable.h"
 #include <stdlib.h> //malloc
 #include <stdbool.h>
@@ -29,14 +33,14 @@ table *init_table()
     table *hash_tab = malloc(sizeof(table));
     if (hash_tab == NULL)
     {
-        fprintf(stderr,"99");
+        //99
         return NULL;
     }   
     hash_tab->items = malloc(sizeof(item));
     if (hash_tab->items == NULL)
     {
         free(hash_tab);
-        fprintf(stderr,"99");
+        //99
         return NULL;
     }
     hash_tab->items[0].taken = false;
@@ -129,7 +133,7 @@ table *resize_table(table *hash_tab)
     if(new_tab == NULL)
     {
         //free_table(hash_tab);
-        fprintf(stderr,"99");
+        //99
         return NULL;
     } 
     else
