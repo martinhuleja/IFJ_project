@@ -365,13 +365,6 @@ static bool codegen_push_expression(CodegenFrame frame, const ASTNode *node)
         return codegen_push_expression(frame, node->children[0]);
     }
     else if (node->type == AST_CALL) {
-        if (node->text != NULL && strcmp(node->text, "print") == 0) {
-            if (!codegen_print(frame, node)) {
-                return false;
-            }
-            puts("PUSHS string@()");
-            return true;
-        }
         return codegen_function_call(frame, node, true);
     }
     else if (node->type == AST_BINARY_OP) {
@@ -1031,6 +1024,58 @@ static bool codegen_to_int(CodegenFrame frame, const ASTNode *node, bool keep_re
     return true;
 }
 
+static bool codegen_read(CodegenFrame frame, const ASTNode *node, ASTDataType type, bool keep_result)
+{
+    if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
+        return false;
+    }
+    const ASTNode *args = node->children[0];
+    if (args == NULL || args->type != AST_ARG_LIST || args->children_count != 0) {
+        return false;
+    }
+    const char *read_type;
+    const char *default_value;
+    switch (type) {
+    case AST_DATA_STRING:
+        read_type = "string";
+        default_value = "string@";
+        break;
+    case AST_DATA_INT:
+        read_type = "int";
+        default_value = "int@0";
+        break;
+    case AST_DATA_DOUBLE:
+        read_type = "float";
+        default_value = "float@0x0p+0";
+        break;
+    default:
+        return false;
+    }
+    printf("READ ");
+    codegen_variable(frame, "%print");
+    printf(" %s\n", read_type);
+
+    static unsigned long next_read_id = 0;
+    const unsigned long id = next_read_id++;
+    char end_label[40];
+    snprintf(end_label, sizeof end_label, "read_end_%lu", id);
+
+    printf("JUMPIFNEQ %s ", end_label);
+    codegen_variable(frame, "%print");
+    puts(" nil@nil");
+    printf("MOVE ");
+    codegen_variable(frame, "%print");
+    printf(" %s\n", default_value);
+
+    codegen_label(end_label);
+    if (keep_result) {
+        printf("PUSHS ");
+        codegen_variable(frame, "%print");
+        putchar('\n');
+    }
+    return true;
+}
+
 static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool keep_result)
 {
     if (node == NULL || node->type != AST_CALL || node->text == NULL) {
@@ -1038,6 +1083,15 @@ static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool 
     }
     if (node->children == NULL || node->children_count != 1) {
         return false;
+    }
+    if (strcmp(node->text, "print") == 0) {
+        if (!codegen_print(frame, node)) {
+            return false;
+        }
+        if (keep_result) {
+            puts("PUSHS string@()");
+        }
+        return true;
     }
     if (strcmp(node->text, "strLength") == 0) {
         return codegen_str_length(frame, node, keep_result);
@@ -1056,6 +1110,15 @@ static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool 
     }
     if (strcmp(node->text, "toInt") == 0) {
         return codegen_to_int(frame, node, keep_result);
+    }
+    if (strcmp(node->text, "readLine") == 0) {
+        return codegen_read(frame, node, AST_DATA_STRING, keep_result);
+    }
+    if (strcmp(node->text, "readInt") == 0) {
+        return codegen_read(frame, node, AST_DATA_INT, keep_result);
+    }
+    if (strcmp(node->text, "readDouble") == 0) {
+        return codegen_read(frame, node, AST_DATA_DOUBLE, keep_result);
     }
     const ASTNode *function = codegen_find_function(codegen_context.program, node->text);
     if (function == NULL || function->children == NULL || function->children_count != 2) {
@@ -1170,18 +1233,8 @@ static bool codegen_block_statements(CodegenFrame frame, const ASTNode *node, bo
             }
             break;
         case AST_CALL:
-            if (statement->text == NULL) {
+            if (!codegen_function_call(frame, statement, false)) {
                 return false;
-            }
-            if (strcmp(statement->text, "print") == 0) {
-                if (!codegen_print(frame, statement)) {
-                    return false;
-                }
-            }
-            else {
-                if (!codegen_function_call(frame, statement, false)) {
-                    return false;
-                }
             }
             break;
         case AST_IF:
