@@ -8,6 +8,11 @@ typedef enum {
     SYMBOL_VARIABLE,
     SYMBOL_FUNCTION
 } SymbolKind;
+typedef enum {
+    FUNCTION_UNCHECKED,
+    FUNCTION_CHECKED,
+    FUNCTION_IN_PROCESS
+} FunctionState;
 typedef struct Sdata
 {
     SymbolKind kind;
@@ -20,6 +25,10 @@ typedef struct Sdata
     ASTDataType *parameter_types;
     int parameter_count;
     bool defined;
+    // saving function node to deduct its type later
+    ASTNode *function_node;
+    // processing state of function to detect recursion
+    FunctionState state;
 
 }data;
 

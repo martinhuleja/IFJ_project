@@ -65,6 +65,8 @@ ErrorCode first_run(scope *global_scope,ASTree *tree)
         {
             tmp_data.kind = SYMBOL_FUNCTION;
             tmp_data.return_type = node->declared_type;
+            tmp_data.function_node = node;
+            tmp_data.state = FUNCTION_UNCHECKED;
             ASTNode *params = NULL;
 
 
@@ -128,75 +130,126 @@ ErrorCode second_run(scope *global_scope, ASTree *tree)
     for (size_t i = 0; i < root->children_count; i++)
     {
         ASTNode *node = root->children[i];
-        ASTNode *params = NULL;
-        ASTNode *block = NULL;
 
-        if (node->type != AST_FUNCTION)
-            continue;
-
-
-        // each function gets own scope
-        scope *function_scope = new_scope(global_scope);
-        if (function_scope == NULL)
-            return ERROR_INTERNAL;
-
-        // finding params of the function
-        for ( size_t j = 0; j < node->children_count; j++)
-        {
-            if(node->children[j]->type == AST_PARAM_LIST)
-            {
-                params = node->children[j];
-                break;
-            }
-        }
-        // inserting params into local hashtable first
-        if(params!= NULL)
-        {
-            result = insert_params(function_scope,params);
-            if (result != ERROR_OK)
-            {
-                free_scope(function_scope);
-                return result;
-            }              
-        }
-        //find block
-        for (size_t j = 0; j < node->children_count; j++)
-        {
-            if (node->children[j]->type == AST_BLOCK)
-            {
-                block = node->children[j];
-                break;
-            }
-        }
-        // going through block    
-
-
-        if (block != NULL)
-        {
-
-            result = insert_block(function_scope, block,node);
-            if (result != ERROR_OK)
-            {
-                free_scope(function_scope);
-                return result;
-            }
-
-            if (block->always_returns == false && node->declared_type != AST_DATA_UNKNOWN && node->declared_type != AST_DATA_UNIT && block->resolved_type != AST_DATA_UNKNOWN)
-            {
-                result = check_type(node->declared_type, block->resolved_type);
-                if (result != ERROR_OK)
-                {
-                    free_scope(function_scope);
-                    return result;
-                }
-            }
-        }
-        free_scope(function_scope);
+        // calling check function
+        if (node->type == AST_FUNCTION)
+            result = check_function(global_scope,node);
+        if (result != ERROR_OK)
+            return result;
+        
     }
 
     return ERROR_OK;
 }
 
+ErrorCode check_function(scope *global_scope,ASTNode *node)
+{
+    data* function_data = lookup_symbol(global_scope,node->text);
+    //function already checked
+    if(function_data->state == FUNCTION_CHECKED)
+        return ERROR_OK;
+    if (function_data->state == FUNCTION_IN_PROCESS)
+    {
+        //recursion happening 
+        if(node->declared_type == AST_DATA_UNKNOWN)
+            return ERROR_TYPE_COMPATIBILITY;
+        else
+            return ERROR_OK;
+    }
+    if(function_data->state == FUNCTION_UNCHECKED)
+        function_data->state = FUNCTION_IN_PROCESS;
+
+    ErrorCode result = ERROR_OK;
+
+    ASTNode *params = NULL;
+    ASTNode *block = NULL;
+
+    // each function gets own scope
+    scope *function_scope = new_scope(global_scope);
+    if (function_scope == NULL)
+        return ERROR_INTERNAL;
+    
+    // finding params of the function
+    for ( size_t j = 0; j < node->children_count; j++)
+    {
+        if(node->children[j]->type == AST_PARAM_LIST)
+        {
+            params = node->children[j];
+            break;
+        }
+    }
+    // inserting params into local hashtable first
+    if(params!= NULL)
+    {
+        result = insert_params(function_scope,params);
+        if (result != ERROR_OK)
+        {
+            free_scope(function_scope);
+            return result;
+        }              
+    }
+    //find block
+    for (size_t j = 0; j < node->children_count; j++)
+    {
+        if (node->children[j]->type == AST_BLOCK)
+        {
+            block = node->children[j];
+            break;
+        }
+    }
+    // going through block    
+
+
+    if (block != NULL)
+    {
+
+        result = insert_block(function_scope, block,node);
+        if (result != ERROR_OK)
+        {
+            free_scope(function_scope);
+            return result;
+        }
+        
+        //undeclared return type
+        if(node->declared_type == AST_DATA_UNKNOWN)
+        {
+            node->resolved_type = block->resolved_type;
+            // changing to its new type
+            function_data->return_type = node->resolved_type;
+        }
+
+        // check if last line of function aligns with return type of function that doesnt always return
+        if (block->always_returns == false && node->declared_type != AST_DATA_UNKNOWN && node->declared_type != AST_DATA_UNIT)
+        {
+
+            result = check_type(node->declared_type, block->resolved_type);
+            if (result != ERROR_OK)
+            {
+                free_scope(function_scope);
+                return result;
+            }
+        }
+    }
+    //main has to be unit
+    if(node->is_main)
+    {
+        result = check_type(AST_DATA_UNIT,function_data->return_type);
+        if (result != ERROR_OK)
+        {
+            free_scope(function_scope);
+            return result;
+        }
+    }
+    //unknown type and type hasnt been resolved
+    if(node->declared_type == AST_DATA_UNKNOWN && node->resolved_type == AST_DATA_UNKNOWN)
+    {
+        free_scope(function_scope);
+        return ERROR_TYPE_COMPATIBILITY;
+    }
+    function_data->state = FUNCTION_CHECKED;
+    free_scope(function_scope);
+    return ERROR_OK;
+}
 
 // inserts params from head of function into functions scope/hashtable
 ErrorCode insert_params(scope *function_scope,ASTNode *params)
@@ -228,7 +281,7 @@ ErrorCode insert_params(scope *function_scope,ASTNode *params)
 ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
 {
     ErrorCode result = ERROR_OK;
-    int position = 0; // neviem ako ju dostanem.
+    int position = 0; 
     bool return_happened = false;
 
     for( size_t j = 0; j< block->children_count;j++)
@@ -295,9 +348,6 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         if(block_symbol->type == AST_IF)
         {
             // if 
-
-
-
             result = calculate_allocated(function_scope,block_symbol->children[0]);
             if (result != ERROR_OK)
             {
@@ -338,6 +388,11 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
             if (block_symbol->children[1]->always_returns && block_symbol->children[2]->always_returns)
             {
                 return_happened = true;
+            }
+            //if both if and else are UNIT block_symbol is unit
+            if (block_symbol->children[1]->resolved_type == AST_DATA_UNIT && block_symbol->children[2]->resolved_type == AST_DATA_UNIT )
+            {
+                block_symbol->resolved_type = AST_DATA_UNIT;
             }
         
         }
@@ -628,6 +683,20 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
                 return result;
 
             data *function_data = lookup_symbol(current_scope, allocated->text);
+
+            //figuring out global scope for check_function 
+            scope *global_scope = current_scope;
+            while (global_scope->parent != NULL)
+            {
+                global_scope = global_scope->parent;
+            }
+            // if first = second(), we have to first figure out second() return type
+            if(function_data->return_type == AST_DATA_UNKNOWN)
+            {
+                result = check_function(global_scope,function_data->function_node);
+                if (result != ERROR_OK)
+                    return result;
+            }
             allocated->resolved_type = function_data->return_type;
             break;
 
@@ -958,7 +1027,7 @@ ErrorCode check_init_variable(scope *current_scope, char *key,data data,ASTDataT
     }
 
     // without extension we cant init variable with bool type
-    if(right_side == AST_DATA_BOOL || right_side == AST_DATA_ANY || right_side == AST_DATA_BOOL) 
+    if(right_side == AST_DATA_BOOL || right_side == AST_DATA_ANY || right_side == AST_DATA_UNKNOWN) 
     {
         return ERROR_TYPE_COMPATIBILITY;
     }
