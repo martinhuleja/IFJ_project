@@ -1,7 +1,8 @@
 /**
  * @file   error.c
- * @author Martin Huleja (xhulejm00)
+ * @author Martin Huleja (xhulejm00), FIT VUT
  * @date   2026-11-03
+ * @note   IFJ + IAL project 2026/2027
  *
  * @brief  Implementation of error reporting function
  */

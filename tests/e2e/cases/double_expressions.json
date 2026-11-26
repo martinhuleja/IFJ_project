@@ -1,0 +1,5 @@
+{
+    "description": "Double arithmetic, mixed numeric operands, negation, storage conversions and literal printing",
+    "compiler_exit": 0,
+    "interpreter_exit": 0
+}

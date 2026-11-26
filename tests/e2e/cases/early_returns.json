@@ -1,0 +1,5 @@
+{
+    "description": "Early Unit and main returns, discarded values, Unit arguments and ignored expression statements",
+    "compiler_exit": 0,
+    "interpreter_exit": 0
+}

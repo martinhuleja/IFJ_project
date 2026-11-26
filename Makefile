@@ -6,7 +6,7 @@
 # Enzo Štětina (xstetie00)
 
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic -g
+CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic
 TARGET = translator
 SRC = src/translator.c src/symtable.c src/error.c src/semantic_check.c src/parser.c src/precedence-analysis.c src/abstract-syntactic-tree.c src/lexer.c src/codegen.c
 # Clang-format configuration
@@ -43,8 +43,6 @@ SYMTABLE_TEST = tests/symtable_tests
 $(SYMTABLE_TEST): tests/symtable_tests.c src/symtable.c src/symtable.h src/abstract-syntactic-tree.h src/error.h
 	$(CC) $(CFLAGS) -Isrc tests/symtable_tests.c src/symtable.c -o $@
 
-	
-
 test-symtable: $(SYMTABLE_TEST)
 	./$(SYMTABLE_TEST)
 
@@ -66,12 +64,9 @@ SRC_DOC_PATH=doc/$(SRC_DOC)
 
 doc: $(SRC_DOC_PATH).pdf
 
-$(SRC_DOC_PATH).pdf: $(SRC_DOC_PATH).tex
-	latex $(SRC_DOC_PATH).tex
-	latex $(SRC_DOC_PATH).tex
-	dvips -t a4 $(SRC_DOC).dvi
-	ps2pdf -sPAPERSIZE=a4 $(SRC_DOC).ps
-	mv $(SRC_DOC).* doc/
+$(SRC_DOC_PATH).pdf: $(SRC_DOC_PATH).tex doc/FSM_pre_PROJEKT.jpg Makefile
+	cd doc && pdflatex -interaction=nonstopmode -halt-on-error $(SRC_DOC).tex
+	cd doc && pdflatex -interaction=nonstopmode -halt-on-error $(SRC_DOC).tex
 
 clean-doc:
 	rm -f $(SRC_DOC_PATH).aux $(SRC_DOC_PATH).dvi $(SRC_DOC_PATH).log $(SRC_DOC_PATH).out $(SRC_DOC_PATH).ps
@@ -79,3 +74,11 @@ clean-doc:
 # === CLEAN ===
 clean-all: clean clean-doc
 	rm -f $(SRC_DOC_PATH).pdf
+
+# === COMPRESS PROJECT INTO ZIP ===
+zip:
+	make clean-all
+	rm -f ./dokumentace.pdf ./xhulejm00.zip
+	make doc && make clean-doc
+	mv doc/dokumentace.pdf .
+	zip -r xhulejm00.zip src/* tests/* Makefile rozdeleni rozsireni dokumentace.pdf
