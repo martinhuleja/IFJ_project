@@ -32,6 +32,7 @@ ErrorCode semantic_analysis(ASTree *tree)
         free_scope(global_scope);
         return result;
     }
+    //second run
     result = second_run(global_scope,tree);
     if (result != ERROR_OK)
     {
@@ -67,15 +68,15 @@ ErrorCode first_run(scope *global_scope,ASTree *tree)
             ASTNode *params = NULL;
 
 
-                //find param child
-                for (size_t j = 0; j < node->children_count; j++)
+            //find param child
+            for (size_t j = 0; j < node->children_count; j++)
+            {
+                if (node->children[j]->type == AST_PARAM_LIST)
                 {
-                    if (node->children[j]->type == AST_PARAM_LIST)
-                    {
-                        params = node->children[j];
-                        break;
-                    }
+                    params = node->children[j];
+                    break;
                 }
+            }
 
             if (params != NULL)
                 tmp_data.parameter_count = (int)params->children_count;
@@ -631,20 +632,21 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
             break;
 
         }
+        case AST_EXPR:
+        {
+            result = calculate_allocated(current_scope, allocated->children[0]);
+            if (result != ERROR_OK)
+                return result;
+
+            allocated->resolved_type = allocated->children[0]->resolved_type;
+            break;
+        
+        }
         default:
             return ERROR_INTERNAL;
         
 
-        case AST_EXPR:
-        {
-        result = calculate_allocated(current_scope, allocated->children[0]);
-        if (result != ERROR_OK)
-            return result;
 
-        allocated->resolved_type = allocated->children[0]->resolved_type;
-        break;
-        
-        }
 
     }
     return ERROR_OK;
@@ -956,7 +958,7 @@ ErrorCode check_init_variable(scope *current_scope, char *key,data data,ASTDataT
     }
 
     // without extension we cant init variable with bool type
-    if(right_side == AST_DATA_BOOL)
+    if(right_side == AST_DATA_BOOL || right_side == AST_DATA_ANY || right_side == AST_DATA_BOOL) 
     {
         return ERROR_TYPE_COMPATIBILITY;
     }
