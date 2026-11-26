@@ -133,7 +133,7 @@ ErrorCode second_run(scope *global_scope, ASTree *tree)
 
         // calling check function
         if (node->type == AST_FUNCTION)
-            result = check_function(global_scope,node);
+            result = check_function(global_scope,node,NULL);
         if (result != ERROR_OK)
             return result;
         
@@ -142,23 +142,42 @@ ErrorCode second_run(scope *global_scope, ASTree *tree)
     return ERROR_OK;
 }
 
-ErrorCode check_function(scope *global_scope,ASTNode *node)
+ErrorCode check_function(scope *global_scope,ASTNode *node,ASTNode *caller_function)
 {
     data* function_data = lookup_symbol(global_scope,node->text);
     //function already checked
     if(function_data->state == FUNCTION_CHECKED)
         return ERROR_OK;
+    //inside of a cycle
     if (function_data->state == FUNCTION_IN_PROCESS)
-    {
-        //recursion happening 
+    {   
+        //if unknown caused a cycle, forbiden!
+        while(caller_function != NULL)
+        {
+            //we called ourself
+            if(caller_function == node)
+            {
+                break;
+            }
+
+            data* caller_data = lookup_symbol(global_scope,caller_function->text);
+
+            if (caller_function->declared_type == AST_DATA_UNKNOWN)
+                return ERROR_TYPE_COMPATIBILITY;
+            caller_function = caller_data->caller;
+        }
+        //we are the unknown in the cycle, forbiden! 
         if(node->declared_type == AST_DATA_UNKNOWN)
             return ERROR_TYPE_COMPATIBILITY;
-        else
-            return ERROR_OK;
+
+    
+        return ERROR_OK;
     }
     if(function_data->state == FUNCTION_UNCHECKED)
+    {
+        function_data->caller = caller_function;
         function_data->state = FUNCTION_IN_PROCESS;
-
+    }
     ErrorCode result = ERROR_OK;
 
     ASTNode *params = NULL;
@@ -301,7 +320,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         
         
             //right side gathering 
-            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            result = calculate_allocated(function_scope,block_symbol->children[0],function);
             if (result != ERROR_OK)
             {
                 return result;
@@ -316,7 +335,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         {
         
             //right side gathering 
-            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            result = calculate_allocated(function_scope,block_symbol->children[0],function);
             if (result != ERROR_OK)
             {
                 return result;
@@ -331,7 +350,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         }
         if (block_symbol->type == AST_CALL)
         {
-            result = calculate_allocated(function_scope,block_symbol);
+            result = calculate_allocated(function_scope,block_symbol,function);
             if (result != ERROR_OK)
             {
                 return result;
@@ -339,7 +358,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         }
         if(block_symbol->type == AST_EXPR)
         {
-            result = calculate_allocated(function_scope,block_symbol);
+            result = calculate_allocated(function_scope,block_symbol,function);
             if (result != ERROR_OK)
             {
                 return result;
@@ -348,7 +367,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         if(block_symbol->type == AST_IF)
         {
             // if 
-            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            result = calculate_allocated(function_scope,block_symbol->children[0],function);
             if (result != ERROR_OK)
             {
                 return result;
@@ -401,7 +420,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         {
              
             //while
-            result = calculate_allocated(function_scope,block_symbol->children[0]);
+            result = calculate_allocated(function_scope,block_symbol->children[0],function);
             if (result != ERROR_OK)
             {
                 return result;
@@ -425,7 +444,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
         // lone symbol in block
         if(block_symbol->type == AST_BINARY_OP || block_symbol->type == AST_UNARY_OP || block_symbol->type == AST_IDENTIFIER || block_symbol->type == AST_INT_LITERAL|| block_symbol->type == AST_DOUBLE_LITERAL || block_symbol->type == AST_STRING_LITERAL || block_symbol->type ==AST_UNIT_LITERAL)
         {
-            result = calculate_allocated(function_scope,block_symbol);
+            result = calculate_allocated(function_scope,block_symbol,function);
             if (result != ERROR_OK)
             {
                 return result;
@@ -453,7 +472,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
             }
             else
             {
-                result = calculate_allocated(function_scope,block_symbol->children[0]);
+                result = calculate_allocated(function_scope,block_symbol->children[0],function);
                 if (result != ERROR_OK)
                 {
                     return result;
@@ -500,7 +519,7 @@ ErrorCode insert_block(scope *function_scope,ASTNode *block,ASTNode *function)
     return ERROR_OK;
 }
 // checks type of expression assigned to a variable
-ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
+ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated, ASTNode *caller_function)
 {
     ErrorCode result;
     if (current_scope == NULL || allocated == NULL)
@@ -540,7 +559,7 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
         // unary operator going recursively
         case AST_UNARY_OP:
         {
-            result = calculate_allocated(current_scope, allocated->children[0]);
+            result = calculate_allocated(current_scope, allocated->children[0],caller_function);
             if (result != ERROR_OK)
                 return result;
 
@@ -553,11 +572,11 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
         // binary operator going recursively
         case AST_BINARY_OP:
         {
-            result = calculate_allocated(current_scope, allocated->children[0]);
+            result = calculate_allocated(current_scope, allocated->children[0],caller_function);
             if (result != ERROR_OK)
                 return result;
 
-            result = calculate_allocated(current_scope, allocated->children[1]);
+            result = calculate_allocated(current_scope, allocated->children[1],caller_function);
             if (result != ERROR_OK)
                 return result;
             
@@ -673,7 +692,7 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
 
             for(size_t i = 0; i<arguments->children_count;i++)
             {
-                result = calculate_allocated(current_scope,arguments->children[i]);
+                result = calculate_allocated(current_scope,arguments->children[i],caller_function);
                 if (result != ERROR_OK)
                     return result;
             }
@@ -690,10 +709,11 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
             {
                 global_scope = global_scope->parent;
             }
-            // if first = second(), we have to first figure out second() return type
-            if(function_data->return_type == AST_DATA_UNKNOWN)
+            // if first = second(),either checking for function cycle/declaring type
+            //taking care of built_in functions
+            if(function_data->function_node != NULL)
             {
-                result = check_function(global_scope,function_data->function_node);
+                result = check_function(global_scope,function_data->function_node,caller_function);
                 if (result != ERROR_OK)
                     return result;
             }
@@ -703,7 +723,7 @@ ErrorCode calculate_allocated(scope *current_scope, ASTNode *allocated)
         }
         case AST_EXPR:
         {
-            result = calculate_allocated(current_scope, allocated->children[0]);
+            result = calculate_allocated(current_scope, allocated->children[0],caller_function);
             if (result != ERROR_OK)
                 return result;
 

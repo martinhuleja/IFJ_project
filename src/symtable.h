@@ -29,7 +29,8 @@ typedef struct Sdata
     ASTNode *function_node;
     // processing state of function to detect recursion
     FunctionState state;
-
+    //caller of function to prevent cycels
+    ASTNode *caller;
 }data;
 
 typedef struct Sitem item;
