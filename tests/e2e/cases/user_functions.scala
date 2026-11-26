@@ -2,10 +2,13 @@ import ifj26.*
 
 def vypis(text: String, left: Int, right: Int, value: Double): Unit =
   val local = text + "!"
-  print(local + "\n")
-  print(left - right)
+  print(local)
   print("\n")
-  print(value + 0.5)
+  val difference = left - right
+  print(difference)
+  print("\n")
+  val increased = value + 0.5
+  print(increased)
   print("\n")
 
 def obal(): Unit =
@@ -15,7 +18,8 @@ def odratavaj(n: Int): Unit =
   if n > 0 then
     print(n)
     print("\n")
-    odratavaj(n - 1)
+    val next = n - 1
+    odratavaj(next)
     print(n)
     print("\n")
   else
@@ -23,7 +27,9 @@ def odratavaj(n: Int): Unit =
 
 @main def main(): Unit =
   val text = "main"
-  vypis("prvy", 8 + 2, 3, 2)
+  val argument = 8 + 2
+  vypis("prvy", argument, 3, 2)
   obal()
   odratavaj(3)
-  print(text + "\n")
+  print(text)
+  print("\n")
