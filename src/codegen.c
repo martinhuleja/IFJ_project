@@ -740,6 +740,12 @@ static const ASTNode *codegen_find_function(const ASTNode *program, const char *
     return NULL;
 }
 
+static ASTDataType codegen_function_return_type(const ASTNode *node)
+{
+    return node->declared_type == AST_DATA_UNKNOWN
+        ? node->resolved_type : node->declared_type;
+}
+
 static bool codegen_str_length(CodegenFrame frame, const ASTNode *node, bool keep_result)
 {
     if (node == NULL || node->type != AST_CALL || node->children == NULL || node->children_count != 1) {
@@ -1146,7 +1152,7 @@ static bool codegen_function_call(CodegenFrame frame, const ASTNode *node, bool 
         }
     }
     printf("CALL %%fn_%s\n", node->text);
-    if (function->is_main || function->declared_type == AST_DATA_UNIT) {
+    if (function->is_main || codegen_function_return_type(function) == AST_DATA_UNIT) {
         if (keep_result) {
             /* Unit is represented by the same value that print(()) displays. */
             puts("PUSHS string@()");
@@ -1340,9 +1346,10 @@ bool codegen_function(const ASTNode *node)
     if (node == NULL || node->type != AST_FUNCTION || node->text == NULL || node->children == NULL || node->children_count != 2) {
         return false;
     }
-    if (node->declared_type != AST_DATA_UNIT && node->declared_type != AST_DATA_INT &&
-        node->declared_type != AST_DATA_DOUBLE && node->declared_type != AST_DATA_STRING &&
-        !(node->is_main && node->declared_type == AST_DATA_UNKNOWN)) {
+    const ASTDataType return_type = codegen_function_return_type(node);
+    if (return_type != AST_DATA_UNIT && return_type != AST_DATA_INT &&
+        return_type != AST_DATA_DOUBLE && return_type != AST_DATA_STRING &&
+        !(node->is_main && return_type == AST_DATA_UNKNOWN)) {
         return false;
     }
     const ASTNode *params = node->children[0];
@@ -1359,7 +1366,7 @@ bool codegen_function(const ASTNode *node)
     const ASTNode *saved_function = codegen_context.function;
     ASTDataType saved_return_type = codegen_context.return_type;
     codegen_context.function = node;
-    codegen_context.return_type = node->is_main ? AST_DATA_UNIT : node->declared_type;
+    codegen_context.return_type = node->is_main ? AST_DATA_UNIT : return_type;
     bool result = true;
     for (size_t i = params->children_count; i > 0; i--) {
         if (!codegen_parameter(CODEGEN_LF, params->children[i-1], i-1)) {

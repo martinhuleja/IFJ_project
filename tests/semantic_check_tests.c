@@ -273,30 +273,42 @@ void check_function_call_test(void)
 
     assert(register_function(global_scope, key, function_data) == ERROR_OK);
 
-    ASTDataType correct_args[] = {AST_DATA_INT, AST_DATA_DOUBLE};
-    ASTDataType wrong_args[] = {AST_DATA_INT, AST_DATA_STRING};
+    ASTNode int_arg = {.type = AST_INT_LITERAL, .resolved_type = AST_DATA_INT};
+    ASTNode double_arg = {.type = AST_DOUBLE_LITERAL, .resolved_type = AST_DATA_DOUBLE};
+    ASTNode string_arg = {.type = AST_STRING_LITERAL, .resolved_type = AST_DATA_STRING};
+    ASTNode *correct_children[] = {&int_arg, &double_arg};
+    ASTNode *wrong_children[] = {&int_arg, &string_arg};
+    ASTNode correct_args = {
+        .type = AST_ARG_LIST, .children = correct_children, .children_count = 2
+    };
+    ASTNode wrong_args = {
+        .type = AST_ARG_LIST, .children = wrong_children, .children_count = 2
+    };
+    ASTNode short_args = {
+        .type = AST_ARG_LIST, .children = correct_children, .children_count = 1
+    };
 
     // correct function call
-    assert(check_function_call(global_scope, key, correct_args, 2) == ERROR_OK);
+    assert(check_function_call(global_scope, key, &correct_args) == ERROR_OK);
 
     // wrong argument count
-    assert(check_function_call(global_scope, key, correct_args, 1) == ERROR_FUNCTION_ARGS);
+    assert(check_function_call(global_scope, key, &short_args) == ERROR_FUNCTION_ARGS);
 
     // wrong argument type
-    assert(check_function_call(global_scope, key, wrong_args, 2) == ERROR_FUNCTION_ARGS);
+    assert(check_function_call(global_scope, key, &wrong_args) == ERROR_FUNCTION_ARGS);
 
     // undefined function
-    assert(check_function_call(global_scope, "fake", correct_args, 2) == ERROR_UNDEFINED);
+    assert(check_function_call(global_scope, "fake", &correct_args) == ERROR_UNDEFINED);
 
     // invalid scope
-    assert(check_function_call(NULL, key, correct_args, 2) == ERROR_INTERNAL);
+    assert(check_function_call(NULL, key, &correct_args) == ERROR_INTERNAL);
 
     // variable called as function
     data variable_data = {0};
     variable_data.kind = SYMBOL_VARIABLE;
     char *key_2 = "test_variable";
     assert(insert_symbol(global_scope, key_2, variable_data) == ERROR_OK);
-    assert(check_function_call(global_scope, key_2, correct_args, 2) == ERROR_UNDEFINED);
+    assert(check_function_call(global_scope, key_2, &correct_args) == ERROR_UNDEFINED);
 
     free_scope(global_scope);
 }

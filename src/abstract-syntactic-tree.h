@@ -103,7 +103,7 @@ typedef struct ast_node {
 
   // Node atributes
   char *text; // Identifier or StringLiteral value
-  int32_t int_value;
+  int64_t int_value;
   double double_value;
   bool is_changeable; // var (true), val (false)
   bool is_main;       // @main (true)

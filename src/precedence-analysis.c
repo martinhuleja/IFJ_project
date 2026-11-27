@@ -205,15 +205,14 @@ ErrorCode fill_operand_node(Parser *parser, ASTNode *node) {
     node->type = AST_INT_LITERAL;
     RETURN_INTERNAL_ERROR_IF_NULL(parser->current_token->value, "IntLiteral value is NULL.");
 
-    char *end; // pointer to end of strtol() reading
+    char *end; // pointer to end of strtoll() reading
     errno = 0;
-    long value = strtol(parser->current_token->value, &end, 10);
-    if (errno == ERANGE || end == parser->current_token->value || *end != '\0' || value < INT32_MIN ||
-        value > INT32_MAX) {
+    long long value = strtoll(parser->current_token->value, &end, 10);
+    if (errno == ERANGE || end == parser->current_token->value || *end != '\0') {
       print_err(ERROR_LEXICAL, "Invalid Int literal.");
       return ERROR_LEXICAL;
     }
-    node->int_value = (int32_t)value;
+    node->int_value = (int64_t)value;
     break;
   }
   case TOKEN_DOUBLE_LITERAL: {
