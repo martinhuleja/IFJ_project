@@ -28,7 +28,7 @@
 
 \begin{document}
 
-Členovia tímu:
+Členovia týmu:
 
 \textbf{Martin Huleja xhulejm00:282792}
 
@@ -55,7 +55,7 @@ Rozdelenie práce:
 
 Martin Huleja - Parser
 
-Adam Havier - Generátor IFJcode26
+Adam Havier - Generátor IFJcode26 + e2e testy
 
 Richard Komora - Tabuľka symbolov + sémantika
 
@@ -63,13 +63,15 @@ Enzo Štětina - Lexer + automatické spúštanie testov
 
 \section{Vývoj a spolupráce}
 
-• Počas celého vývoje využíval tím GitHub na verzování kódu, kde každý člen pracoval na vlastních větvích a částech kódu. Členové tímu si při push-ích vzájemně kontrolovali kód a pokud s něčím nesouhlasili tak napsali komenář nebo přímo kontaktovali člena relevantního tímu.
+• Počas celého vývoje využíval tým GitHub na verzování kódu, kde každý člen pracoval na vlastních větvích a částech kódu. Členové týmu si při push-ích vzájemně kontrolovali kód a pokud s něčím nesouhlasili tak napsali komenář nebo přímo kontaktovali relevantního člena týmu.
 
-•Pro testování jsou použité jak end-to-end testy tak jednotkové testy. Členové tímu také využívali dočasné testy, vygenerované pomocí Ai na kontrolu kódu při vývoji.
+•Pro testování jsou použité jak end-to-end testy tak jednotkové testy. Členové týmu také využívali dočasné testy, vygenerované pomocí Ai na kontrolu kódu při vývoji.
 
 • Clang-format používaný projektem je clang-format 22.1.8, využívá se dvoumezerová indentace a 120-znakový limit na řádek.
 
 • GitHub Repozitár: \href{https://github.com/martinhuleja/IFJ\_project}{https://github.com/martinhuleja/IFJ\_project}
+
+•Projekt nepoužil žádné extenze a dodatečné funkcionality.
 
 \section{Lexikální analýza}
 
@@ -79,11 +81,33 @@ Lexikální analyzátor využívá konečný automat na identifikaci a tvorbu to
 
 Lexikální analyzátor je spouštěn funkcí get\_next\_token(Token *token), kde daná funkce čte standardní input a vrací ErrorCode. Lexer nejdřív přečte znak pomocí peek\_char(), kde ho skontroluje a pokud to není znak pro daný stav explicitně zakázaný (tzv. vracející lexikální error) a zároveň je to znak povolený jako přechod pro daný stav tak daný stav spotřebuje a aktualizuje se pozice lexeru ( pomocí take\_char() ), do svého bufferu ( CharBuffer, vlastní struktura) se znak přidá pomocí funkce buffer\_append(). Pokud se analyzátor dostane do validního konečného stavu a další znak není jeden z jeho povolených znaku, Token se vráti a buffer lexer-u se stane hodnotou Tokenu.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[
+        width=0.70\textheight,
+        height=0.70\textwidth,
+        keepaspectratio
+    ]{cast1.png}%
+    \caption{Část konečného automatu, řětězcové literály a vybrané znaky}
+    \label{fig:fsm1}
+\end{figure}
+
 Bílé znaky mezi tokeny se zpracovávají ve stavu ST\_START. Mezery, tabulátory a \verb|\r| se spotřebují pomocí take\_char() a nevkládají se do bufferu. Na začátku řádku se mezery zároveň počítají do leading\_spaces. Po blokovém komentáři se následující mezery pouze přeskakují. Úvodní tabulátor nastaví příznak leading\_tab; lexikální chyba se ohlásí až při nalezení skutečného tokenu, takže prázdné a komentářové řádky nevadí.
 
 Při přečtení \verb|\n| se zvýší číslo řádku, sloupec se nastaví na 1 a počítání odsazení začne znovu. TOKEN\_NEWLINE vznikne pouze tehdy, když logický řádek obsahoval token a nejsme uvnitř závorek. Před prvním skutečným tokenem se odsazení porovná se zásobníkem: zvýšení vytvoří INDENT, snížení jeden nebo více DEDENT; návrat na neexistující úroveň je chyba. Uvnitř závorek tyto tokeny nevznikají, ale pokračovací řádek musí mít větší odsazení než začátek aktuální úroveň indentace na stack-u.
 
 Lexikální analyzátor také ukládá svuj stav, ve kterém sleduje i indentaci, hloubku závorek a hloubku blokových komentářu. Proměnná comment\_depth se při každém otevření /* zvýší a při uzavření */ sníží. Komentář skončí až při návratu proměnné na nulu. Díky tomu uzavření vnitřního komentáře neukončí zároveň vnější komentář. Samotné komentáře nevytvářejí tokeny. Pomocí parenthesis\_depth sledujeme počet otevřených závorek. Dokud je větší než nula, fyzické konce řádků nevytvářejí TOKEN\_NEWLINE, ale jejich pozice se stále zaznamenává. Bool lf\_before\_rparen u pravé (uzavírající) závorky informuje parser, zda mezi předchozím tokenem a touto závorkou existuje fyzický konec řádku, případně uvnitř komentáře.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[
+        width=0.70\textheight,
+        height=0.70\textwidth,
+        keepaspectratio
+    ]{cast2.png}%
+    \caption{Část konečného automatu, komentáře a vybrané znaky}
+    \label{fig:fsm2}
+\end{figure}
 
 Běžné řetězce převádějí escape sekvence na odpovídající znaky, například \verb|\n| na znak nového řádku. Řetězce ohraničené trojitými uvozovkami zachovávají obsah doslovně, včetně zpětných lomítek a fyzických konců řádků. Ohraničující uvozovky nejsou součástí hodnoty tokenu.
 
@@ -92,6 +116,17 @@ Běžné řetězce převádějí escape sekvence na odpovídající znaky, např
 Při dosažení EOF lexer nejprve vrátí zbývající tokeny TOKEN\_DEDENT, kterými uzavře uložené úrovně odsazení. Následně vrátí TOKEN\_EOF.
 
 Neplatný nebo nedokončený lexikální prvek způsobí návrat ERROR\_LEXICAL (1). Selhání alokace paměti se předává volajícímu jako ERROR\_INTERNAL (99). Úspěšné získání tokenu, včetně EOF, vrací ERROR\_OK (0).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[
+        width=0.70\textheight,
+        height=0.70\textwidth,
+        keepaspectratio
+    ]{cast3.png}%
+    \caption{Část konečného automatu, číselná literály a @main}
+    \label{fig:fsm3}
+\end{figure}
 
 \subsection{Konečný automat}
 
@@ -116,10 +151,9 @@ Neplatný nebo nedokončený lexikální prvek způsobí návrat ERROR\_LEXICAL 
 letter = písmena a–z a A–Z, digit = číslice 0–9.
 
 Při použití přechodu letter platí, že pokud z výchozího stavu existuje také přechod pro konkrétní znak, který patří do množiny letter, má přechod pro konkrétní znak přednost před obecným přechodem letter.
-\subsubsection*{Vysvětlení označení literálů}
-Opakující se označení jako string literal, int literal nebo double literal nemusí představovat totožné stavy automatu. V diagramu jsou některé stavy označeny pouze obecným názvem výsledného literálu, nikoliv přesným názvem stavu. Jednotlivé stavy se mohou lišit svými povolenými přechody a způsobem zpracování. Stejné označení tedy neznamená, že jde o stejný stav nebo stejnou hodnotu tokenu.
 
 Důležité rozlišení: Dva různé stavy mohou vytvářet stejný typ tokenu, například \texttt{TOKEN\_\allowbreak DOUBLE\_\allowbreak LITERAL}, ale s různými hodnotami.
+
 
 \section{LL gramatika}
 
@@ -460,9 +494,75 @@ Soubor error.h definuje výčtový typ ErrorCode, kterým komponenty předávaj�
 \subsection{Řízení překladače}
 Soubor translator.c obsahuje vstupní funkci programu, řídí vytvoření AST, syntaktickou analýzu, generování kódu a následné uvolnění stromu a vrací výsledný chybový kód.
 
+\subsection{Sémantická analýza}
+Soubor \texttt{semantic\_check.h} deklaruje rozhraní sémantické
+analýzy a operace pro správu rozsahů platnosti a symbolů.Soubor \texttt{semantic\_check.c} prochází AST, pomocí tabulek
+symbolů kontroluje deklarace, přiřazení a volání funkcí
+a doplňuje typové informace do uzlů stromu.
+
+\subsection{Blokové schéma}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[
+        width=0.95\textheight,
+        height=0.95\textwidth,
+        keepaspectratio
+    ]{blockschema.jpg}%
+    \caption{Blokové schéma překladače}
+    \label{fig:lexer-fsm}
+\end{figure}
+
+Schéma zachycuje hlavní datové toky mezi moduly překladače.
+Průběh překladu řídí modul \texttt{translator.c}..
+Tokeny vznikají průběžně na vyžádání syntaktického analyzátoru.
+Parser zpracovává celkovou strukturu programu a při výskytu výrazu předává řízení precedenční analýze.
+
+Struktura \texttt{ASTree} obsahuje ukazatel na kořenový uzel
+\texttt{ASTNode}. Uzly stromu představují například funkce,
+deklarace, příkazy, volání a výrazy. Jejich vytváření, propojování
+a uvolňování zajišťuje modul \texttt{abstract-syntactic-tree.c}.
+
+Sémantická analýza pracuje se stromem vytvořeným parserem
+a doplňuje do něj typové informace. Generátor tedy dostává
+tentýž strom po sémantické kontrole.
+
+Tabulky symbolů používané sémantickou analýzou se uvolní před
+spuštěním generátoru. Modul \texttt{codegen.c} získává informace
+z AST a podle nich vytváří názvy proměnných v cílovem programu.
+Generátor převádí AST přímo na textové instrukce jazyka
+IFJcode26 a zapisuje je na standardní výstup.
+
+Lexer, parser a sémantická analýza předávají chybové stavy
+pomocí typu \texttt{ErrorCode}.
+Neúspěch generátoru převádí řídicí modul na vnitřní chybu 99.
+Modul \texttt{error.c} poskytuje výpis diagnostických zpráv
+na standardní chybový výstup.
+
+Sémantická analýza zpracovává AST vytvořený syntaktickým
+analyzátorem. Nejprve vytvoří globální rozsah platnosti
+a zaregistruje vestavěné funkce. V prvním průchodu stromem
+zaznamená jména uživatelských funkcí, jejich deklarované návratové
+typy + počty a typy parametrů. Ve druhém průchodu zpracovává těla funkcí, vkládá
+parametry a lokální proměnné do tabulek symbolů a kontroluje
+použití identifikátorů, typovou kompatibilitu výrazů,
+přípustnost přiřazení a počty a typy argumentů volání.
+
+Každý rozsah platnosti obsahuje vlastní tabulku symbolů
+a ukazatel na nadřazený rozsah. Vyhledávání začíná v aktuálním
+rozsahu a pokračuje směrem k nadřazeným rozsahům.
+Zjištěné typy výrazů se zapisují přímo do AST. Po úspěšné kontrole se tabulky symbolů uvolní a tentýž strom doplněný o typové informace se předá generátoru kódu. Případné chyby se vracejí řídicímu modulu prostřednictvím typu \texttt{ErrorCode}.
+
 \section{Využití AI}
 
-Umělá intelligence byla v projetku využitá na generování testu, jak jednotkových testu tak end-to-end testu. Umělá intelligence byla také používána při vývoji na rady nebo kontroly jednotlivých částí kódu a na testování jejich funkčnosti. Umělá intelligence kterou tím využíval na tyhle účely byl hlavně ChatGPT a Gemini. Při práci s Ai tím komunikoval s danou umělou inteligencí při konkrétních částech implementace, umělá inteligence měla občas problém pochopit požadavky členu tímu, například při vizuální kontrole konečného automatu ji bylo potřebné vysvětlik kdy přesne je daný stav konečný a kdy se přestává číst (tedy kdy se přecházi zase do stavu start).
+Umělá inteligence byla v projetku využitá na generování testu, jak jednotkových testu tak end-to-end testu. Umělá inteligence byla také používána při vývoji na rady nebo kontroly jednotlivých částí kódu a na testování jejich funkčnosti. Umělá inteligence kterou tým využíval na tyhle účely byl hlavně ChatGPT 6 Sol, Gemini Flash a Codex 6 Sol. Při práci s Ai tým komunikoval s danou umělou inteligencí při konkrétních částech implementace, umělá inteligence měla občas problém pochopit požadavky členu týmu například když místo generování nových testu použila existující a odpovědela že všechno běží normálně (i když byla přidána nová část).
 
+\section{Citace}
+
+- Zadání projektu z předmětů IFJ a IAL (Ondřej Ondryáš, Zbyněk Křivka, 2026).
+
+- Specifikace IFJ26 a IFJcode26.
+
+-Prednasky IFJ a IAL z roku 2026
 
 \end{document}
