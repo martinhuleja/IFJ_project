@@ -1,3 +1,7 @@
+/**
+ * @author Richard Komora (xkomorr00), FIT VUT
+ * @note   IFJ + IAL project 2026/2027
+ */
 #include "semantic_check.h"
 #include <stddef.h> // def null
 #include <assert.h> //asser
