@@ -91,7 +91,6 @@ void indent_stack_free(IndentStack *stack) {
 }
 
 typedef enum {
-  /* Non-finishing: no token has started. */
   ST_START,
 
   ST_B,
@@ -164,15 +163,15 @@ typedef enum {
   ST_AT,
   ST_AT_M,
   ST_AT_MA,
-  ST_AT_MAI,  /* non-finishing */
-  ST_AT_MAIN, /* finishing */
+  ST_AT_MAI,  
+  ST_AT_MAIN, 
 
   ST_GREATER,
   ST_GREATER_EQUAL,
   ST_LESS,
   ST_LESS_EQUAL,
-  ST_BANG,      /* non-finishing */
-  ST_NOT_EQUAL, /* finishing */
+  ST_BANG,      
+  ST_NOT_EQUAL, 
   ST_MULTIPLY,
   ST_DIVIDE,
   ST_PLUS,
@@ -187,34 +186,34 @@ typedef enum {
   ST_COMMA,
   ST_SEMICOLON,
 
-  ST_COMMENT,             /* finishing */
-  ST_BLOCK_COMMENT,       /* non-finishing */
-  ST_BLOCK_COMMENT_SLASH, /* non-finishing */
-  ST_BLOCK_COMMENT_STAR,  /* non-finishing */
-  ST_BLOCK_COMMENT_END,   /* finishing */
+  ST_COMMENT,             
+  ST_BLOCK_COMMENT,       
+  ST_BLOCK_COMMENT_SLASH,
+  ST_BLOCK_COMMENT_STAR,
+  ST_BLOCK_COMMENT_END,   
 
   ST_INT_ZERO,
-  ST_INT_DIGITS,                /* finishing */
-  ST_INT_SEPARATOR,             /* non-finishing */
-  ST_DOUBLE_DOT,                /* non-finishing */
-  ST_DOUBLE_FRACTION,           /* finishing */
-  ST_DOUBLE_FRACTION_SEPARATOR, /* non-finishing */
+  ST_INT_DIGITS,              
+  ST_INT_SEPARATOR,            
+  ST_DOUBLE_DOT,                
+  ST_DOUBLE_FRACTION,           
+  ST_DOUBLE_FRACTION_SEPARATOR, 
   ST_DOUBLE_EXPONENT,
-  ST_DOUBLE_EXPONENT_SIGN,      /* non-finishing */
-  ST_DOUBLE_EXPONENT_DIGITS,    /* finishing */
-  ST_DOUBLE_EXPONENT_SEPARATOR, /* non-finishing */
-  ST_DOUBLE_SUFFIX,             /* finishing */
+  ST_DOUBLE_EXPONENT_SIGN,      
+  ST_DOUBLE_EXPONENT_DIGITS,    
+  ST_DOUBLE_EXPONENT_SEPARATOR, 
+  ST_DOUBLE_SUFFIX,             
 
   ST_STRING_OPEN,
   ST_STRING_BODY,
-  ST_STRING_ESCAPE,                 /* non-finishing */
-  ST_STRING_AFTER_ESCAPE,           /* non-finishing */
-  ST_STRING,                        /* finishing */
-  ST_STRING_EMPTY_OR_TRIPLE_PREFIX, /* finishing */
-  ST_STRING_TRIPLE_BODY,            /* non-finishing */
+  ST_STRING_ESCAPE,                 
+  ST_STRING_AFTER_ESCAPE,           
+  ST_STRING,                        
+  ST_STRING_EMPTY_OR_TRIPLE_PREFIX, 
+  ST_STRING_TRIPLE_BODY,            
   ST_STRING_TRIPLE_QUOTE_1,
-  ST_STRING_TRIPLE_QUOTE_2, /* non-finishing */
-  ST_STRING_TRIPLE_END      /* finishing */
+  ST_STRING_TRIPLE_QUOTE_2, 
+  ST_STRING_TRIPLE_END      
 } FSMState;
 
 static bool is_identifier_continue(int c) {
